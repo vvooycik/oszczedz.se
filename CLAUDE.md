@@ -11,6 +11,7 @@ AI-assisted entry (e.g. parsing transaction screenshots).
 - **Backend:** Supabase (Postgres + Auth + auto-generated REST API via supabase-js). No custom server.
 - **Hosting:** Cloudflare Pages (static deploy from GitHub), app installed on iPhone as PWA ("Add to Home Screen")
 - **Migrations:** Supabase CLI, files in `supabase/migrations/` committed to git. Never apply schema changes through the dashboard SQL editor.
+- **Tooling:** Supabase CLI is a **devDependency**, always invoked as `npx supabase ...` — never assume a globally installed `supabase` binary, and never `npm install -g supabase` (unsupported by design). Claude Code itself is a machine-level tool (native installer), never a project dependency — it must not appear in `package.json`.
 
 ## Security model
 
