@@ -1,0 +1,75 @@
+@import 'tailwindcss';
+
+/*
+ * Single source of design tokens.
+ *
+ * Tailwind v4 emits `@theme` entries as real CSS custom properties on :root,
+ * so the ECharts theme can read the same values at runtime with
+ * getComputedStyle (see src/theme/tokens.ts). Do not hardcode a colour in a
+ * chart config — add it here and read the token.
+ *
+ * `static` is load-bearing: a plain `@theme` block only emits the variables
+ * whose utility classes it can see in the source, so a token used *only* from
+ * JS (every wallet colour, since the scheme name comes from the database)
+ * would resolve to an empty string at runtime. `static` emits all of them.
+ */
+@theme static {
+  --color-surface: oklch(21% 0.02 265);
+  --color-surface-raised: oklch(26% 0.02 265);
+  --color-border: oklch(34% 0.02 265);
+  --color-ink: oklch(97% 0.005 265);
+  --color-ink-muted: oklch(72% 0.015 265);
+
+  /*
+   * Semantic money direction. Positive = money in, negative = money out.
+   * Deliberately far apart in LIGHTNESS, not just hue: red vs green is the
+   * classic red-green-blindness collision, and at equal lightness the pair
+   * measures ΔE 5.8 under deuteranopia (unreadable). The spread below takes it
+   * to 13.8. The signed amount next to the colour is the secondary encoding.
+   */
+  --color-income: oklch(72% 0.15 162);
+  --color-expense: oklch(58% 0.19 25);
+
+  /*
+   * Wallet colour schemes, referenced by wallets.color_scheme. This doubles as
+   * the categorical chart palette, so the order is fixed and meaningful:
+   * adjacent slots alternate light/dark so they stay distinguishable under
+   * colour-vision deficiency. Assign in order; never cycle or reorder.
+   *
+   * Validated against surface #141822 in dark mode — all six checks pass
+   * (worst adjacent pair ΔE 13.0 deutan / 19.5 normal). If you change a value,
+   * re-run the palette validator rather than eyeballing it.
+   */
+  --color-scheme-indigo: oklch(60% 0.17 272);
+  --color-scheme-amber: oklch(66% 0.14 80);
+  --color-scheme-rose: oklch(55% 0.17 18);
+  --color-scheme-teal: oklch(66% 0.11 196);
+  --color-scheme-violet: oklch(53% 0.19 318);
+  --color-scheme-green: oklch(65% 0.15 148);
+}
+
+html {
+  color-scheme: dark;
+  /* iOS: keep the standalone PWA from bouncing/zooming like a web page. */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  /* Respect the iPhone notch / home indicator in standalone mode. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+  overscroll-behavior-y: none;
+}
+
+/* Inputs must be >=16px or iOS Safari zooms the viewport on focus. */
+input,
+select,
+textarea,
+button {
+  font: inherit;
+  font-size: max(1rem, 16px);
+}
