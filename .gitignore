@@ -43,3 +43,9 @@ pnpm-debug.log*
 
 # Claude Code local overrides
 .claude/settings.local.json
+
+# Data not shareable
+legacy_data_export/ 
+
+# Designs 
+design_handoff_redesign/

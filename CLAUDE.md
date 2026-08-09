@@ -9,7 +9,8 @@ Live at **https://oszczedz-se.pages.dev** — deploys automatically from `main`.
 
 ## Stack (decided — do not substitute without discussion)
 
-- **Frontend:** React + TypeScript + Vite, Tailwind CSS v4, TanStack Query, **ECharts** for all charts
+- **Frontend:** React + TypeScript + Vite, Tailwind CSS v4, TanStack Query, **ECharts** for interactive charts, `react-router` for navigation, `lucide-react` for icons
+- **Type:** **Spectral** (serif) for words, **IBM Plex Sans** for every figure — balances, amounts, dates, axis labels. Figures read as accounting, everything else as text. Numbers always `tabular-nums` (use the `.tnum` class).
 - **Backend:** Supabase (Postgres + Auth + auto-generated REST API via supabase-js). No custom server.
 - **Hosting:** Cloudflare Pages (static deploy from GitHub), app installed on iPhone as PWA ("Add to Home Screen")
 - **Migrations:** Supabase CLI, files in `supabase/migrations/` committed to git. Never apply schema changes through the dashboard SQL editor.
@@ -18,6 +19,14 @@ Live at **https://oszczedz-se.pages.dev** — deploys automatically from `main`.
 ECharts is used directly (`echarts/core` + explicit registration), not via a React
 wrapper package — wrapper libraries lag React majors. `src/charts/EChart.tsx` is the
 one place that touches the ECharts lifecycle.
+
+Not everything is an ECharts instance. Sparklines, budget rings and the small
+six-month bars are hand-rolled SVG: at that size, with no axes or tooltip, a chart
+engine costs far more than the mark is worth — and there is one per row.
+
+Icons come from `src/lib/icons.ts`, which maps the kebab-case names stored in
+`glyph` columns onto explicitly imported Lucide components. Import icons there, never
+from the library index — Lucide ships ~1500 and the index pulls all of them.
 
 ## Environment
 
@@ -79,10 +88,15 @@ keeping a copy in this file. Tables: `wallets`, `categories`, `tags`,
 `transactions`, `budgets`, plus join tables `wallet_categories`,
 `transaction_tags`, `budget_categories`, `budget_wallets`.
 
+Plus `user_settings` — one row per user holding the appearance preference.
+
 Enforced outside the DDL:
 - Transfer pairing/balancing → `create_transfer(...)`, deletion via `delete_transfer(...)`
 - `wallet_balances` view — derived balance per wallet
 - `monthly_category_totals` view — pre-aggregated month/category/currency totals for charts, transfer legs excluded
+- `balance_history(currency, from, to)` — running total wealth per day, for the feed chart and its prior-period overlay
+- `budget_progress` view — spend against each budget for the current period, applying the membership rules from the Budgets paragraph above
+- `wallet_monthly_net` view — net movement per wallet per month, accumulated client-side into sparklines and deltas
 
 ## Types
 
@@ -95,20 +109,35 @@ through an aggregate — so chart code must guard them.
 
 ## Design tokens
 
-`src/index.css` is the single source. `@theme static` is load-bearing: a plain
-`@theme` block only emits variables whose utility classes appear in the source, so a
-token used solely from JS (every wallet colour, since the scheme name comes from the
-database) would resolve to an empty string at runtime.
+`src/index.css` is the single source, in three layers:
 
-`src/theme/tokens.ts` reads those CSS custom properties back via `getComputedStyle`,
-so Tailwind and ECharts cannot drift apart. Never hardcode a colour in a chart
-config — add a token and read it.
+1. `--h` / `--tint` / `--c-accent` — written onto `<html>` at runtime from the user's
+   Appearance settings. The accent's *hue* also tints the ground, which is why it is
+   a variable rather than six hardcoded palettes.
+2. `[data-mode="light"]` / `[data-mode="dark"]` blocks resolve every raw colour. A
+   colour must never be defined in only one of them.
+3. `@theme static` maps those raws onto Tailwind token names.
 
-**The current palette is a placeholder pending a design pass.** It was chosen to
-satisfy constraints, not taste. Whatever replaces it should still be validated for
-colour-vision deficiency: adjacent categorical slots need enough separation under
-protanopia/deuteranopia, and income/expense must differ in **lightness**, not only
-hue — red vs green at equal lightness is unreadable for ~8% of men.
+`static` is load-bearing: a plain `@theme` block only emits variables whose utility
+classes appear in the source, and several tokens are read only from JS (category
+colours arrive from the database by name), so they would resolve to an empty string.
+
+`src/theme/tokens.ts` reads the properties back via `getComputedStyle`, so Tailwind
+and ECharts cannot drift. Never hardcode a colour in a chart config. Values are read
+on demand, never cached — mode, accent and tint all change at runtime.
+
+**Overriding the accent for a subtree** (the add and detail screens take their accent
+from the selected category) means setting `--color-accent`, *not* `--c-accent`. A
+custom property's `var()` references resolve against the element that **declares**
+it, so redefining `--c-accent` deeper never reaches `--color-accent` up on `:root`.
+
+Fixed regardless of accent: **expense and income are separated by lightness, not
+hue** — red vs green at equal lightness is unreadable for ~8% of men. The six
+category slots (`moss, ochre, slate, terracotta, teal, plum`) are assigned in a fixed
+order and double as the categorical chart palette; never cycle past the end.
+
+`glyph` and `color` columns are free text, so `resolveCategoryColor` / `iconFor` fall
+back deterministically rather than rendering an empty string or nothing.
 
 ## Build and deploy
 
@@ -135,17 +164,29 @@ that budget rather than replacing it.
    aggregate view, session surviving a reload. Remaining tail: set Supabase Auth
    Site URL to the pages.dev domain, and confirm session persistence on the actual
    iPhone after a force-quit (iOS evicts localStorage more aggressively than Chrome).
-2. **Next:** wallets CRUD, categories/tags, transfers UI, budgets, chart suite.
-   Wallets first — everything else needs more than one wallet to be meaningful.
-3. Deferred by explicit decision: split transactions, FX conversion in charts
+2. **Redesign — DONE.** Five screens built against the design handoff: feed (budget
+   rail, total wealth, balance chart with prior-period compare, day-grouped list),
+   wallets (grouped with subtotals, sparklines, credit-card utilisation), quick-add
+   (full screen, auto-opening category sheet, date sheet, keypad), transaction detail
+   (budget context, six-month history, transfer variant), and Appearance (mode,
+   accent, tint) persisted cache-aside — localStorage first, `user_settings` as the
+   durable copy read only on a cold cache.
+3. **Next:** wallets CRUD (the "Add a wallet" button is inert), budgets CRUD — the
+   feed rings stay empty until a budget can be created — a real transfer flow, and
+   the Insights screen. Editing a transaction has no designed screen; detail offers
+   duplicate and delete only.
+4. Deferred by explicit decision: split transactions, FX conversion in charts
    (`exchange_rates`), non-monthly budget periods, MCP/AI entry.
 
-Open design questions, unresolved: the icon set backing `glyph`; whether light mode
-is worth a second validated palette; navigation shape (no router yet — the app is
-one scrolling page).
+Resolved by the redesign: icons are Lucide; both light and dark grounds ship, each
+with its own resolved palette; navigation is `react-router` with five tabs (needs
+`public/_redirects` for the Cloudflare SPA fallback).
 
-Known untested: `create_transfer` / `delete_transfer` have no UI and have never been
-exercised. One test transaction ("Internet bill", −14999) sits in the database.
+Known gaps: `create_transfer` / `delete_transfer` still have no UI and have never
+been exercised — the category picker's Transfer tab is deliberately inert rather than
+creating a single-sided row that would look like spending. The detail screen's footer
+shows the wallet's balance *now*, not the balance as of that transaction, which would
+need a further query. Test data from earlier sessions is still in the database.
 
 Feature ideas go into a scratch file in the repo, not into the roadmap, until validated by actual use.
 

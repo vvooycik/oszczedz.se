@@ -5,15 +5,21 @@ import { supabase } from '@/lib/supabase'
 /**
  * Categories and wallets belong to a user, so they cannot be seeded in a
  * migration. This creates a usable starting set on first run; proper CRUD
- * replaces it in the next milestone.
+ * replaces it once the wallets and budgets screens can create their own.
+ *
+ * Colours are palette slot names and glyphs are Lucide icon names — both are
+ * looked up at render, so a typo here shows as a fallback rather than a crash.
  */
 const STARTER_CATEGORIES = [
-  { name: 'Groceries', kind: 'expense', glyph: 'basket', color: 'green' },
-  { name: 'Eating out', kind: 'expense', glyph: 'utensils', color: 'amber' },
-  { name: 'Transport', kind: 'expense', glyph: 'bus', color: 'teal' },
-  { name: 'Bills', kind: 'expense', glyph: 'receipt', color: 'rose' },
-  { name: 'Salary', kind: 'income', glyph: 'wallet', color: 'indigo' },
-  { name: 'Transfer', kind: 'transfer', glyph: 'arrows', color: 'violet' },
+  { name: 'Groceries', kind: 'expense', glyph: 'shopping-basket', color: 'moss' },
+  { name: 'Eating out', kind: 'expense', glyph: 'utensils', color: 'ochre' },
+  { name: 'Transport', kind: 'expense', glyph: 'bus', color: 'slate' },
+  { name: 'Bills', kind: 'expense', glyph: 'receipt', color: 'terracotta' },
+  { name: 'Home', kind: 'expense', glyph: 'house', color: 'plum' },
+  { name: 'Health', kind: 'expense', glyph: 'heart-pulse', color: 'terracotta' },
+  { name: 'Salary', kind: 'income', glyph: 'banknote', color: 'teal' },
+  { name: 'Gifts', kind: 'income', glyph: 'gift', color: 'moss' },
+  { name: 'Transfer', kind: 'transfer', glyph: 'arrow-left-right', color: 'slate' },
 ] as const
 
 export function FirstRunSetup() {
@@ -28,8 +34,8 @@ export function FirstRunSetup() {
       const { error: wErr } = await supabase.from('wallets').insert({
         name: 'Main account',
         type: 'account',
-        glyph: 'bank',
-        color_scheme: 'indigo',
+        glyph: 'wallet',
+        color_scheme: 'teal',
         currency: 'PLN',
         starting_balance: 0,
       })
@@ -49,17 +55,18 @@ export function FirstRunSetup() {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-surface-raised p-4">
-      <h2 className="font-medium">Nothing here yet</h2>
-      <p className="mt-1 text-sm text-ink-muted">
-        Create a PLN account and a handful of starter categories so you can add
-        a transaction.
+    <div className="rounded-[4px] p-4" style={{ border: '1px solid var(--color-line)' }}>
+      <h2 className="text-[16px]">Nothing here yet</h2>
+      <p className="mt-1.5 text-[13px] leading-[1.55] text-ink-muted">
+        Create a PLN account and a handful of starter categories so you can add a
+        transaction.
       </p>
-      {error && <p className="mt-2 text-sm text-expense">{error}</p>}
+      {error && <p className="mt-2 text-[12.5px] text-expense">{error}</p>}
       <button
         onClick={run}
         disabled={busy}
-        className="mt-3 rounded-lg bg-scheme-indigo px-4 py-2 font-medium disabled:opacity-50"
+        className="mt-4 rounded-[4px] px-4 py-2 text-[13.5px] text-accent disabled:opacity-50"
+        style={{ border: '1px solid var(--color-accent)' }}
       >
         {busy ? 'Creating…' : 'Set up'}
       </button>

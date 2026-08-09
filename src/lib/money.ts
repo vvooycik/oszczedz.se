@@ -48,6 +48,10 @@ const formatterFor = (currency: string): Intl.NumberFormat => {
       style: 'currency',
       currency,
       minimumFractionDigits: 2,
+      // pl-PL groups only from five digits by default (CLDR
+      // minimumGroupingDigits: 2), so 9591,72 would print ungrouped. The design
+      // groups from four, and a column of money reads better that way.
+      useGrouping: 'always',
     })
     formatters.set(currency, f)
   }
@@ -60,6 +64,29 @@ export const formatMoney = (amount: Minor, currency: string): string =>
 
 /** Bare number without the currency symbol — for dense chart axes. */
 export const formatMoneyShort = (amount: Minor): string =>
-  new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 0 }).format(
-    amount / 100,
-  )
+  new Intl.NumberFormat('pl-PL', {
+    maximumFractionDigits: 0,
+    useGrouping: 'always',
+  }).format(amount / 100)
+
+const plain = new Intl.NumberFormat('pl-PL', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+  useGrouping: 'always',
+})
+
+/** Magnitude only, no sign and no symbol: "9 591,72". */
+export const formatAmount = (amount: Minor): string =>
+  plain.format(Math.abs(amount) / 100)
+
+/**
+ * Signed for display: "−101,22" / "+7 000,00".
+ *
+ * Uses U+2212 MINUS SIGN rather than a hyphen — it aligns with the digits at
+ * the same width, which matters in a right-aligned tabular column.
+ */
+export function formatSigned(amount: Minor, opts?: { plus?: boolean }): string {
+  const body = formatAmount(amount)
+  if (amount < 0) return `−${body}`
+  return opts?.plus === false ? body : `+${body}`
+}

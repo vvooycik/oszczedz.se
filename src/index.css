@@ -1,75 +1,159 @@
 @import 'tailwindcss';
 
 /*
- * Single source of design tokens.
+ * Design tokens.
  *
- * Tailwind v4 emits `@theme` entries as real CSS custom properties on :root,
- * so the ECharts theme can read the same values at runtime with
- * getComputedStyle (see src/theme/tokens.ts). Do not hardcode a colour in a
- * chart config — add it here and read the token.
+ * Three layers, in this order:
  *
- * `static` is load-bearing: a plain `@theme` block only emits the variables
- * whose utility classes it can see in the source, so a token used *only* from
- * JS (every wallet colour, since the scheme name comes from the database)
- * would resolve to an empty string at runtime. `static` emits all of them.
+ *   1. `--h` / `--tint` / `--c-accent` — set on <html> by JS at runtime from the
+ *      user's Appearance settings (see src/theme/ThemeProvider.tsx). The
+ *      accent's *hue* also tints the ground, which is why it is a variable
+ *      rather than six hardcoded palettes.
+ *   2. `[data-mode]` blocks below resolve every raw colour for light or dark.
+ *      A colour must never be defined in only one of them.
+ *   3. `@theme static` maps those raws onto Tailwind's token names, so
+ *      `bg-surface` / `text-expense` work as utilities.
+ *
+ * `static` is load-bearing: a plain `@theme` block only emits variables whose
+ * utility classes appear in the source, and several tokens here are read only
+ * from JS (category colours come from the database by name), so they would
+ * resolve to an empty string at runtime.
  */
+
+:root {
+  /* Overwritten by JS; these are the Gold defaults so first paint is correct. */
+  --h: 85;
+  --tint: 0.008;
+  --c-accent: #b68235;
+}
+
+/* ------------------------------------------------------------------- light */
+:root[data-mode='light'] {
+  --c-bg: oklch(96% 0.004 var(--h));
+  --c-surface: oklch(92% 0.004 var(--h));
+
+  --c-ink: #201f1d;
+  --c-ink-muted: rgba(32, 31, 29, 0.55);
+  --c-ink-faint: rgba(32, 31, 29, 0.45);
+  --c-ink-dim: rgba(32, 31, 29, 0.32);
+  --c-border: rgba(32, 31, 29, 0.16);
+  --c-border-soft: rgba(32, 31, 29, 0.1);
+  --c-track: rgba(32, 31, 29, 0.14);
+
+  --c-expense: oklch(46% 0.13 34);
+  --c-income: oklch(52% 0.09 148);
+
+  --c-moss: oklch(52% 0.1 145);
+  --c-ochre: oklch(55% 0.13 50);
+  --c-slate: oklch(52% 0.09 225);
+  --c-terracotta: oklch(50% 0.12 25);
+  --c-teal: oklch(52% 0.09 165);
+  --c-plum: oklch(48% 0.09 310);
+}
+
+/* -------------------------------------------------------------------- dark */
+:root[data-mode='dark'] {
+  /* Tint applies to the dark ground only — on a near-white surface it is
+     invisible, and on OLED it is the difference between warm black and grey. */
+  --c-bg: oklch(17% var(--tint) var(--h));
+  --c-surface: oklch(21% var(--tint) var(--h));
+
+  --c-ink: #f3f2f2;
+  --c-ink-muted: rgba(243, 242, 242, 0.5);
+  --c-ink-faint: rgba(243, 242, 242, 0.45);
+  --c-ink-dim: rgba(243, 242, 242, 0.35);
+  --c-border: rgba(243, 242, 242, 0.14);
+  --c-border-soft: rgba(243, 242, 242, 0.1);
+  --c-track: rgba(243, 242, 242, 0.15);
+
+  --c-expense: oklch(64% 0.15 34);
+  --c-income: oklch(74% 0.1 150);
+
+  --c-moss: oklch(70% 0.1 145);
+  --c-ochre: oklch(73% 0.13 50);
+  --c-slate: oklch(70% 0.09 225);
+  --c-terracotta: oklch(68% 0.12 25);
+  --c-teal: oklch(74% 0.1 165);
+  --c-plum: oklch(66% 0.09 310);
+}
+
 @theme static {
-  --color-surface: oklch(21% 0.02 265);
-  --color-surface-raised: oklch(26% 0.02 265);
-  --color-border: oklch(34% 0.02 265);
-  --color-ink: oklch(97% 0.005 265);
-  --color-ink-muted: oklch(72% 0.015 265);
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-accent: var(--c-accent);
 
-  /*
-   * Semantic money direction. Positive = money in, negative = money out.
-   * Deliberately far apart in LIGHTNESS, not just hue: red vs green is the
-   * classic red-green-blindness collision, and at equal lightness the pair
-   * measures ΔE 5.8 under deuteranopia (unreadable). The spread below takes it
-   * to 13.8. The signed amount next to the colour is the secondary encoding.
-   */
-  --color-income: oklch(72% 0.15 162);
-  --color-expense: oklch(58% 0.19 25);
+  --color-ink: var(--c-ink);
+  --color-ink-muted: var(--c-ink-muted);
+  --color-ink-faint: var(--c-ink-faint);
+  --color-ink-dim: var(--c-ink-dim);
+  --color-line: var(--c-border);
+  --color-line-soft: var(--c-border-soft);
+  --color-track: var(--c-track);
 
-  /*
-   * Wallet colour schemes, referenced by wallets.color_scheme. This doubles as
-   * the categorical chart palette, so the order is fixed and meaningful:
-   * adjacent slots alternate light/dark so they stay distinguishable under
-   * colour-vision deficiency. Assign in order; never cycle or reorder.
-   *
-   * Validated against surface #141822 in dark mode — all six checks pass
-   * (worst adjacent pair ΔE 13.0 deutan / 19.5 normal). If you change a value,
-   * re-run the palette validator rather than eyeballing it.
-   */
-  --color-scheme-indigo: oklch(60% 0.17 272);
-  --color-scheme-amber: oklch(66% 0.14 80);
-  --color-scheme-rose: oklch(55% 0.17 18);
-  --color-scheme-teal: oklch(66% 0.11 196);
-  --color-scheme-violet: oklch(53% 0.19 318);
-  --color-scheme-green: oklch(65% 0.15 148);
+  /* Money direction. Separated by lightness, not hue — red vs green at equal
+     lightness is unreadable under deuteranopia. Never re-tune these to match
+     an accent. */
+  --color-expense: var(--c-expense);
+  --color-income: var(--c-income);
+
+  /* Category slots, assigned in this fixed order. Doubles as the categorical
+     chart palette; do not cycle past the end. */
+  --color-moss: var(--c-moss);
+  --color-ochre: var(--c-ochre);
+  --color-slate: var(--c-slate);
+  --color-terracotta: var(--c-terracotta);
+  --color-teal: var(--c-teal);
+  --color-plum: var(--c-plum);
+
+  --font-serif: 'Spectral', Georgia, serif;
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+
+  --radius-card: 4px;
+  --radius-sheet: 12px;
 }
 
 html {
-  color-scheme: dark;
-  /* iOS: keep the standalone PWA from bouncing/zooming like a web page. */
   -webkit-text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
-  background: var(--color-surface);
+  background: var(--color-bg);
   color: var(--color-ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
-  /* Respect the iPhone notch / home indicator in standalone mode. */
-  padding: env(safe-area-inset-top) env(safe-area-inset-right)
-    env(safe-area-inset-bottom) env(safe-area-inset-left);
+  /* Spectral for words. Every figure overrides to IBM Plex Sans via .tnum or
+     font-sans — the split is deliberate: figures read as accounting. */
+  font-family: var(--font-serif);
   overscroll-behavior-y: none;
 }
 
-/* Inputs must be >=16px or iOS Safari zooms the viewport on focus. */
+/* Numerals: always the sans, always tabular so columns of money line up. */
+.tnum {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Small uppercase section label used throughout the design. */
+.kicker {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
 input,
 select,
 textarea,
 button {
   font: inherit;
+  /* Below 16px iOS Safari zooms the viewport on focus. */
   font-size: max(1rem, 16px);
+}
+
+/* The design has no visible scrollbars on its horizontal rails. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

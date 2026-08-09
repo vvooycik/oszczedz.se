@@ -7,7 +7,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#141822" />
+    <meta name="theme-color" content="#17150f" />
 
     <!-- iOS still reads these rather than the manifest for standalone mode. -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -17,7 +17,59 @@
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Spectral for words, IBM Plex Sans for every figure. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Spectral:wght@300;400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
     <title>oszczędź.se</title>
+
+    <script>
+      // Applies the cached theme before first paint. Without this the page
+      // renders with the default ground and then snaps to the user's — very
+      // visible when the choice is light and the default is dark.
+      //
+      // Deliberately duplicates a few lines of src/theme/theme.ts: it must run
+      // as a blocking inline script, before any module loads. ThemeProvider
+      // takes over once React mounts.
+      ;(function () {
+        var ACCENTS = {
+          gold: [85, '#b68235', '#e1ad66'],
+          copper: [48, 'oklch(56% 0.13 48)', 'oklch(72% 0.13 48)'],
+          claret: [18, 'oklch(45% 0.13 18)', 'oklch(67% 0.13 18)'],
+          olive: [120, 'oklch(50% 0.08 120)', 'oklch(74% 0.08 120)'],
+          ink: [252, 'oklch(46% 0.09 252)', 'oklch(72% 0.09 252)'],
+          plum: [340, 'oklch(48% 0.12 340)', 'oklch(70% 0.12 340)'],
+        }
+        var p = { mode: 'system', accent: 'gold', tint: 0.008 }
+        try {
+          var raw = localStorage.getItem('oszczedz.theme')
+          if (raw) {
+            var s = JSON.parse(raw)
+            if (s && typeof s === 'object') p = Object.assign(p, s)
+          }
+        } catch (e) {
+          /* corrupt cache: fall through to defaults */
+        }
+        var mode =
+          p.mode === 'light' || p.mode === 'dark'
+            ? p.mode
+            : window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light'
+        var a = ACCENTS[p.accent] || ACCENTS.gold
+        var r = document.documentElement
+        r.dataset.mode = mode
+        r.style.setProperty('--h', String(a[0]))
+        r.style.setProperty('--tint', String(p.tint))
+        r.style.setProperty('--c-accent', mode === 'dark' ? a[2] : a[1])
+        r.style.colorScheme = mode
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -57,6 +57,13 @@ export type Database = {
             foreignKeyName: "budget_categories_budget_id_fkey"
             columns: ["budget_id"]
             isOneToOne: false
+            referencedRelation: "budget_progress"
+            referencedColumns: ["budget_id"]
+          },
+          {
+            foreignKeyName: "budget_categories_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
             referencedRelation: "budgets"
             referencedColumns: ["id"]
           },
@@ -87,6 +94,13 @@ export type Database = {
             foreignKeyName: "budget_wallets_budget_id_fkey"
             columns: ["budget_id"]
             isOneToOne: false
+            referencedRelation: "budget_progress"
+            referencedColumns: ["budget_id"]
+          },
+          {
+            foreignKeyName: "budget_wallets_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
             referencedRelation: "budgets"
             referencedColumns: ["id"]
           },
@@ -95,6 +109,13 @@ export type Database = {
             columns: ["wallet_id"]
             isOneToOne: false
             referencedRelation: "wallet_balances"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "budget_wallets_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_monthly_net"
             referencedColumns: ["wallet_id"]
           },
           {
@@ -261,10 +282,41 @@ export type Database = {
             foreignKeyName: "transactions_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
+            referencedRelation: "wallet_monthly_net"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
             referencedRelation: "wallets"
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_settings: {
+        Row: {
+          accent: string
+          mode: string
+          tint: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accent?: string
+          mode?: string
+          tint?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          accent?: string
+          mode?: string
+          tint?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       wallet_categories: {
         Row: {
@@ -292,6 +344,13 @@ export type Database = {
             columns: ["wallet_id"]
             isOneToOne: false
             referencedRelation: "wallet_balances"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "wallet_categories_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_monthly_net"
             referencedColumns: ["wallet_id"]
           },
           {
@@ -350,6 +409,21 @@ export type Database = {
       }
     }
     Views: {
+      budget_progress: {
+        Row: {
+          budget_id: string | null
+          color: string | null
+          currency: string | null
+          glyph: string | null
+          limit_amount: number | null
+          name: string | null
+          period: Database["public"]["Enums"]["budget_period"] | null
+          period_start: string | null
+          spent: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       monthly_category_totals: {
         Row: {
           category_id: string | null
@@ -379,8 +453,25 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_monthly_net: {
+        Row: {
+          currency: string | null
+          month: string | null
+          net: number | null
+          user_id: string | null
+          wallet_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      balance_history: {
+        Args: { p_currency: string; p_from: string; p_to: string }
+        Returns: {
+          balance: number
+          day: string
+        }[]
+      }
       create_transfer: {
         Args: {
           p_category_id: string

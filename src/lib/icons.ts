@@ -1,0 +1,117 @@
+/**
+ * Maps the kebab-case glyph names stored in `categories.glyph` /
+ * `wallets.glyph` onto Lucide components.
+ *
+ * Explicit imports, not a dynamic lookup over the whole library: Lucide ships
+ * ~1500 icons and importing the index pulls all of them into the bundle. Adding
+ * a glyph means adding a line here, which is the point — the set stays known.
+ */
+import {
+  ArrowDown,
+  ArrowLeftRight,
+  ArrowUp,
+  Banknote,
+  BookOpen,
+  Briefcase,
+  BriefcaseMedical,
+  Bus,
+  Calendar,
+  Car,
+  CarTaxiFront,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Circle,
+  Copy,
+  Croissant,
+  Delete,
+  Dumbbell,
+  Ellipsis,
+  Gift,
+  HandCoins,
+  Heart,
+  HeartPulse,
+  House,
+  Info,
+  List,
+  PawPrint,
+  Pencil,
+  PiggyBank,
+  Plane,
+  Plus,
+  Receipt,
+  Repeat,
+  Scissors,
+  Search,
+  Shirt,
+  ShoppingBasket,
+  ShoppingCart,
+  Target,
+  Tag,
+  Trash2,
+  TrendingUp,
+  Undo2,
+  Utensils,
+  Wallet,
+  X,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+
+export const ICONS: Record<string, LucideIcon> = {
+  'arrow-down': ArrowDown,
+  'arrow-left-right': ArrowLeftRight,
+  'arrow-up': ArrowUp,
+  banknote: Banknote,
+  'book-open': BookOpen,
+  briefcase: Briefcase,
+  'briefcase-medical': BriefcaseMedical,
+  bus: Bus,
+  calendar: Calendar,
+  car: Car,
+  'car-taxi-front': CarTaxiFront,
+  check: Check,
+  'chevron-left': ChevronLeft,
+  'chevron-right': ChevronRight,
+  circle: Circle,
+  copy: Copy,
+  croissant: Croissant,
+  delete: Delete,
+  dumbbell: Dumbbell,
+  ellipsis: Ellipsis,
+  gift: Gift,
+  'hand-coins': HandCoins,
+  heart: Heart,
+  'heart-pulse': HeartPulse,
+  house: House,
+  info: Info,
+  list: List,
+  'paw-print': PawPrint,
+  pencil: Pencil,
+  'piggy-bank': PiggyBank,
+  plane: Plane,
+  plus: Plus,
+  receipt: Receipt,
+  repeat: Repeat,
+  scissors: Scissors,
+  search: Search,
+  shirt: Shirt,
+  'shopping-basket': ShoppingBasket,
+  'shopping-cart': ShoppingCart,
+  tag: Tag,
+  target: Target,
+  'trash-2': Trash2,
+  'trending-up': TrendingUp,
+  'undo-2': Undo2,
+  utensils: Utensils,
+  wallet: Wallet,
+  x: X,
+}
+
+/** Falls back to a neutral mark rather than rendering nothing for a typo. */
+export const iconFor = (name: string | null | undefined): LucideIcon =>
+  (name && ICONS[name]) || Circle
+
+/** Names offered in pickers, in a sensible browsing order. */
+export const GLYPH_CHOICES = Object.keys(ICONS).filter(
+  (n) => !['chevron-left', 'chevron-right', 'x', 'check', 'ellipsis', 'search', 'delete'].includes(n),
+)
