@@ -98,6 +98,31 @@ Enforced outside the DDL:
 - `budget_progress` view — spend against each budget for the current period, applying the membership rules from the Budgets paragraph above
 - `wallet_monthly_net` view — net movement per wallet per month, accumulated client-side into sparklines and deltas
 
+## Data
+
+The database holds the **real legacy import**, not test rows: 7 wallets, 59
+categories, 20 tags, 5086 transactions and 348 transfer pairs, covering
+2023-10-15 → 2026-08-07, migrated from Spendee via the bank exports.
+
+The exports and the generated SQL live in `supabase/legacy_data_export/` and
+`supabase/seed/` and are **gitignored** — real personal finances, never committed.
+The seed is wrapped in one transaction and resolves `user_id` from the single row
+in `auth.users`, raising if it does not find exactly one, so a half-applied import
+is not possible.
+
+**Never seed with `supabase db reset --linked`.** Remote reset drops `auth.users`
+along with everything else, so the account is gone before the seed runs and the
+guard fails — and re-creating the account by hand does not help, because the *next*
+reset deletes it again. Run seeds with `npx supabase db query --linked -f <file>`,
+which goes over the Management API, touches only what the file touches, and needs
+no Docker. (It may report a duplicate-key error after a long import: the request
+succeeded and was retried. Check the row counts before assuming it failed.)
+
+Known rough edge: the import wrote every category as `color = '#8A8A8A'`,
+`glyph = 'circle'` and every wallet as `color_scheme = 'neutral'`, none of which
+match the palette slots or `src/lib/icons.ts`, so all categories currently render
+through the deterministic fallback.
+
 ## Types
 
 `src/lib/database.types.ts` is **generated** (`npm run db:types`) and is overwritten
@@ -138,6 +163,14 @@ order and double as the categorical chart palette; never cycle past the end.
 
 `glyph` and `color` columns are free text, so `resolveCategoryColor` / `iconFor` fall
 back deterministically rather than rendering an empty string or nothing.
+
+**The app icon is the one thing outside this system.** Mark 2a from
+`design/design_handoff_icon/icon/README.md` — the same two-series overlay the Total
+Wealth chart draws — in a fixed gold `#c99a4e` on a fixed `#1a1917` ground. It is
+deliberately *not* bound to `--color-accent`: the icon is baked into the home screen
+at install time and cannot follow a user who later picks Copper or Plum. Sources are
+in that handoff folder; `public/favicon.svg` carries the simplified small variant
+(no prior-year series, no terminal dot) because below ~40px those collapse into noise.
 
 ## Build and deploy
 
@@ -186,7 +219,7 @@ Known gaps: `create_transfer` / `delete_transfer` still have no UI and have neve
 been exercised — the category picker's Transfer tab is deliberately inert rather than
 creating a single-sided row that would look like spending. The detail screen's footer
 shows the wallet's balance *now*, not the balance as of that transaction, which would
-need a further query. Test data from earlier sessions is still in the database.
+need a further query.
 
 Feature ideas go into a scratch file in the repo, not into the roadmap, until validated by actual use.
 

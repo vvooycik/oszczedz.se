@@ -45,8 +45,8 @@ pnpm-debug.log*
 .claude/settings.local.json
 
 # Data not shareable
-legacy_data_export/*
-seed/*
+supabase/legacy_data_export/
+supabase/seed/
 
 # Designs 
-design_handoff_redesign/ 
+design/

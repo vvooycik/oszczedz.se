@@ -1,6 +1,11 @@
+<!-- Mark 2a, "dotted prior year", per design/design_handoff_icon/icon/README.md.
+     Small variant: at favicon sizes the prior-year series and the terminal dot
+     collapse into noise, so they are dropped and the remaining strokes stepped
+     up. Gold is fixed at #c99a4e regardless of the user's accent. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#141822"/>
-  <rect x="112" y="288" width="64" height="112" rx="16" fill="#5f74e4"/>
-  <rect x="224" y="208" width="64" height="192" rx="16" fill="#12a7a8"/>
-  <rect x="336" y="112" width="64" height="288" rx="16" fill="#24c187"/>
+  <rect width="512" height="512" rx="112" fill="#1a1917"/>
+  <g transform="translate(94.72 94.72) scale(3.36)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 66 L32 54 L52 60 L84 24" stroke="#c99a4e" stroke-width="8"/>
+    <path d="M12 84 H84" stroke="rgba(201,154,78,.4)" stroke-width="6"/>
+  </g>
 </svg>
