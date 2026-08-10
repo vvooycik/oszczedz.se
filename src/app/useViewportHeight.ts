@@ -1,29 +1,21 @@
 import { useEffect, useState } from 'react'
 
-/** True when running as a home-screen app rather than in browser chrome. */
-const isStandalone = (): boolean =>
-  window.matchMedia('(display-mode: standalone)').matches ||
-  // iOS predates the media query and still sets this on home-screen apps.
-  (navigator as Navigator & { standalone?: boolean }).standalone === true
-
 /**
- * Height for the app frame, in CSS pixels.
+ * Height for the app frame, in CSS pixels: the viewport the app can actually
+ * paint into.
  *
- * iOS standalone describes its viewport as though Safari's toolbars were still
- * on screen: `window.innerHeight`, `100dvh` and a `fixed inset-0` box all come
- * back about 62pt short on a Pro Max, so the tab bar floats over a strip of
- * background exactly where the browser UI would be. Measured off two home-screen
- * screenshots; the same build in Safari fits perfectly, because there the
- * reserved space is real.
+ * On this iPhone, standalone, measured with the probe on More: the screen is
+ * 956pt and `100vh`/`100lvh` agree, but `innerHeight`, `clientHeight`,
+ * `visualViewport` and `100svh`/`100dvh` all report 894 — exactly 956 minus the
+ * 62pt status bar. iOS counts the translucent status bar as *retractable browser
+ * chrome*, so the web view it hands a home-screen app is 894pt tall at screen
+ * y 0…894, and the last 62pt of the screen is outside it entirely.
  *
- * So don't ask about the viewport. A standalone window *is* the screen — that is
- * what standalone means, and with `viewport-fit=cover` the web view spans the
- * insets too (which is why `env(safe-area-inset-bottom)` still has to pad the
- * home indicator). `screen.height` is therefore the frame, and the manifest locks
- * the app to portrait so it cannot rotate out from under that.
- *
- * In a real browser the toolbar is genuinely there, so `innerHeight` is right and
- * the screen height would run the tab bar underneath it.
+ * Which means the tab bar cannot reach the physical bottom edge in this
+ * configuration, and sizing the frame to `screen.height` only pushes it past the
+ * fold, where the labels clip and a drag rubber-bands back. `innerHeight` is the
+ * honest number in both standalone and a browser; `100svh` is the CSS equivalent
+ * for first paint.
  */
 export function useViewportHeight(): number | null {
   // Null until measured, so first paint falls back to CSS rather than rendering
@@ -31,8 +23,7 @@ export function useViewportHeight(): number | null {
   const [height, setHeight] = useState<number | null>(null)
 
   useEffect(() => {
-    const measure = () =>
-      setHeight(isStandalone() ? window.screen.height : window.innerHeight)
+    const measure = () => setHeight(window.innerHeight)
     measure()
 
     window.addEventListener('resize', measure)
