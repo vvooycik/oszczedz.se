@@ -19,7 +19,7 @@ export function CategoryGlyph({
   size = 34,
   transfer = false,
   dashed = transfer,
-  ringWidth = 1,
+  ringWidth = 2.5,
 }: {
   glyph: string | null | undefined
   color: string | null | undefined
@@ -41,7 +41,7 @@ export function CategoryGlyph({
         color: transfer ? 'var(--color-ink-muted)' : stroke,
       }}
     >
-      <Icon size={Math.round(size * 0.5)} strokeWidth={1.5} />
+      <Icon size={Math.round(size * 0.5)} strokeWidth={2} />
     </span>
   )
 }
