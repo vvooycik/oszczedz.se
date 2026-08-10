@@ -224,12 +224,25 @@ Resolved by the redesign: icons are Lucide; both light and dark grounds ship, ea
 with its own resolved palette; navigation is `react-router` with five tabs (needs
 `public/_redirects` for the Cloudflare SPA fallback).
 
+**The iOS status bar must stay `default`, not `black-translucent`.** With a
+translucent bar iOS counts the status bar as *retractable browser chrome* and
+hands the standalone app a web view 62pt shorter than the screen — measured on
+the device: screen 956, `100vh`/`100lvh` 956, but `innerHeight`, `clientHeight`,
+`visualViewport` and `100svh`/`100dvh` all 894. The tab bar then strands above a
+strip that is outside the web view and cannot be painted into, and sizing the
+frame to `screen.height` only pushes it past the fold where it clips and
+rubber-bands. The cost of `default` is that content no longer runs under the
+status bar; iOS paints that strip, so `applyTheme` rewrites
+`<meta name="theme-color">` to the resolved ground, and the pre-paint script in
+`index.html` does the same so it does not flash on launch. That meta is the only
+other place besides the app icon where a colour leaves the token system, which
+is why `theme.ts` carries an `oklch()` → hex conversion.
+
 The app frame takes its height from `useViewportHeight` (measured
-`window.innerHeight`), not from `100dvh` or from stretching a fixed box to
-`bottom: 0`. iOS standalone breaks both: the dynamic unit is stale on a cold
-launch, and a `fixed inset-0` box is sized against a viewport that excludes the
-top safe-area inset, so the frame ends short of the screen by the height of the
-Dynamic Island. Never reintroduce either.
+`window.innerHeight`, `100svh` as the first-paint fallback), never from `100dvh`
+or from stretching a fixed box to `bottom: 0` — the dynamic unit is stale on a
+cold standalone launch, and the fixed box is sized against the same short
+viewport described above.
 
 Known gaps: `create_transfer` / `delete_transfer` still have no UI and have never
 been exercised — the category picker's Transfer tab is deliberately inert rather than
