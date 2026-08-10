@@ -6,6 +6,7 @@ import { FeedScreen } from '@/screens/FeedScreen'
 import { WalletsScreen } from '@/screens/WalletsScreen'
 import { ComingSoonScreen, MoreScreen } from '@/screens/MoreScreen'
 import { AppearanceScreen } from '@/screens/AppearanceScreen'
+import { CategoriesScreen } from '@/screens/categories/CategoriesScreen'
 import { AddScreen } from '@/screens/add/AddScreen'
 import { TransactionScreen } from '@/screens/TransactionScreen'
 
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="/add" element={<AddScreen />} />
         <Route path="/tx/:id" element={<TransactionScreen />} />
         <Route path="/appearance" element={<AppearanceScreen />} />
+        <Route path="/categories" element={<CategoriesScreen />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

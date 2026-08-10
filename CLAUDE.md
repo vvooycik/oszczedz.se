@@ -97,6 +97,8 @@ Enforced outside the DDL:
 - `balance_history(currency, from, to)` — running total wealth per day, for the feed chart and its prior-period overlay
 - `budget_progress` view — spend against each budget for the current period, applying the membership rules from the Budgets paragraph above
 - `wallet_monthly_net` view — net movement per wallet per month, accumulated client-side into sparklines and deltas
+- `category_usage` view — transaction count per category, for the settings list and its delete copy
+- `delete_category(id, reassign_to)` — moves the category's transactions onto another category and deletes it in one statement; raises rather than orphaning rows when a target is needed and none was given
 
 ## Data
 
@@ -121,7 +123,9 @@ succeeded and was retried. Check the row counts before assuming it failed.)
 Known rough edge: the import wrote every category as `color = '#8A8A8A'`,
 `glyph = 'circle'` and every wallet as `color_scheme = 'neutral'`, none of which
 match the palette slots or `src/lib/icons.ts`, so all categories currently render
-through the deterministic fallback.
+through the deterministic fallback. The categories settings screen is how they
+get fixed: it normalises a row's colour and glyph on open, so saving writes a
+real slot back. Wallets still have no equivalent.
 
 ## Types
 
@@ -186,7 +190,7 @@ Without it Vite inlines the values as `undefined`, the guard in `src/lib/supabas
 folds to a constant, and the bundler dead-code-eliminates supabase-js and every
 chart behind it — producing a *successful* build of an app that throws on load.
 
-ECharts is code-split so it stays off the login path (~127 kB gzipped initial,
+ECharts is code-split so it stays off the login path (~157 kB gzipped initial,
 ~181 kB for the chart chunk). Keep an eye on this: a second charting library adds to
 that budget rather than replacing it.
 
@@ -204,11 +208,16 @@ that budget rather than replacing it.
    (budget context, six-month history, transfer variant), and Appearance (mode,
    accent, tint) persisted cache-aside — localStorage first, `user_settings` as the
    durable copy read only on a cold cache.
-3. **Next:** wallets CRUD (the "Add a wallet" button is inert), budgets CRUD — the
+3. **Categories CRUD — DONE.** `/categories` from More: list by kind with real
+   transaction counts, a 72% editor sheet (name, kind, colour, glyph, all
+   re-tinting live), and deletion that reassigns the category's transactions
+   first. Same-kind targets only — moving an expense into an income category
+   would flip what every chart says about it.
+4. **Next:** wallets CRUD (the "Add a wallet" button is inert), budgets CRUD — the
    feed rings stay empty until a budget can be created — a real transfer flow, and
    the Insights screen. Editing a transaction has no designed screen; detail offers
    duplicate and delete only.
-4. Deferred by explicit decision: split transactions, FX conversion in charts
+5. Deferred by explicit decision: split transactions, FX conversion in charts
    (`exchange_rates`), non-monthly budget periods, MCP/AI entry.
 
 Resolved by the redesign: icons are Lucide; both light and dark grounds ship, each

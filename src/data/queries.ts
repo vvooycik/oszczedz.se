@@ -4,6 +4,8 @@ import { asMinor, type Minor } from '@/lib/money'
 import type {
   BudgetProgress,
   Category,
+  CategoryKind,
+  CategoryUsage,
   MonthlyCategoryTotal,
   Tag,
   Transaction,
@@ -38,6 +40,29 @@ export const useTags = () =>
     queryKey: ['tags'],
     queryFn: async (): Promise<Tag[]> =>
       unwrap(await supabase.from('tags').select('*').order('name')),
+  })
+
+/**
+ * Transaction count per category, keyed by id.
+ *
+ * Aggregated in Postgres — the settings screen shows a count on every row, and
+ * the alternative is pulling 5000 transactions to the phone to group them. View
+ * columns come back nullable (no non-null proof through an aggregate), so both
+ * sides of the pair are guarded here rather than at every call site.
+ */
+export const useCategoryUsage = () =>
+  useQuery({
+    queryKey: ['category_usage'],
+    queryFn: async (): Promise<Record<string, number>> => {
+      const rows = unwrap<CategoryUsage[]>(
+        await supabase.from('category_usage').select('*'),
+      )
+      const counts: Record<string, number> = {}
+      for (const row of rows) {
+        if (row.category_id) counts[row.category_id] = row.transaction_count ?? 0
+      }
+      return counts
+    },
   })
 
 export const useWalletBalances = () =>
@@ -206,6 +231,69 @@ export const useDeleteTransaction = () => {
       if (error) throw error
     },
     onSuccess: () => invalidateDerived(qc),
+  })
+}
+
+/* --------------------------------------------------------------- categories */
+
+/**
+ * A category's name, glyph, colour and kind all appear inside the pre-aggregated
+ * chart views, so a rename or a recolour has to reach further than ['categories'].
+ */
+const invalidateCategories = (qc: ReturnType<typeof useQueryClient>) => {
+  qc.invalidateQueries({ queryKey: ['categories'] })
+  qc.invalidateQueries({ queryKey: ['category_usage'] })
+  invalidateDerived(qc)
+}
+
+export type CategoryDraft = {
+  /** `'new'` when creating — the database assigns the real id. */
+  id: string
+  name: string
+  kind: CategoryKind
+  glyph: string
+  color: string
+}
+
+export const useUpsertCategory = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (draft: CategoryDraft) => {
+      // Only these four columns are ever user-set; user_id defaults to auth.uid().
+      const fields = {
+        name: draft.name.trim(),
+        kind: draft.kind,
+        glyph: draft.glyph,
+        color: draft.color,
+      }
+      const { error } =
+        draft.id === 'new'
+          ? await supabase.from('categories').insert(fields)
+          : await supabase.from('categories').update(fields).eq('id', draft.id)
+      if (error) throw error
+    },
+    onSuccess: () => invalidateCategories(qc),
+  })
+}
+
+/**
+ * Reassignment and deletion are one RPC: done as two calls from here, a failure
+ * between them would leave transactions pointing at a category that is gone.
+ * `reassignTo` may be null only when nothing uses the category.
+ */
+export const useDeleteCategory = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, reassignTo }: { id: string; reassignTo: string | null }) => {
+      const { error } = await supabase.rpc('delete_category', {
+        p_category_id: id,
+        // Omitted rather than null: the argument has a SQL default, so the
+        // generated type declares it optional.
+        p_reassign_to: reassignTo ?? undefined,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => invalidateCategories(qc),
   })
 }
 

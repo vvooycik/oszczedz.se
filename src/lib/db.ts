@@ -18,6 +18,7 @@ export type WalletBalance = Tables<'wallet_balances'>
 export type MonthlyCategoryTotal = Tables<'monthly_category_totals'>
 export type BudgetProgress = Tables<'budget_progress'>
 export type WalletMonthlyNet = Tables<'wallet_monthly_net'>
+export type CategoryUsage = Tables<'category_usage'>
 export type UserSettings = Tables<'user_settings'>
 
 export type TransactionInsert = TablesInsert<'transactions'>

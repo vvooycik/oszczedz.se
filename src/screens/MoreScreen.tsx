@@ -9,6 +9,18 @@ export function MoreScreen() {
 
       <div className="mt-5">
         <Link
+          to="/categories"
+          className="flex items-center gap-3 py-4"
+          style={{ borderBottom: '1px solid var(--color-line-soft)' }}
+        >
+          <span className="flex-1 text-[15px]">Categories</span>
+          <span className="font-sans text-[12px] text-ink-faint">
+            Names, glyphs &amp; colours
+          </span>
+          <ChevronRight size={18} strokeWidth={1.5} className="text-ink-dim" />
+        </Link>
+
+        <Link
           to="/appearance"
           className="flex items-center gap-3 py-4"
           style={{ borderBottom: '1px solid var(--color-line-soft)' }}

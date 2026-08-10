@@ -74,6 +74,13 @@ export type Database = {
             referencedRelation: "categories"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "budget_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "category_usage"
+            referencedColumns: ["category_id"]
+          },
         ]
       }
       budget_wallets: {
@@ -272,6 +279,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "transactions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "category_usage"
+            referencedColumns: ["category_id"]
+          },
+          {
             foreignKeyName: "transactions_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
@@ -338,6 +352,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "categories"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "category_usage"
+            referencedColumns: ["category_id"]
           },
           {
             foreignKeyName: "wallet_categories_wallet_id_fkey"
@@ -424,6 +445,14 @@ export type Database = {
         }
         Relationships: []
       }
+      category_usage: {
+        Row: {
+          category_id: string | null
+          transaction_count: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       monthly_category_totals: {
         Row: {
           category_id: string | null
@@ -441,6 +470,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "categories"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "category_usage"
+            referencedColumns: ["category_id"]
           },
         ]
       }
@@ -483,6 +519,10 @@ export type Database = {
           p_target_wallet_id: string
         }
         Returns: string
+      }
+      delete_category: {
+        Args: { p_category_id: string; p_reassign_to?: string }
+        Returns: undefined
       }
       delete_transfer: { Args: { p_transfer_id: string }; Returns: undefined }
     }

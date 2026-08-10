@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import { Sheet } from '@/components/Sheet'
 import { CategoryGlyph } from '@/components/CategoryGlyph'
+import { Pill } from '@/components/Pill'
 import type { Category, CategoryKind } from '@/lib/db'
 
 const TABS: { key: CategoryKind; label: string }[] = [
@@ -40,23 +41,12 @@ export function CategorySheet({
 
   return (
     <Sheet open={open} onClose={onClose} label="Choose a category">
-      <div className="flex gap-2 px-5 pt-4 font-sans">
-        {TABS.map((tab) => {
-          const active = tab.key === kind
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setKind(tab.key)}
-              className="rounded-[3px] px-3 py-[5px] text-[11.5px]"
-              style={{
-                border: `1px solid ${active ? 'var(--color-accent)' : 'var(--color-line)'}`,
-                color: active ? 'var(--color-accent)' : 'var(--color-ink-muted)',
-              }}
-            >
-              {tab.label}
-            </button>
-          )
-        })}
+      <div className="flex gap-2 px-5 pt-4">
+        {TABS.map((tab) => (
+          <Pill key={tab.key} active={tab.key === kind} onClick={() => setKind(tab.key)}>
+            {tab.label}
+          </Pill>
+        ))}
       </div>
 
       <label
