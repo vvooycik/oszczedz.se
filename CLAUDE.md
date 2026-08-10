@@ -238,6 +238,14 @@ status bar; iOS paints that strip, so `applyTheme` rewrites
 other place besides the app icon where a colour leaves the token system, which
 is why `theme.ts` carries an `oklch()` → hex conversion.
 
+Confirmed on the device: with `default` the reported top inset drops from 62 to
+0, the web view moves to screen y 62…956, and the tab bar reaches the edge —
+`innerHeight` stays 894 either way, so it is the *position* that changes, not
+the size. **Changing that meta needs the app deleted from the home screen and
+re-added**; iOS bakes the status-bar style into the bookmark at install, so a
+force-quit reloads the page and the JS but keeps the old value. Budget for that
+when touching anything in the standalone metadata.
+
 The app frame takes its height from `useViewportHeight` (measured
 `window.innerHeight`, `100svh` as the first-paint fallback), never from `100dvh`
 or from stretching a fixed box to `bottom: 0` — the dynamic unit is stale on a

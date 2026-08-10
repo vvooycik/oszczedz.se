@@ -1,7 +1,6 @@
 import { Link } from 'react-router'
 import { ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { ViewportProbe } from '@/app/ViewportProbe'
 
 export function MoreScreen() {
   return (
@@ -31,8 +30,6 @@ export function MoreScreen() {
           <ChevronRight size={18} strokeWidth={1.5} className="text-ink-dim" />
         </Link>
       </div>
-
-      <ViewportProbe />
 
       <button
         onClick={() => supabase.auth.signOut()}
