@@ -173,8 +173,11 @@ back deterministically rather than rendering an empty string or nothing.
 Wealth chart draws — in a fixed gold `#c99a4e` on a fixed `#1a1917` ground. It is
 deliberately *not* bound to `--color-accent`: the icon is baked into the home screen
 at install time and cannot follow a user who later picks Copper or Plum. Sources are
-in that handoff folder; `public/favicon.svg` carries the simplified small variant
-(no prior-year series, no terminal dot) because below ~40px those collapse into noise.
+in that handoff folder; `public/favicon.svg` carries the **full** mark, geometry
+identical to the app icon, so the two read as one thing. The handoff assigns the
+simplified small variant to the favicon, but that threshold assumed 1× rendering — a
+16px favicon slot is 32 device pixels on a retina display, where the prior-year series
+and the terminal dot are still legible. Checked at 16/32/48 before deviating.
 
 ## Build and deploy
 
