@@ -94,6 +94,28 @@ export const useRecentTransactions = (limit = 100) =>
       ),
   })
 
+/**
+ * The first day with any activity — the left edge of the All time range.
+ *
+ * Its own query rather than a `min()` over the feed's rows: that list is the
+ * most recent 100, so the earliest date in it is a couple of months back, not
+ * the start of the history.
+ */
+export const useEarliestTransactionDate = () =>
+  useQuery({
+    queryKey: ['transactions', 'earliest'],
+    queryFn: async (): Promise<string | null> => {
+      const rows = unwrap<{ date: string }[]>(
+        await supabase
+          .from('transactions')
+          .select('date')
+          .order('date', { ascending: true })
+          .limit(1),
+      )
+      return rows[0]?.date ?? null
+    },
+  })
+
 export const useTransaction = (id: string | undefined) =>
   useQuery({
     queryKey: ['transactions', 'one', id],
@@ -135,9 +157,15 @@ export const useMonthlyTotals = (currency: string) =>
   })
 
 /** Running total wealth per day. Aggregated in Postgres, one row per day. */
-export const useBalanceHistory = (currency: string, from: string, to: string) =>
+export const useBalanceHistory = (
+  currency: string,
+  from: string,
+  to: string,
+  enabled = true,
+) =>
   useQuery({
     queryKey: ['balance_history', currency, from, to],
+    enabled,
     queryFn: async (): Promise<{ day: string; balance: number }[]> =>
       unwrap(
         await supabase.rpc('balance_history', {

@@ -179,13 +179,50 @@ colours arrive from the database by name), so they would resolve to an empty str
 and ECharts cannot drift. Never hardcode a colour in a chart config. Values are read
 on demand, never cached — mode, accent and tint all change at runtime.
 
+**Tokens arrive as `oklch()` and are converted to hex on the way out of
+`tokens.ts`.** Custom properties are substituted, not computed, so
+`getComputedStyle` hands back the literal index.css declared — `var()` inside it
+resolved, the colour function not. Canvas understands oklch, which is why flat
+fills never showed a problem, but **zrender parses a colour before it can
+interpolate one and its parser has no oklch**: it warns `illegal color`, falls
+back to black, and anything building a gradient then throws in `lerp` on the
+undefined parse. That is a latent trap for any future chart work — a gradient, a
+`visualMap`, an animated colour transition all hit it. `read()` converts at the
+boundary so no chart has to remember.
+
 **Overriding the accent for a subtree** (the add and detail screens take their accent
 from the selected category) means setting `--color-accent`, *not* `--c-accent`. A
 custom property's `var()` references resolve against the element that **declares**
 it, so redefining `--c-accent` deeper never reaches `--color-accent` up on `:root`.
 
 Fixed regardless of accent: **expense and income are separated by lightness, not
-hue** — red vs green at equal lightness is unreadable for ~8% of men. The six
+hue** — red vs green at equal lightness is unreadable for ~8% of men. Those two
+tokens also carry the sign in charts: the Total Wealth line and its fill are
+painted by `--color-expense` below zero and `--color-income` above it, not by the
+accent, because a loan can outweigh the accounts and the sign is worth more there
+than the theme. It is done with a piecewise `visualMap` on the y dimension, which
+ECharts compiles into one gradient with hard stops at the crossing, so the line
+and the area split together. Three things that are load-bearing:
+
+- **Pieces must be bounded on both sides.** `{ lt: 0 }` has no coordinate to
+  place and throws inside the line renderer rather than defaulting. Pad past the
+  data extent to cover the headroom `scale: true` adds.
+- **An empty series must omit the `visualMap` entirely** — no pieces means no
+  stops in range, same crash.
+- **The end dot is its own series.** visualMap overrides a symbol's `color` *and*
+  `borderColor` on any series it touches, so leaving the marker on the balance
+  series repaints it. `seriesIndex` keeps it off the marker.
+
+Registration is `VisualMapPiecewiseComponent`, not `VisualMapComponent` — the
+latter drags the continuous variant in too, 4 kB gzipped for nothing.
+
+The prior-period overlay sets `symbol: 'none'`. A line series still emphasises a
+symbol on hover when `showSymbol` is false, and `symbolSize: 0` does not stop it
+either — emphasis rescales from its own size. It drew that dot in **ECharts'
+default palette blue**, because the series sets `lineStyle.color` but no
+`itemStyle`, so the symbol fell through to the built-in palette. Any series whose
+colour is set only via `lineStyle` has that hole; the hover dot belongs to the
+series being read, not to the ghost behind it. The six
 category slots (`moss, ochre, slate, terracotta, teal, plum`) are assigned in a fixed
 order and double as the categorical chart palette; never cycle past the end.
 
@@ -235,6 +272,13 @@ that budget rather than replacing it.
    (budget context, six-month history, transfer variant), and Appearance (mode,
    accent, tint) persisted cache-aside — localStorage first, `user_settings` as the
    durable copy read only on a cold cache.
+   The feed's ranges are 7D / 1M / 1Y / All time. **All time takes its left edge
+   from `useEarliestTransactionDate`, not from the feed's own rows** — that list
+   is the most recent 100, so deriving a start date from it silently clamped the
+   range to the last few weeks, narrower than 1M. Compare goes inert on All time:
+   nothing precedes the first transaction, so that window is flat at the opening
+   balance for its whole length, and drawing it costs a thousand rows to say
+   nothing.
 3. **Categories CRUD — DONE.** `/categories` from More: list by kind with real
    transaction counts, a 72% editor sheet (name, kind, colour, glyph, all
    re-tinting live), and deletion that reassigns the category's transactions

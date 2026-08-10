@@ -68,12 +68,19 @@ export const resolveMode = (mode: Mode): 'light' | 'dark' =>
 /**
  * oklch() → `#rrggbb`.
  *
- * The one place a colour has to leave the CSS custom-property system: iOS reads
- * `<meta name="theme-color">` to paint the status bar strip, and a meta tag
- * resolves neither `var()` nor, dependably, `oklch()`. Everything else must keep
- * going through the tokens.
+ * Two consumers need a colour outside the CSS custom-property system, both
+ * because something downstream cannot resolve `oklch()`:
+ *
+ * - iOS reads `<meta name="theme-color">` to paint the status bar strip, and a
+ *   meta tag resolves neither `var()` nor, dependably, `oklch()`.
+ * - zrender's colour parser predates oklch. Canvas understands it, so a flat
+ *   fill happens to work, but anything that *interpolates* — a gradient, which
+ *   is what a piecewise `visualMap` compiles to — parses the string first, gets
+ *   undefined, and throws. See `parseColor` in tokens.ts.
+ *
+ * Everything else must keep going through the tokens.
  */
-function oklchToHex(lightness: number, chroma: number, hueDeg: number): string {
+export function oklchToHex(lightness: number, chroma: number, hueDeg: number): string {
   const h = (hueDeg * Math.PI) / 180
   const a = chroma * Math.cos(h)
   const b = chroma * Math.sin(h)

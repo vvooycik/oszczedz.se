@@ -6,6 +6,7 @@ import {
   useBalanceHistory,
   useBudgetProgress,
   useCategories,
+  useEarliestTransactionDate,
   useRecentTransactions,
   useWalletBalances,
   useWallets,
@@ -22,7 +23,15 @@ const BalanceChart = lazy(() =>
   import('@/charts/BalanceChart').then((m) => ({ default: m.BalanceChart })),
 )
 
-type Range = '7D' | '1M' | '1Y' | 'MAX'
+type Range = '7D' | '1M' | '1Y' | 'ALL'
+
+/** The short codes read as units; the whole history does not, so it gets words. */
+const RANGE_LABEL: Record<Range, string> = {
+  '7D': '7D',
+  '1M': '1M',
+  '1Y': '1Y',
+  ALL: 'All time',
+}
 
 /**
  * A range and the comparable window immediately before it, so "compare" always
@@ -50,6 +59,10 @@ function rangeFor(range: Range, earliest: string) {
     to,
     priorFrom: addDays(from, -spanDays - 1),
     priorTo: addDays(from, -1),
+    // Nothing precedes the first transaction, so the window before All time is
+    // flat at the opening balance for its whole length — a straight ghost line
+    // across the chart, and a thousand rows fetched to draw it.
+    comparable: range !== 'ALL',
     label:
       range === '7D'
         ? 'vs previous 7 days'
@@ -70,16 +83,21 @@ export function FeedScreen() {
   const balances = useWalletBalances()
   const transactions = useRecentTransactions()
   const budgets = useBudgetProgress()
+  const firstDay = useEarliestTransactionDate()
 
-  const earliest = useMemo(() => {
-    const dates = (transactions.data ?? []).map((t) => t.date).sort()
-    return dates[0] ?? addMonths(today(), -12)
-  }, [transactions.data])
+  // Falls back to a year while the query is in flight, so All time opens on
+  // something rather than collapsing to a single day.
+  const earliest = firstDay.data ?? addMonths(today(), -12)
 
   const window = useMemo(() => rangeFor(range, earliest), [range, earliest])
 
   const current = useBalanceHistory(CURRENCY, window.from, window.to)
-  const prior = useBalanceHistory(CURRENCY, window.priorFrom, window.priorTo)
+  const prior = useBalanceHistory(
+    CURRENCY,
+    window.priorFrom,
+    window.priorTo,
+    window.comparable,
+  )
 
   const failed = [wallets, categories, balances, transactions, budgets].find(
     (q) => q.error,
@@ -145,13 +163,13 @@ export function FeedScreen() {
             current={series}
             prior={prior.data ?? []}
             currency={CURRENCY}
-            compare={compare}
+            compare={compare && window.comparable}
           />
         </Suspense>
       </div>
 
       <div className="flex gap-[7px] px-5 pt-3 font-sans">
-        {(['7D', '1M', '1Y', 'MAX'] as Range[]).map((r) => {
+        {(['7D', '1M', '1Y', 'ALL'] as Range[]).map((r) => {
           const active = r === range
           return (
             <button
@@ -163,19 +181,28 @@ export function FeedScreen() {
                 color: active ? 'var(--color-accent)' : 'var(--color-ink-muted)',
               }}
             >
-              {r}
+              {RANGE_LABEL[r]}
             </button>
           )
         })}
+        {/* Kept mounted but inert on All time: removing it would shift the row
+            every time the range changes. */}
         <button
           onClick={() => setCompare((c) => !c)}
+          disabled={!window.comparable}
           className="ml-auto rounded-[3px] px-3 py-[5px] text-[11.5px]"
           style={{
-            border: `1px solid ${compare ? 'var(--color-accent)' : 'var(--color-line)'}`,
-            color: compare ? 'var(--color-accent)' : 'var(--color-ink-muted)',
+            border: `1px solid ${
+              compare && window.comparable ? 'var(--color-accent)' : 'var(--color-line)'
+            }`,
+            color:
+              compare && window.comparable
+                ? 'var(--color-accent)'
+                : 'var(--color-ink-muted)',
+            opacity: window.comparable ? 1 : 0.4,
           }}
         >
-          Compare {compare ? '✓' : ''}
+          Compare {compare && window.comparable ? '✓' : ''}
         </button>
       </div>
 

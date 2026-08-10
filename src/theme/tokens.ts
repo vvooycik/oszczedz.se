@@ -8,8 +8,33 @@
  * touches Appearance.
  */
 
+import { oklchToHex } from './theme'
+
+/**
+ * `oklch(52% 0.09 145)` → `#rrggbb`, anything else through untouched.
+ *
+ * Custom properties are substituted, not computed: `getComputedStyle` hands back
+ * whatever literal index.css declared, so every token here arrives as an oklch
+ * string. Canvas paints those happily, which is why flat fills never showed a
+ * problem — but zrender parses a colour before it can interpolate one, and its
+ * parser has no oklch. A gradient built from oklch stops throws inside `lerp`.
+ *
+ * Converting at the read boundary keeps that from being something each chart has
+ * to remember. index.css stays the source of truth; this is only a change of
+ * notation.
+ */
+const OKLCH = /^oklch\(\s*([\d.]+)%\s+([\d.]+)\s+([\d.]+)\s*\)$/i
+
+const parseColor = (value: string): string => {
+  const m = OKLCH.exec(value)
+  if (!m) return value
+  return oklchToHex(Number(m[1]) / 100, Number(m[2]), Number(m[3]))
+}
+
 const read = (name: string): string =>
-  getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  parseColor(
+    getComputedStyle(document.documentElement).getPropertyValue(name).trim(),
+  )
 
 export const token = {
   bg: () => read('--color-bg'),

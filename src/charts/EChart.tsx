@@ -5,6 +5,7 @@ import {
   GridComponent,
   TooltipComponent,
   LegendComponent,
+  VisualMapPiecewiseComponent,
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { EChartsOption } from 'echarts'
@@ -18,6 +19,9 @@ echarts.use([
   GridComponent,
   TooltipComponent,
   LegendComponent,
+  // Splits a series by value rather than by series — how BalanceChart paints
+  // itself above and below zero.
+  VisualMapPiecewiseComponent,
   CanvasRenderer,
 ])
 
