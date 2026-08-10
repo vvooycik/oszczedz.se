@@ -1,8 +1,8 @@
 import { NavLink, useNavigate } from 'react-router'
-import { Ellipsis, List, Plus, Target, TrendingUp, Wallet } from 'lucide-react'
+import { Ellipsis, House, Plus, Target, TrendingUp, Wallet } from 'lucide-react'
 
 const TABS = [
-  { to: '/', label: 'Home', Icon: List, end: true },
+  { to: '/', label: 'Home', Icon: House, end: true },
   { to: '/wallets', label: 'Wallets', Icon: Wallet },
   { to: '/insights', label: 'Insights', Icon: TrendingUp },
   { to: '/budgets', label: 'Budgets', Icon: Target },

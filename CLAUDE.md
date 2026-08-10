@@ -25,8 +25,17 @@ six-month bars are hand-rolled SVG: at that size, with no axes or tooltip, a cha
 engine costs far more than the mark is worth — and there is one per row.
 
 Icons come from `src/lib/icons.ts`, which maps the kebab-case names stored in
-`glyph` columns onto explicitly imported Lucide components. Import icons there, never
-from the library index — Lucide ships ~1500 and the index pulls all of them.
+`glyph` columns onto explicitly imported Lucide components. Import icons there,
+never by indexing the library namespace — Lucide ships 2025 icons and that
+defeats tree-shaking, measured at **180 kB gzipped**, more than the entire
+initial bundle. Curated, the cost is ~105 bytes gzipped per icon, so the list can
+grow freely: adding 36 took it from 47 to 83 for +3.8 kB.
+
+If a fixed list ever stops being enough, `lucide-react/dynamic` reaches all 2025
+for a ~14 kB import map plus a request per icon rendered — at the price of async
+resolution, which shows up as pop-in on feed rows. Prefer growing the list.
+Watch for deprecated alias modules when adding names (`circle-help` is one, and
+re-exports `circle-question-mark`); they carry no icon data of their own.
 
 ## Environment
 
@@ -120,12 +129,27 @@ which goes over the Management API, touches only what the file touches, and need
 no Docker. (It may report a duplicate-key error after a long import: the request
 succeeded and was retried. Check the row counts before assuming it failed.)
 
-Known rough edge: the import wrote every category as `color = '#8A8A8A'`,
-`glyph = 'circle'` and every wallet as `color_scheme = 'neutral'`, none of which
-match the palette slots or `src/lib/icons.ts`, so all categories currently render
-through the deterministic fallback. The categories settings screen is how they
-get fixed: it normalises a row's colour and glyph on open, so saving writes a
-real slot back. Wallets still have no equivalent.
+The import wrote every category as `color = '#8A8A8A'`, `glyph = 'circle'` and
+every wallet as `color_scheme = 'neutral'`, none of which match the palette slots
+or `src/lib/icons.ts`, so every row rendered through the deterministic fallback.
+**Categories are fixed** — `supabase/seed/normalise_category_appearance.sql`
+(gitignored, like everything naming real categories) writes a glyph and a palette
+slot onto all 59, matched on `name + kind` because names repeat across kinds
+("Gifts", "Other" and "External transfer" each exist twice). It is idempotent and
+ends in a guard that raises if any row is left on a non-slot colour or on
+`circle`. The categories settings screen also normalises a row on open, which is
+how one-off edits stay consistent.
+
+Six slots for 59 categories means colours repeat by construction. The assignment
+keeps the **six highest-volume categories of each kind on six distinct slots** —
+the part of a breakdown chart that actually gets read — and lets the tail follow
+its domain. Glyph collisions mattered more than colour ones: an icon is the only
+thing telling two feed rows apart, so several picks exist to break a tie
+(`graduation-cap` for Education vs `book-open` for Books/Movies, `salad` for
+Dieta vs `utensils` for Food & Drink) rather than because they are the best fit
+in isolation.
+
+**Wallets still have no equivalent** — `color_scheme = 'neutral'` throughout.
 
 ## Types
 
