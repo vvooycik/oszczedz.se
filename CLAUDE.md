@@ -224,6 +224,13 @@ Resolved by the redesign: icons are Lucide; both light and dark grounds ship, ea
 with its own resolved palette; navigation is `react-router` with five tabs (needs
 `public/_redirects` for the Cloudflare SPA fallback).
 
+The app frame takes its height from `useViewportHeight` (measured
+`window.innerHeight`), not from `100dvh` or from stretching a fixed box to
+`bottom: 0`. iOS standalone breaks both: the dynamic unit is stale on a cold
+launch, and a `fixed inset-0` box is sized against a viewport that excludes the
+top safe-area inset, so the frame ends short of the screen by the height of the
+Dynamic Island. Never reintroduce either.
+
 Known gaps: `create_transfer` / `delete_transfer` still have no UI and have never
 been exercised — the category picker's Transfer tab is deliberately inert rather than
 creating a single-sided row that would look like spending. The detail screen's footer
