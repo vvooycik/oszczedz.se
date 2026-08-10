@@ -502,7 +502,12 @@ export type Database = {
     }
     Functions: {
       balance_history: {
-        Args: { p_currency: string; p_from: string; p_to: string }
+        Args: {
+          p_currency: string
+          p_from: string
+          p_max_points?: number
+          p_to: string
+        }
         Returns: {
           balance: number
           day: string

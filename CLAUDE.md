@@ -66,6 +66,7 @@ schema.
 
 1. **Money is `bigint` in minor units** (grosze/cents). Never floats, never decimals in app code. Format at the display layer only — `src/lib/money.ts`, nowhere else. In TypeScript it is an integer `number` behind a branded `Minor` type: PostgREST serialises `bigint` as a JSON number, exact to ~90 trillion PLN, and the brand is what stops major units (12.34) reaching a minor-unit parameter.
 2. **Balances are always derived, never stored.** Balance = `starting_balance + sum(transactions.amount)`. Use the `wallet_balances` view / SQL aggregation views for charts; the phone should fetch aggregates, not all raw rows.
+   **PostgREST caps every response at 1000 rows (`db-max-rows`) and enforces it by silently truncating** — no error, no thrown exception, just a short array that looks valid. A daily series over the full history is 1031 rows, so the feed's All time chart drew a right edge a month in the past while appearing perfectly well-formed. Any query whose row count can pass a thousand must aggregate, bucket or paginate; assume nothing about a result's completeness from the fact that it parsed.
 3. **Transaction `date` is `DATE`, not timestamptz.** A purchase belongs to a calendar day; no timezone math on it.
 4. **Amounts are signed:** negative = money leaves the wallet, positive = enters. Category `kind` is UX guidance only (it picks a default sign in the entry form), never the source of truth for direction.
 5. **Transfers are two transaction rows sharing `transfer_id`** (source negative, target positive). Created/deleted as a pair via `create_transfer(...)` / `delete_transfer(...)`, never as loose inserts. Transfer-linked rows are **excluded** from income/expense charts and from budgets.
@@ -103,7 +104,7 @@ Enforced outside the DDL:
 - Transfer pairing/balancing → `create_transfer(...)`, deletion via `delete_transfer(...)`
 - `wallet_balances` view — derived balance per wallet
 - `monthly_category_totals` view — pre-aggregated month/category/currency totals for charts, transfer legs excluded
-- `balance_history(currency, from, to)` — running total wealth per day, for the feed chart and its prior-period overlay
+- `balance_history(currency, from, to, max_points = 400)` — running total wealth per day, for the feed chart and its prior-period overlay. Thins to at most `max_points` rows by taking every Nth day, counting back from `to` so the final day always survives and keeping `from` unconditionally. Ranges shorter than `max_points` days are unaffected — the step collapses to 1.
 - `budget_progress` view — spend against each budget for the current period, applying the membership rules from the Budgets paragraph above
 - `wallet_monthly_net` view — net movement per wallet per month, accumulated client-side into sparklines and deltas
 - `category_usage` view — transaction count per category, for the settings list and its delete copy
