@@ -51,8 +51,17 @@ export const token = {
 }
 
 /**
- * Category slots, in the fixed assignment order. Also the categorical chart
- * palette — never cycle past the end; a seventh series folds into "Other".
+ * Category slots, in the fixed assignment order.
+ *
+ * The first six are the original set and stay first: they are the six most
+ * separated hues available, so anything that consumes the palette in order gets
+ * the most distinguishable colours before it reaches the rest.
+ *
+ * The last four fill the widest gaps left on the hue circle — olive between
+ * ochre and moss, sky between teal and slate, indigo between slate and plum,
+ * rose between plum and terracotta. They are new hues rather than lighter or
+ * darker takes on the first six: two tints of one hue are exactly what is hard
+ * to tell apart at the size these are drawn.
  */
 export const CATEGORY_COLORS = [
   'moss',
@@ -61,9 +70,21 @@ export const CATEGORY_COLORS = [
   'terracotta',
   'teal',
   'plum',
+  'olive',
+  'sky',
+  'indigo',
+  'rose',
 ] as const
 
 export type CategoryColor = (typeof CATEGORY_COLORS)[number]
+
+/**
+ * The categorical chart palette — the original six, in order, and never past
+ * the end; a seventh series folds into "Other". Deliberately not all of
+ * `CATEGORY_COLORS`: a chart wants maximum separation between adjacent series,
+ * which is what the first six are.
+ */
+export const CHART_COLORS = CATEGORY_COLORS.slice(0, 6)
 
 /**
  * The palette before the redesign used different slot names, and `color` is a
@@ -103,4 +124,4 @@ export const categoryColor = (name: string | null | undefined): string =>
   read(`--color-${resolveCategoryColor(name)}`)
 
 export const seriesPalette = (): string[] =>
-  CATEGORY_COLORS.map((c) => read(`--color-${c}`))
+  CHART_COLORS.map((c) => read(`--color-${c}`))

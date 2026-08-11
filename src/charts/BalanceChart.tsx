@@ -57,6 +57,23 @@ export function BalanceChart({
     // exists when comparing.
     const balanceIndex = compare && prior.length ? 1 : 0
 
+    // Evenly spaced label positions, both ends included. Four sits comfortably
+    // at 10px across a ~360px axis; five starts to touch on the narrowest
+    // phones once the year is in the string.
+    const TICK_COUNT = 4
+    const TICKS = new Set<number>()
+    for (let i = 0; i < TICK_COUNT && last >= 0; i++) {
+      TICKS.add(Math.round((i * last) / (TICK_COUNT - 1)))
+    }
+
+    // Points are not days once the series is thinned, so measure the span from
+    // the dates themselves rather than from how many of them came back.
+    const spanDays =
+      last > 0
+        ? (Date.parse(current[last]!.day) - Date.parse(current[0]!.day)) / 86_400_000
+        : 0
+    const dayScale = spanDays <= 45
+
     const values = current.map((p) => p.balance)
     const lo = values.length ? Math.min(...values) : 0
     const hi = values.length ? Math.max(...values) : 0
@@ -101,20 +118,39 @@ export function BalanceChart({
           const head = rows[0]
           if (!head) return ''
           const day = current[head.dataIndex as number]?.day
-          const lines = rows
-            .filter(
-              (r) =>
-                r.seriesName !== MARKER_SERIES &&
-                r.value !== null &&
-                r.value !== undefined,
+          const shown = rows.filter(
+            (r) =>
+              r.seriesName !== MARKER_SERIES &&
+              r.value !== null &&
+              r.value !== undefined,
+          )
+          const lines = shown.map(
+            (r) =>
+              `${r.seriesName}: <strong>${formatMoney(
+                asMinor(Number(r.value)),
+                currency,
+              )}</strong>`,
+          )
+
+          // Comparing two balances is only useful if you can read the gap, and
+          // subtracting six-figure grosze in your head is not reading it. Signed
+          // current − prior, so positive means better off than the prior period.
+          const valueOf = (name: string) =>
+            shown.find((r) => r.seriesName === name)?.value
+          const now = valueOf('Balance')
+          const then = valueOf('Prior period')
+          if (now != null && then != null) {
+            const diff = Number(now) - Number(then)
+            // formatMoney carries the currency and the pl-PL grouping; the sign
+            // goes on separately so a gain reads "+" rather than bare, and a
+            // loss gets U+2212 rather than a hyphen.
+            const body = formatMoney(asMinor(Math.abs(diff)), currency)
+            lines.push(
+              `Difference: <strong style="color:${diff < 0 ? below : above}">${
+                diff < 0 ? '−' : '+'
+              }${body}</strong>`,
             )
-            .map(
-              (r) =>
-                `${r.seriesName}: <strong>${formatMoney(
-                  asMinor(Number(r.value)),
-                  currency,
-                )}</strong>`,
-            )
+          }
           return `${day ? formatDayHeader(day) : ''}<br/>${lines.join('<br/>')}`
         },
       },
@@ -124,15 +160,25 @@ export function BalanceChart({
         data: current.map((p) => p.day),
         axisLine: { show: false },
         axisTick: { show: false },
-        // The design labels only the ends of the range.
         axisLabel: {
           color: token.inkFaint(),
           fontFamily: 'IBM Plex Sans',
           fontSize: 10,
           showMinLabel: true,
           showMaxLabel: true,
-          interval: Math.max(current.length - 2, 1),
-          formatter: (value: string) => value.slice(0, 7),
+          // A predicate rather than a stride: a stride counts from index 0 and
+          // lands wherever it lands, so the right-hand label drifts off the last
+          // point. These indices are chosen to include both ends by
+          // construction.
+          interval: (index: number) => TICKS.has(index),
+          // The value is an ISO 'YYYY-MM-DD'; the axis reads it back in the
+          // local dotted order. Month alone repeats itself on a short range —
+          // four labels reading "08.2026" say nothing — so below the threshold
+          // the day is what varies and what gets shown.
+          formatter: (value: string) =>
+            dayScale
+              ? `${value.slice(8, 10)}.${value.slice(5, 7)}`
+              : `${value.slice(5, 7)}.${value.slice(0, 4)}`,
         },
       },
       yAxis: {

@@ -223,9 +223,33 @@ either — emphasis rescales from its own size. It drew that dot in **ECharts'
 default palette blue**, because the series sets `lineStyle.color` but no
 `itemStyle`, so the symbol fell through to the built-in palette. Any series whose
 colour is set only via `lineStyle` has that hole; the hover dot belongs to the
-series being read, not to the ghost behind it. The six
-category slots (`moss, ochre, slate, terracotta, teal, plum`) are assigned in a fixed
-order and double as the categorical chart palette; never cycle past the end.
+series being read, not to the ghost behind it.
+
+**Ten category slots**, in a fixed order: `moss, ochre, slate, terracotta, teal,
+plum` first, then `olive, sky, indigo, rose`. The last four are new *hues* placed
+in the widest gaps of the circle, not lighter and darker takes on the first six —
+two tints of one hue are precisely what cannot be told apart at the size a
+category mark is drawn. Four was the limit: a fifth would have forced some pair
+below 30° of hue separation, and the tightest existing pair (moss↔teal, 20°) is
+already the hard one to read.
+
+`CHART_COLORS` — the **first six only** — is the categorical chart palette, and
+still must not cycle past its end; a seventh series folds into "Other". A chart
+wants maximum separation between adjacent series, which is what those six are.
+`CATEGORY_COLORS` (all ten) is for the picker.
+
+**Every slot must clear 4.5:1 against the ground in both modes**, because the
+category mark is a filled disc with the glyph knocked out in `--color-bg` — the
+contrast *is* the glyph. That is what caps the palette, not taste: in light mode
+the existing slots sit within ~1% lightness of the AA ceiling, so there is no
+headroom to brighten anything, and sRGB will not give cyan or yellow-green much
+chroma at that lightness. The knockout is `--color-bg` rather than white
+precisely because the slots invert between modes (~50% lightness on the light
+ground, ~70% on the dark one); a fixed white drops to 2.2:1 in dark mode.
+
+Anything `dashed` stays outlined instead of filled — a dash needs empty space
+behind it to read as one, which also leaves transfers as the only non-solid mark
+in the feed.
 
 `glyph` and `color` columns are free text, so `resolveCategoryColor` / `iconFor` fall
 back deterministically rather than rendering an empty string or nothing.

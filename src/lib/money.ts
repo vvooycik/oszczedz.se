@@ -62,6 +62,28 @@ const formatterFor = (currency: string): Intl.NumberFormat => {
 export const formatMoney = (amount: Minor, currency: string): string =>
   formatterFor(currency).format(amount / 100)
 
+const symbols = new Map<string, string>()
+
+/**
+ * The currency's display symbol on its own: 'PLN' → 'zł'.
+ *
+ * For places that need the sign glyph and the explicit "+" of `formatSigned`
+ * and so cannot use `formatMoney`, which formats the number its own way. Taken
+ * from Intl rather than a lookup table so an unknown code degrades to its own
+ * name instead of rendering nothing.
+ */
+export function currencySymbol(currency: string): string {
+  let s = symbols.get(currency)
+  if (s === undefined) {
+    s =
+      formatterFor(currency)
+        .formatToParts(0)
+        .find((p) => p.type === 'currency')?.value ?? currency
+    symbols.set(currency, s)
+  }
+  return s
+}
+
 /** Bare number without the currency symbol — for dense chart axes. */
 export const formatMoneyShort = (amount: Minor): string =>
   new Intl.NumberFormat('pl-PL', {

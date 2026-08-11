@@ -113,7 +113,10 @@ export function CategoryEditorSheet({
             </div>
           </div>
 
-          <div className="flex flex-none items-center justify-center gap-[14px] px-5 pb-4">
+          {/* Wraps: ten swatches at the old 14px gap overrun a 360px screen by
+              a few pixels, and the row is centred so a spill reads as a grid
+              rather than a ragged line. */}
+          <div className="flex flex-none flex-wrap items-center justify-center gap-x-3 gap-y-2.5 px-5 pb-4">
             {CATEGORY_COLORS.map((color) => {
               const active = draft.color === color
               return (

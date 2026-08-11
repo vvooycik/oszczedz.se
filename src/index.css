@@ -49,6 +49,14 @@
   --c-terracotta: oklch(50% 0.12 25);
   --c-teal: oklch(52% 0.09 165);
   --c-plum: oklch(48% 0.09 310);
+
+  /* Second wave, placed in the four widest gaps of the hue circle rather than
+     shaded off the first six. Chroma is whatever sRGB allows at this lightness:
+     cyan cannot hold 0.13 down here, yellow-green cannot either. */
+  --c-olive: oklch(54% 0.11 97);
+  --c-sky: oklch(51% 0.085 195);
+  --c-indigo: oklch(51% 0.13 265);
+  --c-rose: oklch(51% 0.13 348);
 }
 
 /* -------------------------------------------------------------------- dark */
@@ -75,6 +83,11 @@
   --c-terracotta: oklch(68% 0.12 25);
   --c-teal: oklch(74% 0.1 165);
   --c-plum: oklch(66% 0.09 310);
+
+  --c-olive: oklch(70% 0.13 97);
+  --c-sky: oklch(74% 0.125 195);
+  --c-indigo: oklch(70% 0.13 265);
+  --c-rose: oklch(70% 0.13 348);
 }
 
 @theme static {
@@ -96,14 +109,18 @@
   --color-expense: var(--c-expense);
   --color-income: var(--c-income);
 
-  /* Category slots, assigned in this fixed order. Doubles as the categorical
-     chart palette; do not cycle past the end. */
+  /* Category slots, assigned in this fixed order. The first six double as the
+     categorical chart palette; do not cycle past the end. */
   --color-moss: var(--c-moss);
   --color-ochre: var(--c-ochre);
   --color-slate: var(--c-slate);
   --color-terracotta: var(--c-terracotta);
   --color-teal: var(--c-teal);
   --color-plum: var(--c-plum);
+  --color-olive: var(--c-olive);
+  --color-sky: var(--c-sky);
+  --color-indigo: var(--c-indigo);
+  --color-rose: var(--c-rose);
 
   --font-serif: 'Spectral', Georgia, serif;
   --font-sans: 'IBM Plex Sans', system-ui, sans-serif;

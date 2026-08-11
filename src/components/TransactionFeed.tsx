@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import { CategoryGlyph } from './CategoryGlyph'
-import { asMinor, formatAmount, formatSigned } from '@/lib/money'
+import { asMinor, currencySymbol, formatAmount, formatSigned } from '@/lib/money'
 import { formatDayHeader } from '@/lib/dates'
 import type { Category, Transaction, Wallet } from '@/lib/db'
 
@@ -67,8 +67,11 @@ function Row({
             Transfer · not counted as spending
           </div>
         </div>
+        {/* The target leg, so the target wallet's currency — a cross-currency
+            transfer has a different amount on each side. */}
         <div className="tnum flex-none text-[14px] text-ink-faint">
           {formatAmount(asMinor(entry.in.amount))}
+          {to && ` ${currencySymbol(to.currency)}`}
         </div>
       </Link>
     )
@@ -94,6 +97,7 @@ function Row({
         style={{ color: income ? 'var(--color-income)' : 'var(--color-expense)' }}
       >
         {formatSigned(asMinor(tx.amount))}
+        {wallet && ` ${currencySymbol(wallet.currency)}`}
       </div>
     </Link>
   )
@@ -133,9 +137,18 @@ export function TransactionFeed({
         const rows = byDay.get(day)!
         // Transfers move money between own wallets, so they net to zero and are
         // left out of the day total rather than double-counted.
-        const net = rows
-          .filter((t) => !t.transfer_id)
-          .reduce((sum, t) => sum + t.amount, 0)
+        const counted = rows.filter((t) => !t.transfer_id)
+        const net = counted.reduce((sum, t) => sum + t.amount, 0)
+        // A total only carries a currency if every row it sums shares one —
+        // otherwise the figure is zloty added to euro and labelling it either
+        // way would be a lie. Every wallet is PLN today, so this is a guard
+        // against a future one rather than a case that fires.
+        const netCurrencies = new Set(
+          counted
+            .map((t) => walletMap.get(t.wallet_id)?.currency)
+            .filter((c): c is string => Boolean(c)),
+        )
+        const netCurrency = netCurrencies.size === 1 ? [...netCurrencies][0] : null
         const entries = collapseTransfers(rows)
 
         return (
@@ -150,6 +163,7 @@ export function TransactionFeed({
                 }}
               >
                 {formatSigned(asMinor(net), { plus: net > 0 })}
+                {netCurrency && ` ${currencySymbol(netCurrency)}`}
               </span>
             </div>
 
