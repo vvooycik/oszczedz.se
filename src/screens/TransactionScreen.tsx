@@ -121,7 +121,16 @@ export function TransactionScreen() {
 
   const onDelete = async () => {
     await remove.mutateAsync(row)
-    navigate('/')
+    // Back where you came from, not home: a row opened from a wallet belongs to
+    // that wallet's feed, and being thrown to the home feed loses the place you
+    // were working in. `useGoBack` still falls back to '/' when this screen is
+    // the first history entry — a deep link or a cold launch — where there is no
+    // "came from" to return to.
+    //
+    // Safe after a delete because the list behind is query-driven: the mutation
+    // invalidates ['transactions'], which every feed's key sits under, so the
+    // page it returns to has already dropped the row.
+    goBack()
   }
 
   return (
@@ -159,7 +168,10 @@ export function TransactionScreen() {
                 date: today(),
                 note: row.note,
               })
-              navigate('/')
+              // Same rule as delete: back where you came from. The copy is dated
+              // today and keeps this row's wallet, so a wallet feed shows it just
+              // as the home feed would.
+              goBack()
             }}
           >
             <Copy size={19} strokeWidth={1.5} />

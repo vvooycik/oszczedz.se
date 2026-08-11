@@ -115,6 +115,13 @@ export type Database = {
             foreignKeyName: "budget_wallets_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
+            referencedRelation: "loan_progress"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "budget_wallets_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
             referencedRelation: "wallet_balances"
             referencedColumns: ["wallet_id"]
           },
@@ -289,6 +296,13 @@ export type Database = {
             foreignKeyName: "transactions_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
+            referencedRelation: "loan_progress"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
             referencedRelation: "wallet_balances"
             referencedColumns: ["wallet_id"]
           },
@@ -335,14 +349,17 @@ export type Database = {
       wallet_categories: {
         Row: {
           category_id: string
+          position: number
           wallet_id: string
         }
         Insert: {
           category_id: string
+          position?: number
           wallet_id: string
         }
         Update: {
           category_id?: string
+          position?: number
           wallet_id?: string
         }
         Relationships: [
@@ -359,6 +376,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "category_usage"
             referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "wallet_categories_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "loan_progress"
+            referencedColumns: ["wallet_id"]
           },
           {
             foreignKeyName: "wallet_categories_wallet_id_fkey"
@@ -385,6 +409,7 @@ export type Database = {
       }
       wallets: {
         Row: {
+          archived_at: string | null
           color_scheme: string
           created_at: string
           credit_limit: number | null
@@ -399,6 +424,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          archived_at?: string | null
           color_scheme: string
           created_at?: string
           credit_limit?: number | null
@@ -413,6 +439,7 @@ export type Database = {
           user_id?: string
         }
         Update: {
+          archived_at?: string | null
           color_scheme?: string
           created_at?: string
           credit_limit?: number | null
@@ -450,6 +477,15 @@ export type Database = {
           category_id: string | null
           transaction_count: number | null
           user_id: string | null
+        }
+        Relationships: []
+      }
+      loan_progress: {
+        Row: {
+          installment_count: number | null
+          paid_count: number | null
+          user_id: string | null
+          wallet_id: string | null
         }
         Relationships: []
       }
@@ -501,6 +537,7 @@ export type Database = {
       }
     }
     Functions: {
+      archive_wallet: { Args: { p_wallet_id: string }; Returns: undefined }
       balance_history: {
         Args: {
           p_currency: string
@@ -530,6 +567,7 @@ export type Database = {
         Returns: undefined
       }
       delete_transfer: { Args: { p_transfer_id: string }; Returns: undefined }
+      restore_wallet: { Args: { p_wallet_id: string }; Returns: undefined }
     }
     Enums: {
       budget_period: "monthly"

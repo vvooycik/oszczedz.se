@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router'
+import { NavLink, useLocation, useNavigate } from 'react-router'
 import { Ellipsis, House, Plus, Target, TrendingUp, Wallet } from 'lucide-react'
 
 const TABS = [
@@ -10,6 +10,22 @@ const TABS = [
 ]
 
 /**
+ * What the floating button makes, per tab.
+ *
+ * The button stays in one place and keeps one shape; only its destination
+ * moves. A screen that is about wallets has no use for a transaction shortcut,
+ * and swapping the target is cheaper than teaching every screen to draw its own
+ * button in the same spot and hoping they agree — which is how the wallets
+ * screen ended up with a bordered "Add a wallet" below the fold while a
+ * transaction FAB floated over it.
+ */
+const CREATES: Record<string, { label: string; to: string }> = {
+  '/wallets': { label: 'New wallet', to: '/wallets/new' },
+}
+
+const DEFAULT_CREATE = { label: 'Add transaction', to: '/add' }
+
+/**
  * Five evenly spaced tabs with the add button floating above them.
  *
  * The FAB is deliberately not a bar child: five tabs leave no natural centre
@@ -17,12 +33,14 @@ const TABS = [
  */
 export function TabBar() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const create = CREATES[pathname] ?? DEFAULT_CREATE
 
   return (
     <>
       <button
-        aria-label="Add transaction"
-        onClick={() => navigate('/add')}
+        aria-label={create.label}
+        onClick={() => navigate(create.to)}
         className="absolute left-1/2 z-20 flex size-14 -translate-x-1/2 items-center justify-center rounded-full bg-bg text-accent"
         style={{
           bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))',

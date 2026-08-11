@@ -24,6 +24,17 @@ Not everything is an ECharts instance. Sparklines, budget rings and the small
 six-month bars are hand-rolled SVG: at that size, with no axes or tooltip, a chart
 engine costs far more than the mark is worth — and there is one per row.
 
+The wallet sparkline is **painted by sign, not by the wallet's colour** — the
+same expense-below-zero / income-above-zero rule the Total Wealth chart follows.
+It gets there with a `linearGradient` in `userSpaceOnUse` carrying two stops at
+the *same* offset, which is a hard edge rather than a blend: the SVG equivalent
+of what the piecewise `visualMap` compiles to. Two things it must keep doing —
+place the stop at the y the data puts zero at (hence user space, not the default
+bounding box), and **omit the gradient entirely when the series never crosses
+zero**, because the crossing it would be built from is off the scale. Colours go
+in as `var()`, not resolved values: this is DOM rather than canvas, so the mark
+re-tints itself on a mode change for free.
+
 Icons come from `src/lib/icons.ts`, which maps the kebab-case names stored in
 `glyph` columns onto explicitly imported Lucide components. Import icons there,
 never by indexing the library namespace — Lucide ships 2025 icons and that
@@ -81,11 +92,34 @@ Wallet types (single `wallets` table + `wallet_type` enum, NOT four tables):
 - `account` — regular account
 - `savings` — savings account
 - `credit_card` — behaves like an account with negative balance; has `credit_limit`; UI shows remaining = `credit_limit + balance` (e.g. "2000 zł remaining" instead of "−18 000 zł")
-- `loan` — starts at 0, goes negative via a transfer that credits a regular account; `interest_rate` and `installment_count` are informational metadata only, no logic uses them
+- `loan` — goes negative and is repaid back towards 0; `interest_rate` is informational metadata only, no logic uses it. **`installment_count` is read** — see `loan_progress` below — but still never written after creation
+
+  Two ways in, and the creation screen picks the second. A loan **taken now**
+  can open at 0 and go negative via a transfer that credits a regular account —
+  that models the money arriving. A loan **already being repaid** has no such
+  event to record, so `/wallets/new` asks for the total to repay and stores it
+  as a **negative `starting_balance`**; each repayment is then a transfer in,
+  and the derived balance is what is left. Nothing new is stored either way —
+  invariant 2 holds because `starting_balance` was always part of the
+  derivation. "Total to repay" is taken at face value: if it includes interest,
+  the wallet carries interest, because no schedule is modelled.
 
 Type-specific fields are nullable columns guarded by CHECK constraints (not JSONB — revisit only if type-specific fields multiply significantly).
 
-Wallet↔Category M2M (`wallet_categories`) filters the category picker per wallet. **Empty set = all categories allowed.** UX-only; DB accepts any category on any wallet.
+Wallet↔Category M2M (`wallet_categories`) filters **and orders** the category
+picker per wallet. **Empty set = all categories allowed**, in name order — a
+wallet opts into a set, and most never need one, so `[]` means "no opinion" and
+never "offers nothing". UX-only; DB accepts any category on any wallet.
+
+`position` (integer, on the join) is the order the picker draws them in. It sits
+on the pairing rather than on `categories` because it is a fact about the pair:
+groceries lead on the everyday account and are meaningless on the loan, and a
+single global order could not say both. The client always writes dense positions
+from zero, so ties do not arise from this app.
+
+Consequence worth remembering: **the set both filters and sorts**, so ordering a
+wallet's categories means selecting them. Wanting the order without the filter
+means selecting all of them — which is a coherent thing to do, not a workaround.
 
 Budgets: limit on expenses per period. A transaction counts against a budget iff: it is an expense AND not part of a transfer AND its category ∈ `budget_categories` (empty = any) AND its wallet ∈ `budget_wallets` (empty = any) AND its wallet's currency = budget's currency. "Reset" is not stored — it is just grouping by calendar period in queries.
 
@@ -108,6 +142,24 @@ Enforced outside the DDL:
 - `budget_progress` view — spend against each budget for the current period, applying the membership rules from the Budgets paragraph above
 - `wallet_monthly_net` view — net movement per wallet per month, accumulated client-side into sparklines and deltas
 - `category_usage` view — transaction count per category, for the settings list and its delete copy
+- `loan_progress` view — per loan wallet, its `installment_count` and how many
+  repayments have landed. **Installments left are counted, never decremented.**
+  A repayment is a transaction on the loan wallet that is *part of a transfer*
+  and *positive* — invariant 4 makes positive "money enters", and for a wallet
+  that opens negative and is repaid towards zero, that is the repayment. A loose
+  positive row is deliberately not counted: repaying a loan takes money out of
+  another wallet, so it is a transfer, and a single-sided row would mean the
+  money came from nowhere.
+  A trigger decrementing the column would be the stored-balance mistake again
+  (invariant 2): it would have to be un-decremented by `delete_transfer`, and
+  could not be right about a backdated repayment. The count is correct at every
+  moment by construction, and deleting a repayment puts the installment back
+  with no code at all.
+  Two consequences to keep in mind. The count is over **all history**, not since
+  the number was set — a loan imported with years of repayments already shows
+  them all as paid. And `installment_count` is nullable, so a loan without one
+  has a number repaid and nothing to subtract it from; the wallets row falls
+  back to the ordinary sparkline rather than inventing a total.
 - `useLastUsedWallet` — the wallet a new entry starts on, ordered by `created_at`
   (the wallet you were just working in; a backdated entry is still the one you
   last logged), then **`amount desc`**. That second sort is what resolves a
@@ -157,7 +209,9 @@ thing telling two feed rows apart, so several picks exist to break a tie
 Dieta vs `utensils` for Food & Drink) rather than because they are the best fit
 in isolation.
 
-**Wallets still have no equivalent** — `color_scheme = 'neutral'` throughout.
+**Wallets still have no equivalent** — the seven imported ones are
+`color_scheme = 'neutral'` throughout, and there is no edit screen to fix them.
+Only wallets made through `/wallets/new` carry a real palette slot.
 
 ## Types
 
@@ -255,8 +309,20 @@ precisely because the slots invert between modes (~50% lightness on the light
 ground, ~70% on the dark one); a fixed white drops to 2.2:1 in dark mode.
 
 Anything `dashed` stays outlined instead of filled — a dash needs empty space
-behind it to read as one, which also leaves transfers as the only non-solid mark
-in the feed.
+behind it to read as one.
+
+**A dashed outline is the feed's mark for "not a purchase."** Transfers wear it
+and so do balance adjustments: both are real movement that nobody chose to
+spend. They stay apart by their icon — an arrow against the adjustment's own
+glyph — rather than by one of them being solid, so the distinction the dash
+carries is *kind of row*, not *which special case*.
+
+`CategoryGlyph` keeps the ring and the ink as **separate axes**: `dashed` is the
+outline, `neutral` is the ink-dim tint, and both default to following `transfer`
+so single-flag calls are unchanged. The categories settings screen takes `dashed`
+alone — there the glyph and colour are the thing being edited, and neutralising
+them would leave the picker with nothing to show and every transfer row
+identical.
 
 `glyph` and `color` columns are free text, so `resolveCategoryColor` / `iconFor` fall
 back deterministically rather than rendering an empty string or nothing.
@@ -351,10 +417,209 @@ that budget rather than replacing it.
    the remainder (100 zł three ways is three shares of 33,33, losing one), and
    dividing by zero leaves the total alone rather than producing an infinity
    that would have to be caught downstream.
-6. **Next:** wallets CRUD (the "Add a wallet" button is inert), budgets CRUD — the
-   feed rings stay empty until a budget can be created — a real transfer flow, and
-   the Insights screen.
-7. Deferred by explicit decision: split transactions, FX conversion in charts
+6. **Creating a wallet — DONE.** "Add a wallet" goes to `/wallets/new`: name,
+   type, colour, and the fields the type actually needs.
+   **One balance field, three labels and three sign rules** — "Opening balance"
+   for an account or savings (signed, so an overdrawn account can be entered),
+   "Owed right now" for a card and "Total to repay" for a loan, both negated on
+   the way in. Debt is a negative balance in this app, so the alternative was
+   three fields that all wrote the same column.
+   The screen **nulls the type-specific columns it is not using** rather than
+   trusting the form to have cleared them: both CHECK constraints are two-way
+   (`credit_limit` present iff `credit_card`, loan columns null off a loan), so
+   a type switched after typing would otherwise carry a stale field into the
+   insert and fail on the constraint.
+   Two fields are deliberately absent. **Glyph** is the type's, from
+   `src/lib/wallets.ts`, so a picker would be a decision with nowhere to show.
+   **Currency** takes the column default, since one currency is what every
+   screen filters on today.
+   That map is also where the **wallets list** gets each row's mark, and it
+   reads the row's `type` rather than its `glyph` column on purpose: `glyph` is
+   free text and the legacy import wrote `'wallet'` into all seven, so trusting
+   it would draw the same icon on an account, a savings account, a card and a
+   loan — the one distinction the mark exists to make.
+7. **Per-wallet category sets — DONE.** A Categories section on `/wallets/new`,
+   and the same sheet on any existing wallet by tapping its row on `/wallets`.
+   That tap is a **placeholder**: there is no wallet detail screen, so it goes
+   straight to the only thing a wallet can be configured for. When a detail
+   screen exists, the tap belongs there with categories as a row inside it.
+   The sheet is **one top-down list**, not the add screen's four-column grid:
+   the grid is for picking one of a few at a glance, this is for arranging
+   fifty-nine. Chosen categories float to the top in their order, everything
+   else sits below behind a search field, so membership and order are the same
+   list with no mode to switch into. Order moves with **buttons, not drag** — a
+   drag on iOS means pointer capture, autoscroll and a fight with the sheet's
+   own scrolling, which a five-to-fifteen row set does not repay.
+   `useSetWalletCategories` **upserts then deletes**, deliberately: the join row
+   is the only record of a membership, so a failure between the halves has to
+   leave a stale category offered rather than drop an arrangement. The PK is
+   `(wallet_id, category_id)`, so the upsert's default conflict target is
+   already right and re-saving only rewrites `position`.
+   On the create screen the set is **buffered** — there is no wallet to attach
+   rows to until Save — and written as a second call right after the insert. If
+   that second call fails the wallet still exists, so the screen says so and
+   locks Save rather than reporting a failed creation and inviting a retry that
+   would make a duplicate.
+   The add screen keeps the row's **current** category in the picker even when
+   the wallet's set excludes it; otherwise editing a transaction would open a
+   picker missing the very choice it holds.
+   **This is the first Sheet inside the tabbed shell.** It anchors to
+   `AppShell`'s fixed root (the scrolling `<main>` is not positioned, so it does
+   not clip it) — verified by reading, not on a device.
+8. **Loan installments left — DONE.** `loan_progress` (above) counts them; the
+   loan row on `/wallets` draws the same bar the credit card uses, filled the
+   other way — a card's bar grows as it gets worse, a loan's grows as it gets
+   better, so it takes the income colour rather than the expense one.
+   **Untestable through the UI today**: a repayment is a transfer leg, and the
+   transfer flow does not exist, so nothing in the app can create one. The
+   counting was verified against the imported history instead — the real
+   `Kredyty` wallet already has 64 qualifying legs, 2023-12-21 to 2026-07-20.
+   That wallet's `installment_count` is **null**, and there is no wallet edit
+   screen, so it cannot be given one without SQL. Until it has one the row shows
+   the ordinary sparkline.
+9. **Wallets list, finished — DONE.** Type mark per row (replacing the coloured
+   rule, which only repeated the section heading), **total wealth moved to the
+   top** — it is the number the screen is for, and it used to need a scroll —
+   sign-painted sparklines, and a loan progress bar.
+   The loan bar prefers installments and **falls back to money**: a loan opens
+   at the total to repay and climbs towards zero, so the share already cleared
+   is a real fraction rather than a stand-in. That is what makes the bar appear
+   on the imported `Kredyty` at all, since nothing ever set its
+   `installment_count` — it reads "17 405,90 of 20 944,50 repaid" instead of
+   counting settlements. Only a loan opened at zero has neither and falls back
+   to the sparkline.
+   **The FAB is route-aware**, in `TabBar`: one button, one position, and only
+   the destination changes — `/wallets` makes a wallet, everything else makes a
+   transaction. The alternative was every screen drawing its own button in the
+   same spot and hoping they agreed, which is exactly how this screen ended up
+   with a bordered "Add a wallet" below the fold *and* a transaction FAB
+   floating over it.
+10. **Wallet detail — DONE.** `/wallets/:id`: balance, the type's bar (card
+    utilisation or loan progress), a wider sparkline, a Categories row, and the
+    wallet's own feed. Tapping a row on `/wallets` goes here; the categories
+    sheet moved onto this screen, which is where it always belonged.
+    The feed is `TransactionFeed` handed a filtered set, **not** a per-wallet
+    copy of it — two feeds would be two things to keep in step for nothing.
+    `useWalletTransactions` therefore **fetches both legs of every transfer**,
+    not just this wallet's: the feed collapses a pair into one "source → target"
+    line and can only do that holding the pair. Given one leg it falls back to a
+    bare category row, which on the loan — where every row is a repayment
+    transfer — would be the entire screen saying nothing about where the money
+    came from. Two round trips, because PostgREST cannot express "or its
+    transfer sibling" as one filter; siblings are appended rather than merged by
+    date, which is safe because `collapseTransfers` emits each pair at the first
+    leg it sees and this wallet's rows come first.
+    Shared maths lives in `src/lib/wallets.ts` — `balanceHistory` and
+    `loanStanding` — because the list and the detail screen draw the same two
+    things at different sizes.
+    Side effect worth noting: this **retires the untested Sheet-inside-AppShell**
+    from item 7. The categories sheet now opens on a `FullScreen` route, the
+    same proven arrangement `CategoriesScreen` uses.
+11. **Editing a wallet — DONE.** Pencil on the detail header → `/wallets/:id/edit`:
+    name, colour, the type's own number (credit limit, or settlements — which is
+    how the imported `Kredyty` finally gets an installment count), and the
+    balance.
+    **Type is not editable, by decision.** Moving it would have to carry
+    `credit_limit` and the loan columns across two CHECK constraints, re-answer
+    what an account's balance means once it is a card, and invent an installment
+    count — for a change that is nearly always a mistake made at creation rather
+    than an event. Delete and re-make, which asks out loud what happens to the
+    transactions.
+    **Setting a balance records a transaction; it never writes the balance.**
+    Invariant 2 leaves no other reading: "this wallet should say 5 000" means
+    something happened that was not recorded, so the honest form is a row dated
+    today for the gap. Editing `starting_balance` instead would restate the
+    entire history and move charts nobody was looking at.
+    That row needs a category (`category_id` is not null), so one named
+    **"Balance adjustment"** is found or created per direction — income when
+    money appeared, expense when it went missing. Names repeating across kinds is
+    already normal here ("Gifts", "Other"). It shows as its own slice in a
+    breakdown, which is the point: it is visible, and it is an ordinary
+    transaction afterwards — recategorise, re-date or delete it like any other.
+    In the feed it is **drawn like a transfer**: dashed neutral ring, name at
+    `ink/75`, amount in `ink-faint` rather than shouting income green or expense
+    red. The dash is the shared mark for "not a purchase"; the icon is what keeps
+    the two apart.
+    `src/lib/adjustments.ts` holds the name and the predicate, so the code that
+    writes adjustments and the code that recognises them cannot drift to
+    different strings. **The category name is the marker**, and that is the
+    limitation to know: rename the category and rows stop reading as
+    adjustments. Tolerable, because renaming it is a deliberate "treat this as a
+    normal category" — and the alternative is a schema concept for what is a
+    presentational distinction.
+    Still **counted in the spending charts**, unlike a transfer. `monthly_category_totals`
+    excludes rows by `transfer_id`, which an adjustment does not have, and the
+    money genuinely did move — hiding it would make the charts disagree with the
+    balance. Excluding it is a separate decision, not an oversight.
+    The balance field carries the same three readings as the create screen, and
+    the one trap is the **overdrawn account**: `toRawAmount` is never signed, so
+    seeding the field from it drops the minus, and −123,45 would read back as
+    +123,45 and offer an adjustment of twice the balance. The sign is put back
+    for non-debt types only — a card and a loan want the unsigned figure, since
+    the field asks what is *owed*.
+12. **Transfers — DONE.** The add screen creates them, and the picker's Transfer
+    tab is no longer inert.
+    **The category's kind is the mode switch.** "Moving money between my own
+    wallets" is already one of the three kinds, so a separate toggle beside the
+    picker would be a second way to say the same thing that could disagree with
+    it. Picking a transfer category reveals a second wallet select, hides the
+    sign toggle (direction is which wallet is which — `create_transfer` applies
+    the signs) and hides tags.
+    **The two wallets stay different by swapping, not refusing.** Choosing the
+    other side's wallet is almost always "I had these the wrong way round", so
+    the pair swaps; disabling the matching option would make the user undo their
+    own selection first. The far side is seeded the moment the form becomes a
+    transfer, so the pair starts valid. There is an explicit swap button too.
+    `isTransfer` is declared **above** the handlers and the effect that read it:
+    a `const` is in its temporal dead zone until its line, and a dependency array
+    is evaluated during render, not after.
+    Same-currency legs send one figure twice rather than asking for it twice.
+    A second "amount received" field appears **only** when the two wallets differ
+    in currency (invariant 7) — untestable today, since every wallet is PLN.
+    Tags are off for transfers: `create_transfer` returns the pair's id, not the
+    two row ids, so attaching them needs a second lookup and a decision about
+    which leg wears them.
+    Editing passes `allowTransfer={false}` to the picker — an existing single row
+    cannot become a pair by changing its category.
+    **Verified against the real database**, which is as far as it goes without a
+    browser: both of the function's guards fire and neither writes. Same wallet
+    twice raises "A transfer needs two different wallets"; two PLN wallets with
+    100 vs 250 raises "Legs of a same-currency transfer must balance". Transfer
+    rows stayed at 698 legs / 349 pairs — even, so no orphan leg was left behind.
+    (Note for future probing: the Management API mangles `OFFSET`, so
+    `offset 1 limit 1` returned the *same* wallet as `limit 1` and made a test
+    look like it had caught a bug it had not. Pick rows by name.)
+13. **Archiving a wallet — DONE.** `archived_at timestamptz` (null = active), set
+    through `archive_wallet(id)` / `restore_wallet(id)`. Not deletion: the
+    foreign key from `transactions` refuses that anyway, and it *should* — the
+    account you closed in 2025 was still part of your net worth in 2024, and
+    every backward-looking chart has to keep saying so. A timestamp rather than a
+    boolean costs the same and answers "when".
+    **Only a wallet at zero balance may be archived**, enforced in the function,
+    not the form — the browser holds an anon key and RLS would let it write the
+    column directly, so a client check is a hint. The rule makes a question
+    disappear: an archived wallet contributes nothing to total wealth either way,
+    so there is never a doubt about whether hidden wallets are counted, and the
+    app cannot hide money. Real life agrees — you empty an account before closing
+    it, and a loan ends when it is paid.
+    Hidden from the wallets sections, the entry form and transfer targets; shown
+    in a quiet **Closed** section that still links to the detail screen, and
+    badged there. Archived wallets stay in `useWallets` because the feed has to
+    resolve the name on a two-year-old row — `src/lib/wallets.ts` owns what
+    "hidden" means (`isArchived` / `activeWallets`).
+    Two places keep an archived wallet on purpose: the entry form's select keeps
+    the one the edited row already uses (dropping it would silently move the row
+    on save), and **the wallets screen totals run over every wallet, archived
+    included**. The rule makes that the same number — but computing it over the
+    visible ones would quietly go wrong if an archived wallet ever drifted off
+    zero, and the total is the one figure on that screen that must never be a
+    half-truth.
+    Verified against the live database: `archive_wallet` on `Kredyty` raises
+    "Kredyty still holds a balance of -353860; move it out before archiving".
+14. **Next:** budgets CRUD (the feed rings stay empty until a budget can be
+    created), and the Insights screen. Hard-deleting a transaction-free wallet is
+    still unbuilt — the FK already permits exactly that case and nothing else.
+15. Deferred by explicit decision: split transactions, FX conversion in charts
    (`exchange_rates`), non-monthly budget periods, MCP/AI entry.
 
 Resolved by the redesign: icons are Lucide; both light and dark grounds ship, each
@@ -419,11 +684,10 @@ stack, so it is called from the keypad's `pointerdown`, not from an effect —
 which is also where the key's fill goes on, because feedback that waits for the
 release reads as lag. Everything non-Apple falls through to `navigator.vibrate`.
 
-Known gaps: `create_transfer` / `delete_transfer` still have no UI and have never
-been exercised — the category picker's Transfer tab is deliberately inert rather than
-creating a single-sided row that would look like spending. The detail screen's footer
-shows the wallet's balance *now*, not the balance as of that transaction, which would
-need a further query.
+Known gaps: the detail screen's footer shows the wallet's balance *now*, not the
+balance as of that transaction, which would need a further query. `delete_transfer`
+is reached only from the detail screen's delete, and the **cross-currency transfer
+path cannot be exercised** while every wallet is PLN.
 
 Feature ideas go into a scratch file in the repo, not into the roadmap, until validated by actual use.
 

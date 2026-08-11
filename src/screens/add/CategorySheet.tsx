@@ -24,11 +24,18 @@ export function CategorySheet({
   onClose,
   categories,
   onPick,
+  allowTransfer = true,
 }: {
   open: boolean
   onClose: () => void
   categories: Category[]
   onPick: (category: Category) => void
+  /**
+   * Off while **editing**. Picking a transfer category turns the form into a
+   * transfer, and a transfer is a pair created by `create_transfer` — an
+   * existing single row cannot become one by changing its category.
+   */
+  allowTransfer?: boolean
 }) {
   const [kind, setKind] = useState<CategoryKind>('expense')
   const [query, setQuery] = useState('')
@@ -73,8 +80,9 @@ export function CategorySheet({
 
       {kind === 'transfer' && (
         <p className="mx-5 mt-3 text-[11.5px] leading-[1.5] text-ink-muted">
-          Moving money between your own wallets needs both sides, so it is not a
-          single entry — a dedicated transfer flow is still to come.
+          {allowTransfer
+            ? 'Moving money between your own wallets. Picking one of these asks for a second wallet, and records both sides at once.'
+            : 'A transfer is a pair of rows created together, so an existing transaction cannot be turned into one. Delete it and add the transfer instead.'}
         </p>
       )}
 
@@ -83,7 +91,7 @@ export function CategorySheet({
           {shown.map((category) => (
             <button
               key={category.id}
-              disabled={kind === 'transfer'}
+              disabled={kind === 'transfer' && !allowTransfer}
               // Otherwise the first tap after a search is spent dismissing the
               // keyboard and never reaches the button. See `keepFocus`.
               onMouseDown={keepFocus}
@@ -99,7 +107,7 @@ export function CategorySheet({
           ))}
         </div>
 
-        {shown.length === 0 && kind !== 'transfer' && (
+        {shown.length === 0 && (
           <p className="pt-6 text-center text-[12.5px] text-ink-muted">
             No categories match “{query}”.
           </p>

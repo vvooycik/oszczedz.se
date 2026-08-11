@@ -19,13 +19,21 @@ import { categoryVar } from '@/theme/tokens'
  * `transfer` swaps to a dashed neutral ring — a transfer *transaction* is
  * movement, not spending, and shouldn't wear a category's colour.
  *
- * `dashed` is that ring on its own, and defaults to following `transfer`. The
- * settings screen wants it for transfer *categories*: there the glyph and colour
- * are the thing being edited, so replacing them with a neutral arrow would leave
- * the picker with nothing to show and every transfer row looking identical.
- * A dash only reads against empty space, so anything dashed stays outlined —
- * which conveniently makes transfers the one mark in the feed that is not a
- * solid disc.
+ * **A dashed outline is the feed's mark for "not a purchase."** Transfers wear
+ * it, and so do balance adjustments: both are real movement that no one chose to
+ * spend, and reading them as quietly as each other is the point. They stay
+ * apart by their icon — an arrow against the adjustment's own glyph — rather
+ * than by one being solid.
+ *
+ * The two axes are separate on purpose. `dashed` is the ring, `neutral` is the
+ * ink, and both default to following `transfer` so the old single-flag calls are
+ * unchanged. The settings screen takes `dashed` alone for transfer
+ * *categories*: there the glyph and colour are the thing being edited, so
+ * neutralising them would leave the picker with nothing to show and every
+ * transfer row looking identical. An adjustment takes both — its colour is an
+ * accident of how the category got created, not a choice worth showing.
+ *
+ * A dash only reads against empty space, so anything dashed stays outlined.
  */
 export function CategoryGlyph({
   glyph,
@@ -33,6 +41,7 @@ export function CategoryGlyph({
   size = 34,
   transfer = false,
   dashed = transfer,
+  neutral = transfer,
   ringWidth = 2.25,
 }: {
   glyph: string | null | undefined
@@ -40,10 +49,12 @@ export function CategoryGlyph({
   size?: number
   transfer?: boolean
   dashed?: boolean
+  /** Ink-dim ring and muted glyph instead of the category's colour. */
+  neutral?: boolean
   ringWidth?: number
 }) {
   const Icon = iconFor(transfer ? 'arrow-left-right' : glyph)
-  const tint = transfer ? 'var(--color-ink-dim)' : categoryVar(color)
+  const tint = neutral ? 'var(--color-ink-dim)' : categoryVar(color)
   const filled = !dashed
 
   return (
@@ -58,7 +69,7 @@ export function CategoryGlyph({
         border: filled ? undefined : `${ringWidth}px dashed ${tint}`,
         color: filled
           ? 'var(--color-bg)'
-          : transfer
+          : neutral
             ? 'var(--color-ink-muted)'
             : tint,
       }}

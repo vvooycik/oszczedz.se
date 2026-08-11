@@ -1,7 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router'
 import { useGoBack } from '@/app/useGoBack'
-import { Calendar, ChevronRight, Pencil, Tag, Wallet, X } from 'lucide-react'
+import {
+  ArrowDownToLine,
+  ArrowLeftRight,
+  ArrowUpDown,
+  Calendar,
+  ChevronRight,
+  Pencil,
+  Tag,
+  Wallet,
+  X,
+} from 'lucide-react'
 import { FullScreen } from '@/app/AppShell'
 import { CategoryGlyph } from '@/components/CategoryGlyph'
 import { CategorySheet } from './CategorySheet'
@@ -18,15 +28,18 @@ import {
 import {
   useAddTransaction,
   useCategories,
+  useCreateTransfer,
   useLastUsedWallet,
   useTags,
   useTransaction,
   useTransactionTags,
   useUpdateTransaction,
+  useWalletCategoryIds,
   useWallets,
 } from '@/data/queries'
-import { asMinor } from '@/lib/money'
+import { asMinor, currencySymbol, parseAmount } from '@/lib/money'
 import { addDays, relativeDayLabel, today } from '@/lib/dates'
+import { activeWallets, isArchived } from '@/lib/wallets'
 import { categoryVar } from '@/theme/tokens'
 import type { Category } from '@/lib/db'
 
@@ -48,6 +61,7 @@ export function AddScreen() {
   const categories = useCategories()
   const tags = useTags()
   const add = useAddTransaction()
+  const transfer = useCreateTransfer()
   const update = useUpdateTransaction()
   const existing = useTransaction(editId)
   const existingTags = useTransactionTags(editId)
@@ -57,6 +71,11 @@ export function AddScreen() {
   const [negative, setNegative] = useState(true)
   const [category, setCategory] = useState<Category | null>(null)
   const [walletId, setWalletId] = useState('')
+  // Transfers only: where the money lands. `walletId` is the source.
+  const [targetWalletId, setTargetWalletId] = useState('')
+  // Transfers across currencies only, where the two legs are independent
+  // amounts. Plain text rather than a second keypad — see the field below.
+  const [targetAmount, setTargetAmount] = useState('')
   const [date, setDate] = useState(today())
   const [note, setNote] = useState('')
   const [tagIds, setTagIds] = useState<string[]>([])
@@ -100,9 +119,109 @@ export function AddScreen() {
     const last = lastWallet.data ?? null
     // A wallet can be deleted out from under the answer; fall back rather than
     // setting the select to an id it has no option for.
-    const known = last !== null && wallets.data.some((w) => w.id === last)
-    setWalletId(known ? last : wallets.data[0]!.id)
+    // An archived wallet must not become the default, even if it was genuinely
+    // the last one used before it was closed.
+    const open = activeWallets(wallets.data)
+    if (!open.length) return
+    const known = last !== null && open.some((w) => w.id === last)
+    setWalletId(known ? last : open[0]!.id)
   }, [editing, wallets.data, walletId, lastWallet.isPending, lastWallet.data])
+
+  /**
+   * The category's kind is what puts the form in transfer mode.
+   *
+   * Not a separate toggle: "moving money between my own wallets" is already one
+   * of the three kinds a category has, and a mode switch beside the picker would
+   * be a second way to say the same thing that could disagree with it.
+   *
+   * Declared here, above the handlers and the effect that read it — a `const` in
+   * the same scope is in its temporal dead zone until this line, and a
+   * dependency array is evaluated during render, not after it.
+   */
+  const isTransfer = category?.kind === 'transfer'
+
+  /**
+   * Wallets this form may point at: the open ones, plus whichever the row being
+   * edited already uses.
+   *
+   * That second half matters — a wallet can be archived after a transaction was
+   * recorded in it, and dropping it from the options would silently reset the
+   * select to a different wallet and move the row on save.
+   */
+  const selectable = useMemo(() => {
+    const all = wallets.data ?? []
+    const open = activeWallets(all)
+    const current = all.find((w) => w.id === walletId)
+    return current && isArchived(current) ? [...open, current] : open
+  }, [wallets.data, walletId])
+
+  /**
+   * The two wallets can never be the same, and the way that is kept true is by
+   * **swapping rather than refusing**.
+   *
+   * Picking the other side's wallet is not a mistake — it is almost always "I
+   * had these the wrong way round". Disabling the matching option would leave
+   * the user to undo their own selection first; swapping does what they meant,
+   * and cannot produce an invalid pair because the two were already different.
+   */
+  const pickSource = (next: string) => {
+    if (next === targetWalletId) setTargetWalletId(walletId)
+    setWalletId(next)
+  }
+
+  const pickTarget = (next: string) => {
+    if (next === walletId) setWalletId(targetWalletId)
+    setTargetWalletId(next)
+  }
+
+  // Seed the far side the moment the form becomes a transfer, so the pair starts
+  // valid rather than starting empty and failing on Save.
+  useEffect(() => {
+    if (!isTransfer) return
+    // Open wallets only: a transfer must land somewhere you can still use.
+    const list = activeWallets(wallets.data ?? [])
+    if (targetWalletId && targetWalletId !== walletId) return
+    const other = list.find((w) => w.id !== walletId)
+    if (other) setTargetWalletId(other.id)
+  }, [isTransfer, wallets.data, walletId, targetWalletId])
+
+  const walletCategoryIds = useWalletCategoryIds(walletId || undefined)
+
+  /**
+   * What the picker offers, for the wallet currently selected.
+   *
+   * An empty set means the wallet has no opinion, so everything shows in name
+   * order — the behaviour before per-wallet sets existed. A non-empty one both
+   * filters and sorts: the array from the database *is* the order, and the
+   * sheet preserves whatever order it is handed.
+   *
+   * The category already on the transaction is kept regardless. It is legal —
+   * the database accepts any category on any wallet, the set is only a picker
+   * filter — and dropping it would mean opening the picker while editing and
+   * not finding the choice the row currently has.
+   */
+  const pickable = useMemo(() => {
+    const all = categories.data ?? []
+    const ids = walletCategoryIds.data
+    if (!ids?.length) return all
+
+    const rank = new Map(ids.map((id, i) => [id, i]))
+    const offered = all
+      .filter((c) => rank.has(c.id))
+      .sort((a, b) => rank.get(a.id)! - rank.get(b.id)!)
+
+    return category && !rank.has(category.id) ? [...offered, category] : offered
+  }, [categories.data, walletCategoryIds.data, category])
+
+  const sourceWallet = (wallets.data ?? []).find((w) => w.id === walletId)
+  const targetWallet = (wallets.data ?? []).find((w) => w.id === targetWalletId)
+  // Invariant 7: legs may differ only when the wallets hold different
+  // currencies. Every wallet is PLN today, so this is a guard against a future
+  // one rather than a path that fires.
+  const crossCurrency =
+    isTransfer &&
+    Boolean(sourceWallet && targetWallet) &&
+    sourceWallet!.currency !== targetWallet!.currency
 
   const signColor = negative ? 'var(--color-expense)' : 'var(--color-income)'
   // The pad's running total, with anything half-typed folded in. It is what the
@@ -110,8 +229,22 @@ export function AddScreen() {
   const parsed = entryValue(entry)
   const figure = entryDisplay(entry)
   const tape = entryTape(entry)
-  const canSave = parsed !== null && parsed !== 0 && Boolean(category) && Boolean(walletId)
-  const busy = add.isPending || update.isPending
+
+  const parsedTarget = targetAmount.trim() === '' ? null : parseAmount(targetAmount)
+  const targetAmountBad =
+    crossCurrency && (parsedTarget === null || parsedTarget <= 0)
+
+  const canSave =
+    parsed !== null &&
+    parsed !== 0 &&
+    Boolean(category) &&
+    Boolean(walletId) &&
+    // The RPC raises on both of these; checking them here is what keeps Save
+    // from being an invitation to read a Postgres error message.
+    (!isTransfer || (Boolean(targetWalletId) && targetWalletId !== walletId)) &&
+    !targetAmountBad
+
+  const busy = add.isPending || update.isPending || transfer.isPending
 
   const save = async (again: boolean) => {
     if (!canSave || !category) return
@@ -132,7 +265,24 @@ export function AddScreen() {
         return
       }
 
-      await add.mutateAsync(fields)
+      if (isTransfer) {
+        const magnitude = Math.abs(parsed!)
+        await transfer.mutateAsync({
+          source_wallet_id: walletId,
+          target_wallet_id: targetWalletId,
+          source_amount: asMinor(magnitude),
+          // Same currency means the legs must balance, and the function raises
+          // if they do not — so the one figure is sent twice rather than asking
+          // for it twice.
+          target_amount: asMinor(crossCurrency ? parsedTarget! : magnitude),
+          date,
+          category_id: category.id,
+          note: note.trim() || null,
+        })
+      } else {
+        await add.mutateAsync(fields)
+      }
+
       if (!again) {
         goBack()
         return
@@ -141,6 +291,7 @@ export function AddScreen() {
       // just saved, and reopen the picker for the next one.
       setSavedCount((n) => n + 1)
       setEntry(EMPTY_ENTRY)
+      setTargetAmount('')
       setNote('')
       setTagIds([])
       setCategory(null)
@@ -222,14 +373,25 @@ export function AddScreen() {
             className="flex items-end gap-2.5 pb-2.5"
             style={{ borderBottom: '1px solid var(--color-line)' }}
           >
-            <button
-              onClick={() => setNegative((s) => !s)}
-              aria-label={negative ? 'Expense' : 'Income'}
-              className="tnum flex size-9 flex-none items-center justify-center rounded-[4px] text-[19px]"
-              style={{ border: '1px solid var(--color-line)', color: signColor }}
-            >
-              {negative ? '−' : '+'}
-            </button>
+            {/* A transfer has no sign to choose: direction is which wallet is
+                which, and `create_transfer` applies the signs itself. */}
+            {isTransfer ? (
+              <span
+                className="flex size-9 flex-none items-center justify-center rounded-[4px] text-ink-muted"
+                style={{ border: '1px dashed var(--color-line)' }}
+              >
+                <ArrowLeftRight size={16} strokeWidth={1.5} />
+              </span>
+            ) : (
+              <button
+                onClick={() => setNegative((s) => !s)}
+                aria-label={negative ? 'Expense' : 'Income'}
+                className="tnum flex size-9 flex-none items-center justify-center rounded-[4px] text-[19px]"
+                style={{ border: '1px solid var(--color-line)', color: signColor }}
+              >
+                {negative ? '−' : '+'}
+              </button>
+            )}
             <div
               className="tnum flex-1 text-right"
               style={{
@@ -272,18 +434,89 @@ export function AddScreen() {
             style={{ borderBottom: '1px solid var(--color-line-soft)' }}
           >
             <Wallet size={18} strokeWidth={1.5} className="w-[34px] flex-none text-ink-faint" />
+            {isTransfer && (
+              <span className="font-sans text-[11.5px] text-ink-faint">From</span>
+            )}
             <select
               value={walletId}
-              onChange={(e) => setWalletId(e.target.value)}
+              onChange={(e) => pickSource(e.target.value)}
               className="flex-1 bg-transparent text-[15px] outline-none"
             >
-              {(wallets.data ?? []).map((w) => (
+              {selectable.map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name}
                 </option>
               ))}
             </select>
           </div>
+
+          {isTransfer && (
+            <div
+              className="flex items-center gap-3 py-3.5"
+              style={{ borderBottom: '1px solid var(--color-line-soft)' }}
+            >
+              <ArrowDownToLine
+                size={18}
+                strokeWidth={1.5}
+                className="w-[34px] flex-none text-ink-faint"
+              />
+              <span className="font-sans text-[11.5px] text-ink-faint">To</span>
+              <select
+                value={targetWalletId}
+                onChange={(e) => pickTarget(e.target.value)}
+                className="flex-1 bg-transparent text-[15px] outline-none"
+              >
+                {selectable.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+              {/* Swapping is the common correction, and it cannot produce an
+                  invalid pair — the two are already different. */}
+              <button
+                onClick={() => {
+                  setWalletId(targetWalletId)
+                  setTargetWalletId(walletId)
+                }}
+                aria-label="Swap wallets"
+                className="flex-none rounded-[3px] px-2 py-1.5 text-ink-muted"
+                style={{ border: '1px solid var(--color-line)' }}
+              >
+                <ArrowUpDown size={15} strokeWidth={1.5} />
+              </button>
+            </div>
+          )}
+
+          {crossCurrency && (
+            <div
+              className="flex items-center gap-3 py-3.5"
+              style={{ borderBottom: '1px solid var(--color-line-soft)' }}
+            >
+              <span className="w-[34px] flex-none" />
+              <span className="flex-1 text-[13.5px]">
+                Amount received
+                <span className="block pt-0.5 font-sans text-[11px] leading-[1.4] text-ink-faint">
+                  {sourceWallet!.currency} → {targetWallet!.currency}, so each leg
+                  carries its own figure
+                </span>
+              </span>
+              <input
+                value={targetAmount}
+                onChange={(e) => setTargetAmount(e.target.value)}
+                inputMode="decimal"
+                placeholder="0,00"
+                aria-label="Amount received"
+                className="tnum w-28 bg-transparent text-right text-[17px] outline-none placeholder:text-ink-dim"
+                style={{
+                  color: targetAmountBad ? 'var(--color-expense)' : undefined,
+                }}
+              />
+              <span className="font-sans text-[12px] text-ink-faint">
+                {currencySymbol(targetWallet!.currency)}
+              </span>
+            </div>
+          )}
 
           <div
             className="flex items-center gap-3 py-3.5"
@@ -315,7 +548,10 @@ export function AddScreen() {
             />
           </div>
 
-          {(tags.data ?? []).length > 0 && (
+          {/* Tags are off for transfers: `create_transfer` returns the pair's id
+              rather than the two rows', so there is nothing to attach them to
+              without a second lookup and a choice of which leg wears them. */}
+          {!isTransfer && (tags.data ?? []).length > 0 && (
             <div className="flex items-center gap-3 py-3.5">
               <Tag size={18} strokeWidth={1.5} className="w-[34px] flex-none text-ink-faint" />
               <div className="no-scrollbar flex flex-1 gap-[7px] overflow-x-auto">
@@ -389,7 +625,8 @@ export function AddScreen() {
         <CategorySheet
           open={catOpen}
           onClose={() => setCatOpen(false)}
-          categories={categories.data ?? []}
+          categories={pickable}
+          allowTransfer={!editing}
           onPick={(picked) => {
             setCategory(picked)
             setNegative(picked.kind !== 'income')

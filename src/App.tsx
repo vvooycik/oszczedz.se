@@ -7,6 +7,9 @@ import { WalletsScreen } from '@/screens/WalletsScreen'
 import { ComingSoonScreen, MoreScreen } from '@/screens/MoreScreen'
 import { AppearanceScreen } from '@/screens/AppearanceScreen'
 import { CategoriesScreen } from '@/screens/categories/CategoriesScreen'
+import { NewWalletScreen } from '@/screens/wallets/NewWalletScreen'
+import { WalletScreen } from '@/screens/wallets/WalletScreen'
+import { EditWalletScreen } from '@/screens/wallets/EditWalletScreen'
 import { AddScreen } from '@/screens/add/AddScreen'
 import { TransactionScreen } from '@/screens/TransactionScreen'
 
@@ -52,6 +55,11 @@ export default function App() {
         <Route path="/tx/:id/edit" element={<AddScreen />} />
         <Route path="/appearance" element={<AppearanceScreen />} />
         <Route path="/categories" element={<CategoriesScreen />} />
+        {/* `/wallets/new` stays above the dynamic segment by route ranking, not
+            by source order — a static segment always outranks a param. */}
+        <Route path="/wallets/new" element={<NewWalletScreen />} />
+        <Route path="/wallets/:id" element={<WalletScreen />} />
+        <Route path="/wallets/:id/edit" element={<EditWalletScreen />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
