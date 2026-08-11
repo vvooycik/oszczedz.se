@@ -108,6 +108,13 @@ Enforced outside the DDL:
 - `budget_progress` view — spend against each budget for the current period, applying the membership rules from the Budgets paragraph above
 - `wallet_monthly_net` view — net movement per wallet per month, accumulated client-side into sparklines and deltas
 - `category_usage` view — transaction count per category, for the settings list and its delete copy
+- `useLastUsedWallet` — the wallet a new entry starts on, ordered by `created_at`
+  (the wallet you were just working in; a backdated entry is still the one you
+  last logged), then **`amount desc`**. That second sort is what resolves a
+  transfer to its target: `create_transfer` inserts both legs in one statement,
+  so `default now()` gives them an identical `created_at` and neither wins on
+  time, while invariant 5 makes the target the positive leg. One row is the
+  answer — no second query, and no leg matching to drift from the invariant.
 - `delete_category(id, reassign_to)` — moves the category's transactions onto another category and deletes it in one statement; raises rather than orphaning rows when a target is needed and none was given
 
 ## Data
@@ -309,11 +316,45 @@ that budget rather than replacing it.
    re-tinting live), and deletion that reassigns the category's transactions
    first. Same-kind targets only — moving an expense into an income category
    would flip what every chart says about it.
-4. **Next:** wallets CRUD (the "Add a wallet" button is inert), budgets CRUD — the
+4. **Editing a transaction — DONE.** The pencil on the detail header goes to
+   `/tx/:id/edit`, which is `AddScreen` again rather than a second form: the
+   route's `:id` is what switches it from inserting to updating, and the fields
+   are seeded from the row once, on the render where the transaction, its tags
+   and the category list have all arrived. A `hydrated` flag closes that gate,
+   so a background refetch cannot reach in and undo what has been typed.
+   `useUpdateTransaction` reconciles `transaction_tags` as a diff rather than
+   wiping and rewriting — the join table is the only record of a membership, and
+   a failure between the two halves of a rewrite would silently strip them.
+   **Transfers are excluded** at both ends: the pencil is not drawn for one, and
+   the route refuses by hand if reached directly. One leg's amount or wallet
+   cannot move without the other, which is `create_transfer`'s job.
+5. **The keypad is a calculator — DONE.** `÷ × − +` in a narrower fourth column,
+   so a receipt can be totalled in the field. **Only the result is stored**;
+   nothing records the arithmetic that produced it.
+   It keeps a **running total, not an expression** (`AmountEntry` = folded
+   `acc`, the `op` waiting on an operand, and the digits being typed): each
+   operator immediately folds what came before it, so there is no tree, nothing
+   is parsed twice, and evaluation is strictly **left to right** — `2 + 3 × 4`
+   is 20, not 14 — visible while typing rather than surprising at the end,
+   because the total is on screen the whole time.
+   **The big figure is always the amount that would be stored**, which is why
+   there is no `=` key: what is being read is what Save writes. The quiet tape
+   above it carries the working (`12,50 + 3,20`), not the answer, and never
+   grows past one operation since `acc` is already folded. The one thing the
+   figure echoes raw is a plain amount with no arithmetic behind it — a
+   half-typed "12," has to stay "12," rather than settling to "12,00" under the
+   finger; once an operation is in flight that feedback lives in the tape.
+   `×` and `÷` read their right-hand side as a **plain multiplier, not money** —
+   "three of these", "split it three ways". Folding 12,50 × 3 as 1250 × 300
+   would give 37 500 zł instead of 37,50, and reading it as a scalar also keeps
+   3 × 12,50 on the same answer. Division rounds to the nearest grosz and drops
+   the remainder (100 zł three ways is three shares of 33,33, losing one), and
+   dividing by zero leaves the total alone rather than producing an infinity
+   that would have to be caught downstream.
+6. **Next:** wallets CRUD (the "Add a wallet" button is inert), budgets CRUD — the
    feed rings stay empty until a budget can be created — a real transfer flow, and
-   the Insights screen. Editing a transaction has no designed screen; detail offers
-   duplicate and delete only.
-5. Deferred by explicit decision: split transactions, FX conversion in charts
+   the Insights screen.
+7. Deferred by explicit decision: split transactions, FX conversion in charts
    (`exchange_rates`), non-monthly budget periods, MCP/AI entry.
 
 Resolved by the redesign: icons are Lucide; both light and dark grounds ship, each
@@ -347,6 +388,36 @@ The app frame takes its height from `useViewportHeight` (measured
 or from stretching a fixed box to `bottom: 0` — the dynamic unit is stale on a
 cold standalone launch, and the fixed box is sized against the same short
 viewport described above.
+
+**The keyboard is only visible in the *visual* viewport.** `innerHeight`
+deliberately does not move when iOS raises it — that is what keeps the frame
+from collapsing mid-typing — so `useKeyboardInset` reads the overlap as
+`innerHeight − visualViewport.height − offsetTop`, ignoring anything under 80px
+(rubber-band scrolling and floating iPad keyboards produce a few pixels of
+noise; a phone keyboard is ~300). `Sheet` spends it on `bottom` and clamps its
+height with `min(…, calc(100% - inset))`, so a sheet sits *on* the keyboard
+rather than behind it and gives up height instead of pushing its own top off
+the screen.
+
+**A tap that blurs a text field is spent doing only that.** iOS moves focus,
+starts retracting the keyboard, and the click never reaches the button
+underneath — which is why a searched-for category needed two taps. `keepFocus`
+in `src/lib/touch.ts` is the fix, on `onMouseDown` (iOS synthesises that from
+the tap *before* moving focus) and never on `onPointerDown`, which React listens
+to non-passively and whose default is the scroll gesture. Any control that sits
+beside an input inside a sheet needs it: the category grid, the kind pills, the
+editor's colour and glyph pickers all carry it.
+
+**Haptics come from a hidden `<input type="checkbox" switch>`.** iOS has no
+Vibration API at all — `navigator.vibrate` is absent — but Safari 17.4's switch
+control plays the system toggle haptic when flipped through its `<label>`, and
+clicking that label is the only tap a web app can produce on an iPhone.
+`tapFeedback()` builds the pair once, lazily, and parks it at 1px with
+`opacity: 0`: the control must keep a **renderer**, so `display: none` and
+`visibility: hidden` take the haptic with them. It needs a user gesture on the
+stack, so it is called from the keypad's `pointerdown`, not from an effect —
+which is also where the key's fill goes on, because feedback that waits for the
+release reads as lag. Everything non-Apple falls through to `navigator.vibrate`.
 
 Known gaps: `create_transfer` / `delete_transfer` still have no UI and have never
 been exercised — the category picker's Transfer tab is deliberately inert rather than

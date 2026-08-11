@@ -39,6 +39,20 @@ export const parseAmount = (input: string): Minor | null => {
   return asMinor(negative ? -minor : minor)
 }
 
+/**
+ * The inverse of `parseAmount`: minor units back to the raw string the keypad
+ * edits — ungrouped, comma decimal, always two places, never signed.
+ *
+ * Not a formatter. `formatAmount` is what money looks like on screen; this is
+ * what the entry field holds while it is being typed into, and the two must not
+ * be confused: grouping spaces would come straight back through `applyKey` as
+ * digits the user never pressed.
+ */
+export const toRawAmount = (amount: Minor): string => {
+  const abs = Math.abs(amount)
+  return `${Math.trunc(abs / 100)},${String(abs % 100).padStart(2, '0')}`
+}
+
 const formatters = new Map<string, Intl.NumberFormat>()
 
 const formatterFor = (currency: string): Intl.NumberFormat => {

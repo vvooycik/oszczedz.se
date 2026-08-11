@@ -3,6 +3,7 @@ import { Sheet } from '@/components/Sheet'
 import { CategoryGlyph } from '@/components/CategoryGlyph'
 import { Pill } from '@/components/Pill'
 import { GLYPH_CHOICES, iconFor } from '@/lib/icons'
+import { keepFocus } from '@/lib/touch'
 import { CATEGORY_COLORS, categoryVar } from '@/theme/tokens'
 import type { CategoryDraft } from '@/data/queries'
 import type { Category, CategoryKind } from '@/lib/db'
@@ -123,6 +124,9 @@ export function CategoryEditorSheet({
                 <button
                   key={color}
                   aria-label={color}
+                  // The name field above is usually focused; without this the
+                  // tap only dismisses the keyboard. See `keepFocus`.
+                  onMouseDown={keepFocus}
                   onClick={() => onPatch({ color })}
                   className="flex-none rounded-full"
                   style={{
@@ -150,6 +154,7 @@ export function CategoryEditorSheet({
                   <button
                     key={name}
                     aria-label={name}
+                    onMouseDown={keepFocus}
                     onClick={() => onPatch({ glyph: name })}
                     className="flex aspect-square items-center justify-center rounded-full"
                     style={{

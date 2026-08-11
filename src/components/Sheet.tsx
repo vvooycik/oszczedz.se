@@ -1,11 +1,17 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useKeyboardInset } from '@/app/useKeyboardInset'
 
 /**
  * Bottom sheet. Slides up over the current screen with a fading scrim.
  *
  * The scrim gates pointer events on its own opacity, so a sheet that is still
  * fading in cannot swallow a tap meant for the screen underneath.
+ *
+ * A sheet that contains a text field gets out of the keyboard's way: it sits on
+ * top of it rather than behind it, and gives up height instead of pushing its
+ * own top off the screen. Sheets with nothing to type into never see an inset,
+ * so this costs them nothing.
  */
 export function Sheet({
   open,
@@ -25,6 +31,7 @@ export function Sheet({
   // instead of sliding away.
   const [present, setPresent] = useState(open)
   const [shown, setShown] = useState(false)
+  const keyboard = useKeyboardInset()
 
   useEffect(() => {
     if (open) {
@@ -64,7 +71,11 @@ export function Sheet({
         aria-label={label}
         className="absolute inset-x-0 bottom-0 flex flex-col bg-bg"
         style={{
-          height,
+          bottom: keyboard,
+          // min() rather than a plain subtraction: with the keyboard up, the
+          // requested height plus the inset can overrun the frame, and the top
+          // of the sheet is the part that would go.
+          height: `min(${height}, calc(100% - ${keyboard}px))`,
           borderTopLeftRadius: 12,
           borderTopRightRadius: 12,
           borderTop: '1px solid var(--color-line)',

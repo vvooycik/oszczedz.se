@@ -137,6 +137,17 @@ export function TransactionScreen() {
             <ChevronLeft size={22} strokeWidth={1.5} />
           </button>
           <div className="flex-1" />
+          {/* Transfers are left out: editing one leg on its own unbalances the
+              pair, and there is no paired flow yet. */}
+          {!isTransfer && (
+            <button
+              aria-label="Edit"
+              className="text-ink-muted"
+              onClick={() => navigate(`/tx/${row.id}/edit`)}
+            >
+              <Pencil size={19} strokeWidth={1.5} />
+            </button>
+          )}
           <button
             aria-label="Duplicate"
             className="text-ink-muted"

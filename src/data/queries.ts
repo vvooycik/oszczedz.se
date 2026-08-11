@@ -116,6 +116,35 @@ export const useEarliestTransactionDate = () =>
     },
   })
 
+/**
+ * The wallet the last entry landed in — what a new entry should start on.
+ *
+ * Ordered by `created_at`, not `date`: what matters is the wallet you were just
+ * working in, and a backdated entry is still the one you last logged.
+ *
+ * **`amount desc` is what resolves a transfer to its target.** Both legs are
+ * inserted by one statement inside `create_transfer`, so `default now()` gives
+ * them an identical `created_at` and neither wins on time alone. Invariant 5
+ * makes the source negative and the target positive, so sorting the tie by
+ * amount puts the destination first and a single row is the answer — no second
+ * query, and no leg matching here to drift from that invariant.
+ */
+export const useLastUsedWallet = () =>
+  useQuery({
+    queryKey: ['transactions', 'last_used_wallet'],
+    queryFn: async (): Promise<string | null> => {
+      const rows = unwrap<{ wallet_id: string }[]>(
+        await supabase
+          .from('transactions')
+          .select('wallet_id')
+          .order('created_at', { ascending: false })
+          .order('amount', { ascending: false })
+          .limit(1),
+      )
+      return rows[0]?.wallet_id ?? null
+    },
+  })
+
 export const useTransaction = (id: string | undefined) =>
   useQuery({
     queryKey: ['transactions', 'one', id],
@@ -245,6 +274,68 @@ export const useAddTransaction = () => {
       return inserted.id
     },
     onSuccess: () => invalidateDerived(qc),
+  })
+}
+
+export type TransactionEdit = NewTransaction & { id: string; tag_ids: string[] }
+
+/**
+ * Edits an existing transaction in place.
+ *
+ * Tags are reconciled as a diff rather than deleted-and-reinserted: the join
+ * table is the only place a tag membership lives, and a failure between the two
+ * halves of a wipe-and-rewrite would silently strip the transaction's tags.
+ *
+ * Deliberately reachable only for ordinary rows. A transfer's two legs have to
+ * stay consistent — same amount both ways when the currencies match, and both
+ * pointing at the same pair of wallets — which is `create_transfer`'s job, not
+ * a column update on one side of it.
+ */
+export const useUpdateTransaction = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (tx: TransactionEdit) => {
+      const { error } = await supabase
+        .from('transactions')
+        .update({
+          wallet_id: tx.wallet_id,
+          category_id: tx.category_id,
+          amount: asMinor(tx.amount),
+          date: tx.date,
+          note: tx.note,
+        })
+        .eq('id', tx.id)
+      if (error) throw error
+
+      const current = unwrap<{ tag_id: string }[]>(
+        await supabase
+          .from('transaction_tags')
+          .select('tag_id')
+          .eq('transaction_id', tx.id),
+      ).map((r) => r.tag_id)
+
+      const removed = current.filter((id) => !tx.tag_ids.includes(id))
+      const added = tx.tag_ids.filter((id) => !current.includes(id))
+
+      if (removed.length) {
+        const { error: delError } = await supabase
+          .from('transaction_tags')
+          .delete()
+          .eq('transaction_id', tx.id)
+          .in('tag_id', removed)
+        if (delError) throw delError
+      }
+      if (added.length) {
+        const { error: insError } = await supabase
+          .from('transaction_tags')
+          .insert(added.map((tag_id) => ({ transaction_id: tx.id, tag_id })))
+        if (insError) throw insError
+      }
+    },
+    onSuccess: (_result, tx) => {
+      invalidateDerived(qc)
+      qc.invalidateQueries({ queryKey: ['transaction_tags', tx.id] })
+    },
   })
 }
 

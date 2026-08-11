@@ -48,6 +48,8 @@ export default function App() {
         {/* Screens that cover the tabs entirely. */}
         <Route path="/add" element={<AddScreen />} />
         <Route path="/tx/:id" element={<TransactionScreen />} />
+        {/* Same form as /add, seeded from the row it names. */}
+        <Route path="/tx/:id/edit" element={<AddScreen />} />
         <Route path="/appearance" element={<AppearanceScreen />} />
         <Route path="/categories" element={<CategoriesScreen />} />
 

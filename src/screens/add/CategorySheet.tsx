@@ -3,6 +3,7 @@ import { Search } from 'lucide-react'
 import { Sheet } from '@/components/Sheet'
 import { CategoryGlyph } from '@/components/CategoryGlyph'
 import { Pill } from '@/components/Pill'
+import { keepFocus } from '@/lib/touch'
 import type { Category, CategoryKind } from '@/lib/db'
 
 const TABS: { key: CategoryKind; label: string }[] = [
@@ -54,10 +55,18 @@ export function CategorySheet({
         style={{ border: '1px solid var(--color-line)' }}
       >
         <Search size={16} strokeWidth={1.5} className="flex-none text-ink-faint" />
+        {/* Left as a plain text field: `type="search"` drags WebKit's own rounded
+            chrome and clear button in with it, and the search return key comes
+            from enterKeyHint either way. */}
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={`Search ${categories.filter((c) => c.kind === kind).length} categories`}
+          inputMode="search"
+          enterKeyHint="search"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           className="w-full bg-transparent font-sans text-[13px] outline-none placeholder:text-ink-dim"
         />
       </label>
@@ -75,8 +84,12 @@ export function CategorySheet({
             <button
               key={category.id}
               disabled={kind === 'transfer'}
+              // Otherwise the first tap after a search is spent dismissing the
+              // keyboard and never reaches the button. See `keepFocus`.
+              onMouseDown={keepFocus}
               onClick={() => onPick(category)}
               className="flex flex-col items-center gap-1.5 disabled:opacity-40"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
               <CategoryGlyph glyph={category.glyph} color={category.color} />
               <span className="line-clamp-1 w-full text-center text-[11px] leading-tight">
