@@ -24,7 +24,13 @@
     <meta name="apple-mobile-web-app-title" content="oszczędź.se" />
     <link rel="apple-touch-icon" href="/icon-180.png" />
 
+    <!-- SVG first for anything that understands one; the .ico is the fallback
+         and carries 16 and 32 with the terminal dot dropped, since below ~24px
+         its white ring closes up into a blob. -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="manifest" href="/manifest.webmanifest" />
 
     <!-- One family for words and figures alike. The serif/sans split the app

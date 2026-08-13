@@ -11,7 +11,8 @@
     "db:diff": "supabase db diff",
     "db:types": "supabase gen types typescript --linked > src/lib/database.types.ts",
     "db:push": "supabase db push",
-    "db:reset": "supabase db reset"
+    "db:reset": "supabase db reset",
+    "icons": "node scripts/build-icons.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.95.0",
@@ -23,6 +24,7 @@
     "react-router": "^8.3.0"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.2.0",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.17",

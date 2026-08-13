@@ -393,16 +393,40 @@ the nearest one, not invent a corner.
 `glyph` and `color` columns are free text, so `resolveCategoryColor` / `iconFor` fall
 back deterministically rather than rendering an empty string or nothing.
 
-**The app icon is the one thing outside this system.** Mark 2a from
-`design/design_handoff_icon/icon/README.md` — the same two-series overlay the Total
-Wealth chart draws — in a fixed gold `#c99a4e` on a fixed `#1a1917` ground. It is
-deliberately *not* bound to `--color-accent`: the icon is baked into the home screen
-at install time and cannot follow a user who later picks Copper or Plum. Sources are
-in that handoff folder; `public/favicon.svg` carries the **full** mark, geometry
-identical to the app icon, so the two read as one thing. The handoff assigns the
-simplified small variant to the favicon, but that threshold assumed 1× rendering — a
-16px favicon slot is 32 device pixels on a retina display, where the prior-year series
-and the terminal dot are still legible. Checked at 16/32/48 before deviating.
+**The app icon is the one thing outside this system.** It is the app's own
+balance chart cropped to a rounded tile: red while the balance is below zero,
+green above it, with the fill sitting **between the line and the undrawn zero
+line** — the same rule `BalanceChart` follows, which is why zero is never drawn
+and the colour change is what marks it. It ends on the chart's white last-point
+dot just above zero, so the mark reads as a recovery.
+
+The colours are the app's own expense and income at their **dark-theme**
+values, resolved to hex (`#d7654b`, `#7cbd89`) on a fixed `#1e1f21` tile. That
+tile grey is deliberately lighter than either ground so the icon reads as an
+object on both. Nothing here re-themes: the icon is baked into the home screen
+at install time and cannot follow a user who later picks Copper.
+
+**`scripts/build-icons.mjs` is the source of truth**, run on demand with `npm
+run icons` and deliberately *not* part of `npm run build` — these change once a
+year and rasterising them per deploy would add a dependency the app does not
+otherwise need. The geometry lives in that script rather than in a file read
+from `design/`, because the design bundles are gitignored: the script is the
+only copy of the mark actually in the repository, and PNGs nobody can
+regenerate are worse than none. `@resvg/resvg-js` is a devDependency for this
+one job.
+
+It emits the whole set: `favicon.svg` with the **full** mark (a 16px slot is 32
+device pixels on a retina display, where the dot is still legible), 16/32 PNGs
+and a two-frame `favicon.ico` with the **dot dropped** (below ~24px the white
+ring closes up into a blob), 192/256/384/512 for the manifest, a maskable 512
+with square corners and the artwork pulled into the inner 80%, and a 180 for
+Apple with no radius since iOS applies its own.
+
+`src/auth/AppMark.tsx` is the same artwork inline, for the login screen — inline
+rather than an `<img>` so it paints with the first frame, since it is the only
+thing above the fold there. Its gradient ids come from `useId`; two marks on one
+page with hardcoded ids would have the second silently reuse the first's fills.
+
 
 ## Build and deploy
 
@@ -801,12 +825,31 @@ About row. Bump the version there, not in the component.
     over five thousand transactions. An unpaged select would produce a file that
     parses perfectly and quietly stops in 2024.
 
-15. **Next:** budgets CRUD (the feed rail shows only its dashed placeholder until
+15. **Icon and login — DONE**, against
+    `design/design_handoff_icon_login/`. The new mark (above) replaces the gold
+    two-series overlay, and the login screen is rebuilt in the refresh's
+    language: the mark, a 30px "Sign in", labelled fields on card wells with a
+    focus ring drawn as a `box-shadow` (a border would shift the text by a
+    pixel), a reveal toggle, "Keep me signed in", and an accent button that
+    stays disabled until both fields have something in them.
+
+    Two deviations from that handoff, both because the app is single-account:
+    there is no "Forgot password?" link and no "Create one" footer — sign-ups
+    are disabled in Supabase Auth and the one account was made by hand, so the
+    footer says that instead of offering a route that cannot work. The lock-out
+    countdown state is also absent; Supabase's own rate limiting is what would
+    drive it, and inventing a timer the server does not report would be a lie.
+
+    Supabase returns "Invalid login credentials" for a bad pair; the screen says
+    "Wrong email or password." and clears it on the next keystroke in either
+    field. Any other error is shown as it came, because it is a real fault.
+
+16. **Next:** budgets CRUD (the feed rail shows only its dashed placeholder until
     a budget can be created), and the Insights screen. Hard-deleting a
     transaction-free wallet is still unbuilt — the FK already permits exactly
     that case and nothing else. Tag CRUD has no design yet, which is why
     `/tags` is a list and not an editor.
-16. Deferred by explicit decision: split transactions, FX conversion in charts
+17. Deferred by explicit decision: split transactions, FX conversion in charts
    (`exchange_rates`), non-monthly budget periods, MCP/AI entry.
 
 Resolved by the redesign: icons are Lucide; both light and dark grounds ship, each

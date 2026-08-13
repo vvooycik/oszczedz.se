@@ -1,23 +1,24 @@
-<!-- Mark 2a, "dotted prior year", per design/design_handoff_icon/icon/README.md —
-     the full mark, geometry identical to the app icon so the two read as one
-     thing in a tab strip and on the home screen.
-
-     The handoff assigns the *small* variant to the favicon, on the grounds that
-     the prior-year series and the terminal dot collapse into noise below ~40px.
-     That threshold no longer bites: a 16px favicon slot is rendered at 32 device
-     pixels on any retina display, and the full mark is legible at 32. Rendered
-     both at 16/32/48 to check before deviating.
-
-     Gold is fixed at #c99a4e on #1a1917 regardless of the user's accent — the
-     icon must not follow someone who later picks Copper or Plum. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#1a1917"/>
-  <!-- Mark at 63% of the tile, centred on the 96 box rather than on the ink:
-       the artwork is deliberately bottom-weighted by the baseline rule. -->
-  <g transform="translate(94.72 94.72) scale(3.36)" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M12 50 L32 56 L52 40 L84 46" stroke="rgba(201,154,78,.42)" stroke-width="4" stroke-dasharray="1 9"/>
-    <path d="M12 68 L32 54 L52 60 L84 22" stroke="#c99a4e" stroke-width="5"/>
-    <circle cx="84" cy="22" r="7" fill="#1a1917" stroke="#c99a4e" stroke-width="5"/>
-    <path d="M12 84 H84" stroke="rgba(201,154,78,.35)" stroke-width="3"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 112 112" role="img" aria-label="oszczędź.se">
+  <title>oszczędź.se</title>
+  <defs>
+    <clipPath id="t"><rect width="112" height="112" rx="26"/></clipPath>
+    <linearGradient id="u" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7cbd89" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#7cbd89" stop-opacity=".04"/>
+    </linearGradient>
+    <linearGradient id="d" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d7654b" stop-opacity=".4"/>
+      <stop offset="1" stop-color="#d7654b" stop-opacity=".1"/>
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#t)">
+    <rect width="112" height="112" fill="#1e1f21"/>
+    <g transform="translate(0 0) scale(1)">
+      <path d="M0 68 L0 86 L12 92 L24 76 L34 82 L42 68 Z" fill="url(#d)"/>
+      <path d="M42 68 L52 44 L62 52 L70 30 L80 46 L94 60 L94 68 Z" fill="url(#u)"/>
+      <path d="M0 86 L12 92 L24 76 L34 82 L42 68" fill="none" stroke="#d7654b" stroke-width="9" stroke-linejoin="round"/>
+      <path d="M42 68 L52 44 L62 52 L70 30 L80 46 L94 60" fill="none" stroke="#7cbd89" stroke-width="9" stroke-linejoin="round"/>
+      <circle cx="94" cy="60" r="10" fill="#f4f4f6" stroke="#1e1f21" stroke-width="3.5"/>
+    </g>
   </g>
 </svg>
