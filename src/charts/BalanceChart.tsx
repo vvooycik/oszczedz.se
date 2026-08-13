@@ -231,15 +231,20 @@ export function BalanceChart({
           showSymbol: false,
           lineStyle: { width: 2.2, cap: 'round' as const, join: 'round' as const },
           // Both the line and this fill take their colour from visualMap, which
-          // splits them at zero. Only the opacity and the anchor are set here.
+          // splits them at zero. Only the opacity is set here.
           //
-          // **`origin: 'start'` is load-bearing.** The default anchors the fill
-          // to the zero line, and total wealth here is negative for its whole
-          // history — with `scale: true`, zero sits off the top of the plot, so
-          // the fill ran *upward* from the line and painted a slab across the
-          // entire chart. Anchoring to the axis minimum puts it under the line,
-          // which is what a filled area means.
-          areaStyle: { opacity: 0.3, origin: 'start' as const },
+          // **The fill anchors to zero, and must.** The area means "distance
+          // from zero", so it can never appear on the far side of it: under a
+          // stretch above zero the fill reaches down to the axis and stops.
+          // Anchoring to the plot floor instead (`origin: 'start'`) was tried,
+          // and it draws fill *through* zero under a positive stretch — where
+          // visualMap then correctly paints it expense-red, so a rising balance
+          // grows a red shadow. `'auto'` is the default; naming it is a note not
+          // to reach for the other one again.
+          //
+          // A one-sided series therefore fills a large region, because it really
+          // is that far from zero. Opacity carries that rather than the anchor.
+          areaStyle: { opacity: 0.16, origin: 'auto' as const },
           z: 2,
         },
         // The end marker is its own series because visualMap overrides the

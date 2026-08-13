@@ -309,6 +309,23 @@ and the area split together. Three things that are load-bearing:
   data extent to cover the headroom `scale: true` adds.
 - **An empty series must omit the `visualMap` entirely** — no pieces means no
   stops in range, same crash.
+- **The fill anchors to zero, never to the plot floor.** The area means
+  "distance from zero", so it cannot appear on the far side of it. Anchoring to
+  the axis minimum (`areaStyle.origin: 'start'`) draws fill *through* zero under
+  a rising stretch, where the visualMap then correctly paints it expense-red —
+  so a positive balance grows a red shadow beneath it. Zero-anchored is the
+  ECharts default; it is named explicitly in the option as a note not to reach
+  for the other one.
+
+  What tempts you towards `'start'` is a one-sided series: when the balance
+  never approaches zero, the area between it and zero is most of the plot, and
+  at a heavy opacity that reads as a slab rather than a measurement. The answer
+  is the opacity, not the anchor — 0.16, not the handoff's 0.3, because 0.3 was
+  the *top of a fade* and a flat 0.3 is far more ink than a 30%→0 gradient. The
+  fade itself is not reproducible while `visualMap` owns the series colour;
+  splitting the area onto its own ungoverned series would buy it, at the cost of
+  the sign split on the fill.
+
 - **The end dot is its own series.** visualMap overrides a symbol's `color` *and*
   `borderColor` on any series it touches, so leaving the marker on the balance
   series repaints it. `seriesIndex` keeps it off the marker.
