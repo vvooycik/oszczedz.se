@@ -710,12 +710,26 @@ About row. Bump the version there, not in the component.
     utility beats an element selector, so each field states its own size.
 
     **The system keyboard and the calculator keypad are never up together.**
-    Typing a note raises iOS's keyboard over the keypad, which left two
-    keyboards fighting for the same 330px and Save buried under both. The entry
-    screen reads `useKeyboardInset` — the *visual* viewport is the only thing
-    that knows a keyboard is actually up, since a field can hold focus without
-    one — drops the keypad while it is, and spends the inset as a margin so Save
-    sits on the keyboard rather than behind it.
+    Typing a note, a received amount or a category search raises iOS's keyboard
+    over the keypad, which left two keyboards fighting for the same 330px and
+    Save buried under both.
+
+    **Focus decides whether the keypad is drawn** — `useTextFieldFocused`, a
+    document-level `focusin`/`focusout` listener, because the drawer's search box
+    is the case that matters most and lives elsewhere in the tree. The visual
+    viewport was tried first and is the better answer in theory, since it knows
+    where the keyboard actually *is*; it did not reliably report one in the
+    installed standalone app, and the keypad stayed put on the device while
+    testing clean in Safari. Focus is what the app can be sure of.
+
+    `useKeyboardInset` still earns its place next to it: it is the only thing
+    that can say how far up to lift Save. Being wrong there costs a nudge, not
+    the whole behaviour — which is the right way round for a signal that cannot
+    be trusted in standalone.
+
+    Note `focusout` fires *before* focus lands, so `activeElement` is briefly
+    `<body>` between two fields; that read is deferred a task, or the keypad
+    flashes back in between them.
 
     **`aspect-square` needs a cap.** The swatch strips and the icon grid size
     themselves off the row they sit in, which is right on a phone and wrong at

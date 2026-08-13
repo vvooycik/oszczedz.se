@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router'
 import { useGoBack } from '@/app/useGoBack'
 import { useKeyboardInset } from '@/app/useKeyboardInset'
+import { useTextFieldFocused } from '@/app/useTextFieldFocused'
 import {
   IconArrowBarToDown,
   IconArrowsLeftRight,
@@ -69,13 +70,21 @@ export function AddScreen() {
   /**
    * The system keyboard and the calculator keypad must never be up together.
    *
-   * Typing a note or a received amount raises iOS's own keyboard, which covers
-   * the keypad anyway — leaving it mounted means two keyboards fighting for the
-   * same 330px and a Save button buried under both. Read from the *visual*
-   * viewport rather than from focus handlers, because that is the only thing
-   * that knows the keyboard is actually up: a field can hold focus with the
-   * keyboard dismissed, and the hook already exists for `Sheet`.
+   * Typing a note, a received amount, or a category search raises iOS's own
+   * keyboard over the keypad — two keyboards fighting for the same 330px, with
+   * Save buried under both.
+   *
+   * Two signals, and they are not interchangeable. **Focus decides whether the
+   * keypad is drawn**, because it is what the app can be sure of. The visual
+   * viewport was the first attempt and is the more principled answer in theory —
+   * it knows where the keyboard actually is — but it did not reliably report one
+   * in the installed standalone app, and the keypad stayed put.
+   *
+   * `useKeyboardInset` still earns its place: it is the only thing that can say
+   * *how far up* to lift Save, and being wrong there costs a nudge rather than
+   * the whole behaviour.
    */
+  const typing = useTextFieldFocused()
   const keyboard = useKeyboardInset()
   const wallets = useWallets()
   const categories = useCategories()
@@ -643,11 +652,11 @@ export function AddScreen() {
           }}
         >
           {/* Functional update: a captured entry drops digits on fast taps. */}
-          {keyboard === 0 && (
+          {!typing && (
             <Keypad op={entry.op} onKey={(key) => setEntry((s) => applyKey(s, key))} />
           )}
 
-          <div className={`flex gap-2 ${keyboard === 0 ? 'mt-2.5' : ''}`}>
+          <div className={`flex gap-2 ${typing ? '' : 'mt-2.5'}`}>
             {/* Chained entry is an adding idea; there is no second row to edit. */}
             {!editing && (
               <button
