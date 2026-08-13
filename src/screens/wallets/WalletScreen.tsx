@@ -3,10 +3,12 @@ import { useNavigate, useParams } from 'react-router'
 import { IconChevronLeft, IconChevronRight, IconPencil } from '@tabler/icons-react'
 import { FullScreen } from '@/app/AppShell'
 import { useGoBack } from '@/app/useGoBack'
+import { useThemeColor } from '@/app/useThemeColor'
+import { useTheme } from '@/theme/ThemeProvider'
 import { Sparkline } from '@/components/Sparkline'
 import { TransactionFeed } from '@/components/TransactionFeed'
 import { Card, CardRow } from '@/components/ui/Card'
-import { ColourField } from '@/components/ui/ColourField'
+import { ColourField, colourFieldTop } from '@/components/ui/ColourField'
 import { Label } from '@/components/ui/Label'
 import { ActionTile } from '@/components/ui/Button'
 import {
@@ -61,10 +63,17 @@ export function WalletScreen() {
   const categoryIds = useWalletCategoryIds(id)
 
   const [catOpen, setCatOpen] = useState(false)
+  const { resolvedMode } = useTheme()
 
   const wallet = useMemo(
     () => (wallets.data ?? []).find((w) => w.id === id),
     [wallets.data, id],
+  )
+
+  // Lends the status bar the field's own colour. Before the early return, so
+  // the hook runs on every render of this component.
+  useThemeColor(
+    wallet ? colourFieldTop(wallet.color_scheme, resolvedMode) : null,
   )
 
   const balance = useMemo(() => {

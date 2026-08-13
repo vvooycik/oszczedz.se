@@ -15,8 +15,10 @@ import {
 } from '@tabler/icons-react'
 import { FullScreen } from '@/app/AppShell'
 import { useGoBack } from '@/app/useGoBack'
+import { useThemeColor } from '@/app/useThemeColor'
+import { useTheme } from '@/theme/ThemeProvider'
 import { Card, CardRow, Divider } from '@/components/ui/Card'
-import { ColourField } from '@/components/ui/ColourField'
+import { ColourField, colourFieldTop } from '@/components/ui/ColourField'
 import { Label } from '@/components/ui/Label'
 import { ActionTile, Button } from '@/components/ui/Button'
 import { iconFor } from '@/lib/icons'
@@ -108,6 +110,7 @@ export function TransactionScreen() {
   const navigate = useNavigate()
   const goBack = useGoBack()
   const [confirming, setConfirming] = useState(false)
+  const { resolvedMode } = useTheme()
 
   const tx = useTransaction(id)
   const wallets = useWallets()
@@ -120,6 +123,13 @@ export function TransactionScreen() {
   const monthly = useMonthlyTotals(CURRENCY)
   const remove = useDeleteTransaction()
   const duplicate = useAddTransaction()
+
+  // A transfer has no category hue, so its field — and the strip above it —
+  // stays the plain ground. Before the early return, so the hook order holds.
+  const fieldColour = tx.data?.transfer_id
+    ? null
+    : categories.data?.find((c) => c.id === tx.data?.category_id)?.color
+  useThemeColor(fieldColour ? colourFieldTop(fieldColour, resolvedMode) : null)
 
   if (tx.isLoading || !tx.data) {
     return (

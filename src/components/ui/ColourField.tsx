@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { useTheme } from '@/theme/ThemeProvider'
-import { categoryLightness, categoryVar } from '@/theme/tokens'
+import { categoryLightness, categoryVar, resolveColour } from '@/theme/tokens'
 
 /**
  * A full-bleed vertical gradient in the subject's own colour, fading into the
@@ -37,20 +37,44 @@ const STOPS = {
   light: { top: 26, mid: 8 },
 } as const
 
+/** The two stop colours, as CSS the browser still has to evaluate. */
+function stops(colour: string | null | undefined, mode: 'light' | 'dark') {
+  const hue = categoryVar(colour)
+  const { top, mid } = STOPS[mode]
+  const scale = Math.max(FLOOR, Math.min(1, REFERENCE_L / categoryLightness(colour)))
+  return {
+    top: `color-mix(in oklab, ${hue} ${(top * scale).toFixed(1)}%, var(--color-bg))`,
+    mid: `color-mix(in oklab, ${hue} ${(mid * scale).toFixed(1)}%, var(--color-bg))`,
+  }
+}
+
 export function colourFieldStyle(
   colour: string | null | undefined,
   mode: 'light' | 'dark',
 ): CSSProperties {
-  const hue = categoryVar(colour)
-  const { top, mid } = STOPS[mode]
-  const scale = Math.max(FLOOR, Math.min(1, REFERENCE_L / categoryLightness(colour)))
-
+  const { top, mid } = stops(colour, mode)
   return {
-    background: `linear-gradient(180deg,
-      color-mix(in oklab, ${hue} ${(top * scale).toFixed(1)}%, var(--color-bg)) 0%,
-      color-mix(in oklab, ${hue} ${(mid * scale).toFixed(1)}%, var(--color-bg)) 42%,
-      var(--color-bg) 72%)`,
+    background: `linear-gradient(180deg, ${top} 0%, ${mid} 42%, var(--color-bg) 72%)`,
   }
+}
+
+/**
+ * The field's topmost colour, resolved to something a `<meta>` tag can hold.
+ *
+ * iOS paints the status bar strip itself — that strip is outside the web view,
+ * so no amount of CSS reaches it — and it takes the colour from
+ * `<meta name="theme-color">`. Handing it the field's top stop is what makes a
+ * tinted header look like it runs to the top of the phone rather than starting
+ * under a band of bare ground.
+ *
+ * Resolved rather than passed through: a meta tag evaluates neither `var()` nor
+ * `color-mix()`, so this has to be an actual colour by the time it lands.
+ */
+export function colourFieldTop(
+  colour: string | null | undefined,
+  mode: 'light' | 'dark',
+): string {
+  return resolveColour(stops(colour, mode).top)
 }
 
 export function ColourField({

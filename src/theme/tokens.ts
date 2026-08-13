@@ -75,6 +75,25 @@ const parseColor = (value: string): string => {
   return value.includes('(') && !/^rgba?\(/i.test(value) ? normalise(value) : value
 }
 
+/**
+ * Any CSS colour expression → an actual colour, for the two places that cannot
+ * take a `var()` or a `color-mix()`: canvas charts, and `<meta name="theme-color">`.
+ *
+ * Two hops, and both are needed. A `var()` only resolves against an element, so
+ * the value is parked on a real one and read back — there is no other way to
+ * reach a custom property from inside a longer expression. What comes back is
+ * still whatever colour space the mix was authored in, so it goes through the
+ * same pixel readback every token does.
+ */
+export const resolveColour = (value: string): string => {
+  const el = document.createElement('span')
+  el.style.color = value
+  document.documentElement.appendChild(el)
+  const computed = getComputedStyle(el).color
+  el.remove()
+  return parseColor(computed)
+}
+
 const read = (name: string): string =>
   parseColor(
     getComputedStyle(document.documentElement).getPropertyValue(name).trim(),

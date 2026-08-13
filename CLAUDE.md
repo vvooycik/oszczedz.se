@@ -685,10 +685,20 @@ About row. Bump the version there, not in the component.
     reaches y=0. The entry screen needs nothing — its field is on the frame's own
     `style`, and a background paints under padding.
 
-    That is as far up as it goes. With `apple-mobile-web-app-status-bar-style:
-    default` the status bar sits *outside* the web view, and iOS paints that
-    strip from `<meta name="theme-color">` — which `applyTheme` sets to the
-    ground. Tinting it per screen would mean rewriting that meta on navigation.
+    **The status bar strip is reclaimed through `theme-color`, not through
+    layout.** It sits *outside* the web view — with
+    `apple-mobile-web-app-status-bar-style: default` iOS positions the app below
+    it and paints it itself — so no CSS reaches it. `useThemeColor` lends it the
+    field's own top colour for as long as one of those screens is mounted, and
+    hands it back to the ground on unmount. Verified in the browser: the meta
+    resolves to the identical pixel as the gradient's first stop.
+
+    Restoring uses `GROUND_HEX[resolvedMode]` rather than the value captured on
+    entry, because `applyTheme` writes the same meta whenever mode or accent
+    changes and a captured value can be stale by the time a screen closes.
+
+    `black-translucent` is the other way to fill that strip and stays rejected —
+    see the standalone-metadata note above for the measurement.
 
     **`aspect-square` needs a cap.** The swatch strips and the icon grid size
     themselves off the row they sit in, which is right on a phone and wrong at

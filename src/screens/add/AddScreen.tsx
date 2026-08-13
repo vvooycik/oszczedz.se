@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router'
 import { useGoBack } from '@/app/useGoBack'
+import { useThemeColor } from '@/app/useThemeColor'
 import {
   IconArrowBarToDown,
   IconArrowsLeftRight,
@@ -15,7 +16,7 @@ import {
 } from '@tabler/icons-react'
 import { FullScreen } from '@/app/AppShell'
 import { Button } from '@/components/ui/Button'
-import { colourFieldStyle } from '@/components/ui/ColourField'
+import { colourFieldStyle, colourFieldTop } from '@/components/ui/ColourField'
 import { ScreenHeader } from '@/components/ui/ScreenHeader'
 import { Tile } from '@/components/ui/Tile'
 import { useTheme } from '@/theme/ThemeProvider'
@@ -146,6 +147,11 @@ export function AddScreen() {
    * dependency array is evaluated during render, not after it.
    */
   const isTransfer = category?.kind === 'transfer'
+
+  // The whole entry screen is the field, so the strip iOS paints above it
+  // takes the same colour. Below `category`, not beside the other hooks: a
+  // const is in its temporal dead zone until its own line.
+  useThemeColor(colourFieldTop(category?.color, resolvedMode))
 
   /**
    * Wallets this form may point at: the open ones, plus whichever the row being
