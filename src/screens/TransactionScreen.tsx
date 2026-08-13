@@ -15,10 +15,9 @@ import {
 } from '@tabler/icons-react'
 import { FullScreen } from '@/app/AppShell'
 import { useGoBack } from '@/app/useGoBack'
-import { useThemeColor } from '@/app/useThemeColor'
 import { useTheme } from '@/theme/ThemeProvider'
 import { Card, CardRow, Divider } from '@/components/ui/Card'
-import { ColourField, colourFieldTop } from '@/components/ui/ColourField'
+import { colourFieldStyle } from '@/components/ui/ColourField'
 import { Label } from '@/components/ui/Label'
 import { ActionTile, Button } from '@/components/ui/Button'
 import { iconFor } from '@/lib/icons'
@@ -124,13 +123,6 @@ export function TransactionScreen() {
   const remove = useDeleteTransaction()
   const duplicate = useAddTransaction()
 
-  // A transfer has no category hue, so its field — and the strip above it —
-  // stays the plain ground. Before the early return, so the hook order holds.
-  const fieldColour = tx.data?.transfer_id
-    ? null
-    : categories.data?.find((c) => c.id === tx.data?.category_id)?.color
-  useThemeColor(fieldColour ? colourFieldTop(fieldColour, resolvedMode) : null)
-
   if (tx.isLoading || !tx.data) {
     return (
       <FullScreen>
@@ -200,7 +192,7 @@ export function TransactionScreen() {
   }
 
   return (
-    <FullScreen bleed>
+    <FullScreen style={colourFieldStyle(isTransfer ? null : category?.color, resolvedMode)}>
       {/* Category owns the accent here too. Override the token itself — see
           the note in AddScreen for why --c-accent would not cascade. */}
       <div
@@ -208,13 +200,7 @@ export function TransactionScreen() {
         style={{ ['--color-accent' as string]: accent }}
       >
         <div className="no-scrollbar flex-1 overflow-y-auto">
-          {/* Header block only: the tint fades into the ground by 72%, so the
-              cards below sit on the surface they do everywhere else. */}
-          <ColourField
-            colour={isTransfer ? null : category?.color}
-            className="px-4 pb-6"
-            style={{ paddingTop: 'var(--safe-top)' }}
-          >
+          <div className="px-4 pb-6">
             <header className="flex items-center gap-2 pt-1 pb-5">
               <ActionTile label="Back" onField onClick={goBack}>
                 <IconChevronRight size={20} stroke={2} className="rotate-180" />
@@ -310,7 +296,7 @@ export function TransactionScreen() {
                 {formatFullDate(row.date)}
               </div>
             </div>
-          </ColourField>
+          </div>
 
           <div className="flex flex-col gap-[14px] px-4 pb-8">
             {isTransfer && outLeg && inLeg ? (

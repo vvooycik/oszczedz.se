@@ -678,27 +678,26 @@ About row. Bump the version there, not in the component.
     it instead of a bar welded to the edge with a FAB over the feed, and one
     inset segmented track instead of outlined pills.
 
-    **A full-bleed header needs `FullScreen bleed`.** The frame holds the top
-    safe-area inset for every screen, which meant the wallet and transaction
-    colour fields began below a band of bare ground. Those two hand the inset to
-    the content instead and spend `--safe-top` on the field itself, so the tint
-    reaches y=0. The entry screen needs nothing — its field is on the frame's own
-    `style`, and a background paints under padding.
+    **The colour field rises from the bottom of the screen, not down from the
+    top**, and it is on the frame rather than on a header block — all three
+    screens set it through `colourFieldStyle` on `FullScreen`'s own `style`, so
+    the wash stays put while content scrolls over it.
 
-    **The status bar strip is reclaimed through `theme-color`, not through
-    layout.** It sits *outside* the web view — with
-    `apple-mobile-web-app-status-bar-style: default` iOS positions the app below
-    it and paints it itself — so no CSS reaches it. `useThemeColor` lends it the
-    field's own top colour for as long as one of those screens is mounted, and
-    hands it back to the ground on unmount. Verified in the browser: the meta
-    resolves to the identical pixel as the gradient's first stop.
+    It was top-anchored first, and that is worth knowing because it failed for a
+    reason no amount of CSS could fix. The strongest tint sat in the header, and
+    the header ends against the strip iOS paints *above* the web view — with
+    `apple-mobile-web-app-status-bar-style: default` the status bar is outside
+    the app entirely, so nothing in the document reaches it. Two attempts went
+    by: giving the field the safe-area inset so it started at y=0 (which fixed a
+    second, real band the frame's own padding was adding), then lending iOS the
+    field's top colour through `<meta name="theme-color">` while such a screen
+    was mounted. Both worked, and it still read as a stripe.
 
-    Restoring uses `GROUND_HEX[resolvedMode]` rather than the value captured on
-    entry, because `applyTheme` writes the same meta whenever mode or accent
-    changes and a captured value can be stale by the time a screen closes.
-
-    `black-translucent` is the other way to fill that strip and stays rejected —
-    see the standalone-metadata note above for the measurement.
+    Lighting the screen from below sidesteps the whole problem: the top is plain
+    ground, so there is nothing for the untouchable band to fail to match, and
+    the entry screen gets what the handoff actually asked for — keys sitting on
+    the tint. `black-translucent` would put content under the bar for real and
+    stays rejected; see the standalone-metadata note above for the measurement.
 
     **`aspect-square` needs a cap.** The swatch strips and the icon grid size
     themselves off the row they sit in, which is right on a phone and wrong at

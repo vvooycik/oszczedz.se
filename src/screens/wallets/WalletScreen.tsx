@@ -3,12 +3,11 @@ import { useNavigate, useParams } from 'react-router'
 import { IconChevronLeft, IconChevronRight, IconPencil } from '@tabler/icons-react'
 import { FullScreen } from '@/app/AppShell'
 import { useGoBack } from '@/app/useGoBack'
-import { useThemeColor } from '@/app/useThemeColor'
 import { useTheme } from '@/theme/ThemeProvider'
 import { Sparkline } from '@/components/Sparkline'
 import { TransactionFeed } from '@/components/TransactionFeed'
 import { Card, CardRow } from '@/components/ui/Card'
-import { ColourField, colourFieldTop } from '@/components/ui/ColourField'
+import { colourFieldStyle } from '@/components/ui/ColourField'
 import { Label } from '@/components/ui/Label'
 import { ActionTile } from '@/components/ui/Button'
 import {
@@ -70,12 +69,6 @@ export function WalletScreen() {
     [wallets.data, id],
   )
 
-  // Lends the status bar the field's own colour. Before the early return, so
-  // the hook runs on every render of this component.
-  useThemeColor(
-    wallet ? colourFieldTop(wallet.color_scheme, resolvedMode) : null,
-  )
-
   const balance = useMemo(() => {
     if (!wallet) return 0
     const row = (balances.data ?? []).find((b) => b.wallet_id === wallet.id)
@@ -100,15 +93,9 @@ export function WalletScreen() {
   const trend = balanceHistory(wallet, nets.data ?? [])
 
   return (
-    <FullScreen bleed>
+    <FullScreen style={colourFieldStyle(wallet.color_scheme, resolvedMode)}>
       <div className="no-scrollbar flex-1 overflow-y-auto">
-        {/* Header block only — the tint fades into the ground by 72%, so the
-            feed below sits on the same surface it does everywhere else. */}
-        <ColourField
-          colour={wallet.color_scheme}
-          className="px-4 pb-5"
-          style={{ paddingTop: 'var(--safe-top)' }}
-        >
+        <div className="px-4 pb-5">
           <header className="flex items-center gap-3 pt-1 pb-4">
             <ActionTile label="Back" onField onClick={goBack}>
               <IconChevronLeft size={20} stroke={2} />
@@ -219,7 +206,7 @@ export function WalletScreen() {
               <Sparkline values={trend} width={330} height={56} strokeWidth={2} />
             </div>
           )}
-        </ColourField>
+        </div>
 
         <div className="flex flex-col gap-[14px] px-4">
           <Card>
