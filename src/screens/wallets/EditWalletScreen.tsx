@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { X } from 'lucide-react'
 import { FullScreen } from '@/app/AppShell'
 import { useGoBack } from '@/app/useGoBack'
-import { CategoryGlyph } from '@/components/CategoryGlyph'
+import { Card, Divider } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
+import { ScreenHeader } from '@/components/ui/ScreenHeader'
 import {
   useAdjustBalance,
   useArchiveWallet,
@@ -12,10 +13,16 @@ import {
   useWallets,
 } from '@/data/queries'
 import { today } from '@/lib/dates'
-import { asMinor, currencySymbol, formatSigned, parseAmount, toRawAmount } from '@/lib/money'
-import { keepFocus } from '@/lib/touch'
-import { glyphForWalletType, isArchived, labelForWalletType } from '@/lib/wallets'
-import { CATEGORY_COLORS, categoryVar } from '@/theme/tokens'
+import {
+  asMinor,
+  currencySymbol,
+  formatSignedMoney,
+  parseAmount,
+  toRawAmount,
+} from '@/lib/money'
+import { isArchived, labelForWalletType } from '@/lib/wallets'
+import { categoryVar } from '@/theme/tokens'
+import { AmountInput, SettingRow, WalletIdentityCard } from './WalletForm'
 import type { WalletType } from '@/lib/db'
 
 /**
@@ -60,6 +67,7 @@ export function EditWalletScreen() {
 
   const [name, setName] = useState('')
   const [color, setColor] = useState('slate')
+  const [glyph, setGlyph] = useState<string | null>(null)
   const [limit, setLimit] = useState('')
   const [installments, setInstallments] = useState('')
   const [target, setTarget] = useState('')
@@ -74,6 +82,7 @@ export function EditWalletScreen() {
     if (hydrated || !wallet || !balances.data) return
     setName(wallet.name)
     setColor(wallet.color_scheme)
+    setGlyph(wallet.glyph)
     setLimit(wallet.credit_limit === null ? '' : toRawAmount(asMinor(wallet.credit_limit)))
     setInstallments(
       wallet.installment_count === null ? '' : String(wallet.installment_count),
@@ -94,7 +103,7 @@ export function EditWalletScreen() {
   if (!wallet || !hydrated) {
     return (
       <FullScreen>
-        <p className="px-5 py-10 text-[13px] text-ink-muted">
+        <p className="px-4 py-10 text-[13px] text-ink-muted">
           {wallets.data && !wallet ? 'That wallet no longer exists.' : 'Loading…'}
         </p>
       </FullScreen>
@@ -145,6 +154,7 @@ export function EditWalletScreen() {
         id: wallet.id,
         name,
         color_scheme: color,
+        glyph,
         // Left exactly as found off-type: the CHECK constraints tie both columns
         // to the type, and the type is not moving, so there is nothing to
         // reconcile — but nulling them blindly would break a card.
@@ -189,131 +199,108 @@ export function EditWalletScreen() {
         className="flex h-full flex-col"
         style={{ '--color-accent': categoryVar(color) } as React.CSSProperties}
       >
-        <header className="flex flex-none items-center gap-3 px-5 pt-3 pb-3">
-          <button onClick={goBack} aria-label="Close" className="text-ink-muted">
-            <X size={22} strokeWidth={1.5} />
-          </button>
-          <div className="flex-1 text-center font-sans text-[14px] text-ink-muted">
-            Edit wallet
-          </div>
-          <button
-            onClick={save}
-            disabled={!canSave}
-            className="text-[13.5px] text-accent disabled:opacity-40"
-          >
-            {busy ? 'Saving…' : 'Save'}
-          </button>
-        </header>
+        <ScreenHeader title="Edit wallet" onClose={goBack} />
 
-        <div
-          className="no-scrollbar flex-1 overflow-y-auto px-5"
-          style={{ paddingBottom: 'calc(32px + env(safe-area-inset-bottom, 0px))' }}
-        >
-          <div className="flex flex-col items-center gap-3 pt-1 pb-5">
-            <CategoryGlyph
-              glyph={glyphForWalletType(wallet.type)}
-              color={color}
-              size={64}
-            />
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Wallet name"
-              aria-label="Wallet name"
-              className="w-full bg-transparent pb-1.5 text-center text-[22px] outline-none placeholder:text-ink-dim"
-              style={{ borderBottom: '1px solid var(--color-line-soft)' }}
-            />
-            {/* Stated rather than offered: changing it is a data-model
-                question, not a preference. */}
-            <span className="font-sans text-[11.5px] text-ink-faint">
-              {labelForWalletType(wallet.type)} · type cannot be changed
-            </span>
-          </div>
-
-          <div className="kicker pb-2.5 text-ink-muted">Colour</div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
-            {CATEGORY_COLORS.map((slot) => {
-              const active = color === slot
-              return (
-                <button
-                  key={slot}
-                  aria-label={slot}
-                  onMouseDown={keepFocus}
-                  onClick={() => setColor(slot)}
-                  className="flex-none rounded-full"
-                  style={{
-                    width: active ? 26 : 20,
-                    height: active ? 26 : 20,
-                    background: `var(--color-${slot})`,
-                    border: `2px solid ${active ? 'var(--color-bg)' : 'transparent'}`,
-                    boxShadow: active ? `0 0 0 1.5px var(--color-${slot})` : 'none',
-                  }}
-                />
-              )
-            })}
-          </div>
-
-          <div className="mt-5 h-px" style={{ background: 'var(--color-line)' }} />
-
-          {isCard && (
-            <Field
-              label="Credit limit"
-              hint="What the card allows."
-              value={limit}
-              unit={symbol}
-              invalid={limitBad}
-              onChange={setLimit}
-            />
-          )}
-
-          {isLoan && (
-            <Field
-              label="Settlements"
-              hint="How many instalments the loan runs to. Every transfer into this wallet counts as one paid."
-              value={installments}
-              unit="×"
-              numeric
-              invalid={installmentsBad}
-              onChange={setInstallments}
-            />
-          )}
-
-          <Field
-            label={spec.label}
-            hint="Correct this to what the wallet is really worth. Nothing is overwritten — the difference is recorded as a transaction dated today."
-            value={target}
-            unit={symbol}
-            invalid={targetBad}
-            onChange={setTarget}
+        <div className="no-scrollbar flex flex-1 flex-col gap-[14px] overflow-y-auto px-4 pt-2 pb-6">
+          <WalletIdentityCard
+            name={name}
+            onName={setName}
+            glyph={glyph}
+            onGlyph={setGlyph}
+            colour={color}
+            onColour={setColor}
+            type={wallet.type}
           />
 
-          {delta !== 0 && (
-            <p className="pt-3 text-[12px] leading-[1.5] text-ink-muted">
-              Saving records a{' '}
-              <span
-                className="tnum"
-                style={{
-                  color: delta > 0 ? 'var(--color-income)' : 'var(--color-expense)',
-                }}
-              >
-                {formatSigned(asMinor(delta))} {symbol}
-              </span>{' '}
-              adjustment dated today, under “Balance adjustment”. It is an
-              ordinary transaction — recategorise or delete it like any other.
-            </p>
-          )}
+          <Card>
+            {/* Stated rather than offered: moving a type would have to carry
+                `credit_limit` and the loan columns across two CHECK constraints,
+                re-answer what an account's balance means once it is a card, and
+                invent an installment count — for a change that is nearly always
+                a mistake made at creation rather than an event. */}
+            <SettingRow label="Type">
+              <span className="text-[13px] text-ink-muted">
+                {labelForWalletType(wallet.type)} · fixed
+              </span>
+            </SettingRow>
 
-          {error && <p className="pt-4 text-[12.5px] text-expense">{error}</p>}
+            {isCard && (
+              <>
+                <Divider inset={16} />
+                <SettingRow label="Credit limit" invalid={limitBad}>
+                  <AmountInput
+                    label="Credit limit"
+                    value={limit}
+                    onChange={setLimit}
+                    unit={symbol}
+                    invalid={limitBad}
+                  />
+                </SettingRow>
+              </>
+            )}
 
-          <div className="mt-7 h-px" style={{ background: 'var(--color-line)' }} />
+            {isLoan && (
+              <>
+                <Divider inset={16} />
+                <SettingRow label="Settlements" invalid={installmentsBad}>
+                  <AmountInput
+                    label="Number of settlements"
+                    value={installments}
+                    onChange={setInstallments}
+                    invalid={installmentsBad}
+                    placeholder="—"
+                    unit="×"
+                    numeric
+                  />
+                </SettingRow>
+              </>
+            )}
+
+            <Divider inset={16} />
+            <SettingRow label={spec.label} invalid={targetBad}>
+              <AmountInput
+                label={spec.label}
+                value={target}
+                onChange={setTarget}
+                unit={symbol}
+                invalid={targetBad}
+              />
+            </SettingRow>
+          </Card>
+
+          <p className="px-1 text-[12.5px] leading-[1.5] text-ink-muted">
+            {delta !== 0 ? (
+              <>
+                Saving records a{' '}
+                <span
+                  className="tnum font-semibold"
+                  style={{
+                    color: delta > 0 ? 'var(--color-income)' : 'var(--color-expense)',
+                  }}
+                >
+                  {formatSignedMoney(asMinor(delta), wallet.currency)}
+                </span>{' '}
+                adjustment dated today, under “Balance adjustment”. It is an
+                ordinary transaction — recategorise or delete it like any other.
+              </>
+            ) : (
+              <>
+                Correct the balance to what the wallet is really worth. Nothing is
+                overwritten — the difference is recorded as a transaction dated
+                today.
+              </>
+            )}
+          </p>
+
+          {error && <p className="px-1 text-[12.5px] text-expense">{error}</p>}
 
           {/* Archiving is not deleting, and the copy has to say so — the history
               is exactly what makes a closed wallet worth keeping. */}
-          <div className="pt-4">
-            <div className="text-[14.5px]">
+          <Card className="p-[18px]">
+            <div className="text-[15px] font-medium">
               {archived ? 'Closed wallet' : 'Close this wallet'}
             </div>
-            <p className="pt-1.5 text-[11.5px] leading-[1.5] text-ink-muted">
+            <p className="pt-1.5 text-[12.5px] leading-[1.5] text-ink-muted">
               {archived ? (
                 <>
                   Hidden from the list and from the entry form. Everything it ever
@@ -330,7 +317,9 @@ export function EditWalletScreen() {
                 <>
                   Only a wallet at zero can be closed. Move the remaining{' '}
                   <span className="tnum">
-                    {formatSigned(asMinor(balance), { plus: false })} {symbol}
+                    {formatSignedMoney(asMinor(balance), wallet.currency, {
+                      plus: false,
+                    })}
                   </span>{' '}
                   out with a transfer first — hiding a wallet that still holds
                   money would take it out of sight but leave it in your total.
@@ -339,10 +328,12 @@ export function EditWalletScreen() {
             </p>
 
             {archiveError && (
-              <p className="pt-2.5 text-[12px] text-expense">{archiveError}</p>
+              <p className="pt-2.5 text-[12.5px] text-expense">{archiveError}</p>
             )}
 
-            <button
+            <Button
+              variant="secondary"
+              className="mt-3.5"
               onClick={() => {
                 setArchiveError(null)
                 archive.mutate(
@@ -357,63 +348,25 @@ export function EditWalletScreen() {
                 )
               }}
               disabled={archive.isPending || (!archived && balance !== 0)}
-              className="mt-3 w-full rounded-[4px] py-[11px] text-[13.5px] disabled:opacity-40"
-              style={{
-                border: `1px solid ${archived ? 'var(--color-line)' : 'var(--color-line)'}`,
-                color: archived ? 'var(--color-accent)' : 'var(--color-ink-muted)',
-              }}
             >
               {archive.isPending
                 ? 'Working…'
                 : archived
                   ? 'Reopen wallet'
                   : 'Close wallet'}
-            </button>
-          </div>
+            </Button>
+          </Card>
+        </div>
+
+        <div className="flex flex-none gap-2.5 px-4 pt-2 pb-[max(env(safe-area-inset-bottom,0px),16px)]">
+          <Button variant="secondary" full={false} className="w-24" onClick={goBack}>
+            Cancel
+          </Button>
+          <Button className="flex-1" onClick={save} disabled={!canSave}>
+            {busy ? 'Saving…' : 'Save changes'}
+          </Button>
         </div>
       </div>
     </FullScreen>
-  )
-}
-
-/** A labelled row with a right-aligned figure, matching the create screen. */
-function Field({
-  label,
-  hint,
-  value,
-  unit,
-  invalid,
-  numeric = false,
-  onChange,
-}: {
-  label: string
-  hint: string
-  value: string
-  unit: string
-  invalid: boolean
-  numeric?: boolean
-  onChange: (next: string) => void
-}) {
-  return (
-    <div className="pt-4">
-      <div
-        className="flex items-baseline gap-3 pb-2"
-        style={{
-          borderBottom: `1px solid ${invalid ? 'var(--color-expense)' : 'var(--color-line-soft)'}`,
-        }}
-      >
-        <span className="flex-1 text-[14.5px]">{label}</span>
-        <input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          inputMode={numeric ? 'numeric' : 'decimal'}
-          placeholder={numeric ? '—' : '0,00'}
-          aria-label={label}
-          className="tnum w-32 bg-transparent text-right text-[19px] outline-none placeholder:text-ink-dim"
-        />
-        <span className="font-sans text-[13px] text-ink-faint">{unit}</span>
-      </div>
-      <p className="pt-1.5 text-[11.5px] leading-[1.5] text-ink-muted">{hint}</p>
-    </div>
   )
 }

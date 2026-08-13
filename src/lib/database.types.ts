@@ -326,21 +326,21 @@ export type Database = {
         Row: {
           accent: string
           mode: string
-          tint: number
+          tint_surfaces: boolean
           updated_at: string
           user_id: string
         }
         Insert: {
           accent?: string
           mode?: string
-          tint?: number
+          tint_surfaces?: boolean
           updated_at?: string
           user_id?: string
         }
         Update: {
           accent?: string
           mode?: string
-          tint?: number
+          tint_surfaces?: boolean
           updated_at?: string
           user_id?: string
         }
@@ -414,7 +414,7 @@ export type Database = {
           created_at: string
           credit_limit: number | null
           currency: string
-          glyph: string
+          glyph: string | null
           id: string
           installment_count: number | null
           interest_rate: number | null
@@ -429,7 +429,7 @@ export type Database = {
           created_at?: string
           credit_limit?: number | null
           currency?: string
-          glyph: string
+          glyph?: string | null
           id?: string
           installment_count?: number | null
           interest_rate?: number | null
@@ -444,7 +444,7 @@ export type Database = {
           created_at?: string
           credit_limit?: number | null
           currency?: string
-          glyph?: string
+          glyph?: string | null
           id?: string
           installment_count?: number | null
           interest_rate?: number | null

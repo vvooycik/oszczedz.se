@@ -9,8 +9,8 @@ Live at **https://oszczedz-se.pages.dev** — deploys automatically from `main`.
 
 ## Stack (decided — do not substitute without discussion)
 
-- **Frontend:** React + TypeScript + Vite, Tailwind CSS v4, TanStack Query, **ECharts** for interactive charts, `react-router` for navigation, `lucide-react` for icons
-- **Type:** **Spectral** (serif) for words, **IBM Plex Sans** for every figure — balances, amounts, dates, axis labels. Figures read as accounting, everything else as text. Numbers always `tabular-nums` (use the `.tnum` class).
+- **Frontend:** React + TypeScript + Vite, Tailwind CSS v4, TanStack Query, **ECharts** for interactive charts, `react-router` for navigation, `@tabler/icons-react` for icons
+- **Type:** **Instrument Sans** at 400/500/600, for words and figures alike. The serif/sans split the app used to run — Spectral for words, IBM Plex for every number — is the single thing that most made it read as aged; figures keep their accounting feel from `tabular-nums` (the `.tnum` class), not from a second typeface.
 - **Backend:** Supabase (Postgres + Auth + auto-generated REST API via supabase-js). No custom server.
 - **Hosting:** Cloudflare Pages (static deploy from GitHub), app installed on iPhone as PWA ("Add to Home Screen")
 - **Migrations:** Supabase CLI, files in `supabase/migrations/` committed to git. Never apply schema changes through the dashboard SQL editor.
@@ -20,9 +20,11 @@ ECharts is used directly (`echarts/core` + explicit registration), not via a Rea
 wrapper package — wrapper libraries lag React majors. `src/charts/EChart.tsx` is the
 one place that touches the ECharts lifecycle.
 
-Not everything is an ECharts instance. Sparklines, budget rings and the small
-six-month bars are hand-rolled SVG: at that size, with no axes or tooltip, a chart
-engine costs far more than the mark is worth — and there is one per row.
+Not everything is an ECharts instance. Sparklines and the small six-month bars
+are hand-rolled SVG and CSS: at that size, with no axes or tooltip, a chart engine
+costs far more than the mark is worth — and there is one per row. (Budget rings
+were in this list until the visual refresh turned them into cards with a bar; the
+reasoning is the same, the shape is not.)
 
 The wallet sparkline is **painted by sign, not by the wallet's colour** — the
 same expense-below-zero / income-above-zero rule the Total Wealth chart follows.
@@ -36,17 +38,23 @@ in as `var()`, not resolved values: this is DOM rather than canvas, so the mark
 re-tints itself on a mode change for free.
 
 Icons come from `src/lib/icons.ts`, which maps the kebab-case names stored in
-`glyph` columns onto explicitly imported Lucide components. Import icons there,
-never by indexing the library namespace — Lucide ships 2025 icons and that
-defeats tree-shaking, measured at **180 kB gzipped**, more than the entire
-initial bundle. Curated, the cost is ~105 bytes gzipped per icon, so the list can
-grow freely: adding 36 took it from 47 to 83 for +3.8 kB.
+`glyph` columns onto explicitly imported **Tabler** components. Import icons
+there, never by indexing the library namespace — the rule is *stricter* than it
+was under Lucide, not looser: Lucide shipped 2025 icons and a namespace index
+cost **180 kB gzipped**, more than the entire initial bundle, and Tabler ships
+5 900. Curated, a glyph costs ~100 bytes gzipped, so the list grows freely; the
+whole Lucide→Tabler swap moved the initial chunk by −0.6 kB.
 
-If a fixed list ever stops being enough, `lucide-react/dynamic` reaches all 2025
-for a ~14 kB import map plus a request per icon rendered — at the price of async
-resolution, which shows up as pop-in on feed rows. Prefer growing the list.
-Watch for deprecated alias modules when adding names (`circle-help` is one, and
-re-exports `circle-question-mark`); they carry no icon data of their own.
+**The map's keys are data and did not change.** 59 categories and a few wallets
+hold Lucide-flavoured strings in their `glyph` columns, so the refresh swapped
+the *values* and left the rows alone. A few keys therefore read as one library's
+name for the other's glyph (`utensils` draws `IconToolsKitchen2`,
+`shopping-basket` draws `IconBasket`, `sigma` draws `IconSum`) — that is the
+price of not migrating rows to repaint a screen, and it is the right trade.
+
+Tabler's React components take **`stroke`**, not `strokeWidth`, for weight: 2 at
+row size, 1.8 in the dock. `strokeWidth` happens to work — `...rest` is spread
+after it — but `stroke` is the prop the package documents.
 
 ## Environment
 
@@ -226,12 +234,35 @@ through an aggregate — so chart code must guard them.
 
 `src/index.css` is the single source, in three layers:
 
-1. `--h` / `--tint` / `--c-accent` — written onto `<html>` at runtime from the user's
-   Appearance settings. The accent's *hue* also tints the ground, which is why it is
-   a variable rather than six hardcoded palettes.
+1. `--h` / `--c-accent` / `--c-accent-mix` — written onto `<html>` at runtime from
+   the user's Appearance settings.
 2. `[data-mode="light"]` / `[data-mode="dark"]` blocks resolve every raw colour. A
    colour must never be defined in only one of them.
 3. `@theme static` maps those raws onto Tailwind token names.
+
+**Surfaces no longer follow the accent.** They used to: `--c-bg` read `--h`, so
+every ground drifted with the theme, and a four-step `--tint` scale set its
+chroma. Both are gone. Surfaces are pinned to one cool hue (262) at four
+elevations — `--c-bg` (the ground), `--c-card`, `--c-dock`, `--c-inset` — and the
+accent reaches them only through `--c-accent-mix`, which is `0%` or `4%`
+depending on Appearance's "Tint surfaces with accent" switch. `--c-card` and
+`--c-dock` are authored as a `color-mix()` against that percentage, so the switch
+needs no JS branch and no second palette.
+
+Two consequences worth knowing. `groundHex` collapsed to **two constants**, which
+is why the pre-paint script in `index.html` no longer carries a copy of the OKLab
+matrix — only the two answers. And `--c-accent` retired two names: `claret` and
+`olive` became `copper` and `moss`, mapped rather than reset in
+`normalisePrefs`, in the pre-paint script's `RETIRED` table, and in the migration
+that moved the `user_settings.accent` CHECK constraint.
+
+**Three elevation levels replace one flat ground**, and that is the point of the
+split: grouping used to come from a 1px rectangle around every list, and now comes
+from a raised surface (`shadow-card`) plus 14px of air. The only rule left
+anywhere is `--c-divider` *inside* a card. `--sh-*` shadows are per-mode raws,
+not one shared value — the light theme uses **no** inner top highlight, because
+that trick only reads on a dark ground where the card is lighter than what is
+behind it.
 
 `static` is load-bearing: a plain `@theme` block only emits variables whose utility
 classes appear in the source, and several tokens are read only from JS (category
@@ -239,18 +270,25 @@ colours arrive from the database by name), so they would resolve to an empty str
 
 `src/theme/tokens.ts` reads the properties back via `getComputedStyle`, so Tailwind
 and ECharts cannot drift. Never hardcode a colour in a chart config. Values are read
-on demand, never cached — mode, accent and tint all change at runtime.
+on demand, never cached — mode, accent and the surface tint all change at runtime.
 
-**Tokens arrive as `oklch()` and are converted to hex on the way out of
+**Tokens arrive as colour *functions* and are normalised on the way out of
 `tokens.ts`.** Custom properties are substituted, not computed, so
 `getComputedStyle` hands back the literal index.css declared — `var()` inside it
-resolved, the colour function not. Canvas understands oklch, which is why flat
-fills never showed a problem, but **zrender parses a colour before it can
-interpolate one and its parser has no oklch**: it warns `illegal color`, falls
-back to black, and anything building a gradient then throws in `lerp` on the
-undefined parse. That is a latent trap for any future chart work — a gradient, a
-`visualMap`, an animated colour transition all hit it. `read()` converts at the
-boundary so no chart has to remember.
+resolved, the colour function not. Canvas understands both `oklch()` and
+`color-mix()`, which is why flat fills never showed a problem, but **zrender
+parses a colour before it can interpolate one and its parser knows neither**: it
+warns `illegal color`, falls back to black, and anything building a gradient then
+throws in `lerp` on the undefined parse. That is a latent trap for any future
+chart work — a gradient, a `visualMap`, an animated colour transition all hit it.
+
+`parseColor` handles it in two steps: `oklch()` is converted arithmetically
+because that is cheap and covers most tokens, and anything else containing a
+function call goes through a **canvas 2d context**, whose `fillStyle` setter is a
+complete CSS colour parser and whose getter always returns `#rrggbb` or `rgba()`.
+That second path is what makes `--color-card` readable at all now that the
+surface tint authors it as a `color-mix()`. rgba and hex — the whole ink ladder —
+pass straight through.
 
 **Overriding the accent for a subtree** (the add and detail screens take their accent
 from the selected category) means setting `--color-accent`, *not* `--c-accent`. A
@@ -299,14 +337,20 @@ still must not cycle past its end; a seventh series folds into "Other". A chart
 wants maximum separation between adjacent series, which is what those six are.
 `CATEGORY_COLORS` (all ten) is for the picker.
 
-**Every slot must clear 4.5:1 against the ground in both modes**, because the
-category mark is a filled disc with the glyph knocked out in `--color-bg` — the
-contrast *is* the glyph. That is what caps the palette, not taste: in light mode
-the existing slots sit within ~1% lightness of the AA ceiling, so there is no
-headroom to brighten anything, and sRGB will not give cyan or yellow-green much
-chroma at that lightness. The knockout is `--color-bg` rather than white
-precisely because the slots invert between modes (~50% lightness on the light
-ground, ~70% on the dark one); a fixed white drops to 2.2:1 in dark mode.
+**The 4.5:1 cap on the palette is retired.** The category mark used to be a
+filled disc with the glyph knocked out in `--color-bg`, so the *contrast was the
+glyph* and every slot had to clear AA against the ground in both modes — which is
+what capped the set at ten, not taste. The mark is now a **tinted tile**: the
+colour moved from the fill to the glyph, over `color-mix(… var(--tile-mix) …)` of
+itself. Legibility comes from the mix percentage instead, and that percentage is
+a token precisely because the 34% that reads on the dark ground goes muddy on
+white, where it drops to 16%.
+
+What that buys, if it is ever wanted: an eleventh hue is now a question about hue
+separation alone (the tightest existing pair, moss↔teal, is 20°) rather than
+about sRGB's ceiling at 50% lightness. What it costs: a tinted tile is a weaker
+mark than a disc, which is why the picker's *selected* tile goes solid with a
+white glyph and a double ring.
 
 Anything `dashed` stays outlined instead of filled — a dash needs empty space
 behind it to read as one.
@@ -323,6 +367,11 @@ so single-flag calls are unchanged. The categories settings screen takes `dashed
 alone — there the glyph and colour are the thing being edited, and neutralising
 them would leave the picker with nothing to show and every transfer row
 identical.
+
+The tile itself lives in `src/components/ui/Tile.tsx` and is shared by wallet
+marks and the settings groups. **Radius tracks size** rather than being passed
+(36/13, 40/14, 52/18, 60–68/20–22): a tile at an in-between size should look like
+the nearest one, not invent a corner.
 
 `glyph` and `color` columns are free text, so `resolveCategoryColor` / `iconFor` fall
 back deterministically rather than rendering an empty string or nothing.
@@ -352,9 +401,13 @@ Without it Vite inlines the values as `undefined`, the guard in `src/lib/supabas
 folds to a constant, and the bundler dead-code-eliminates supabase-js and every
 chart behind it — producing a *successful* build of an app that throws on load.
 
-ECharts is code-split so it stays off the login path (~157 kB gzipped initial,
-~181 kB for the chart chunk). Keep an eye on this: a second charting library adds to
-that budget rather than replacing it.
+ECharts is code-split so it stays off the login path — **~174 kB gzipped initial,
+~189 kB for the chart chunk** after the visual refresh (it was ~170/189 before,
+so the whole restyle plus ten new components cost ~4 kB). Keep an eye on this: a
+second charting library adds to that budget rather than replacing it.
+
+`__APP_VERSION__` is inlined by `vite.config.ts` from `package.json`, for the
+About row. Bump the version there, not in the component.
 
 ## Roadmap / current status
 
@@ -370,8 +423,9 @@ that budget rather than replacing it.
    (budget context, six-month history, transfer variant), and Appearance (mode,
    accent, tint) persisted cache-aside — localStorage first, `user_settings` as the
    durable copy read only on a cold cache.
-   The feed's ranges are 7D / 1M / 1Y / All time. **All time takes its left edge
-   from `useEarliestTransactionDate`, not from the feed's own rows** — that list
+   The feed's ranges were 7D / 1M / 1Y / All time (see item 14 for what they are
+   now). **All time takes its left edge from `useEarliestTransactionDate`, not
+   from the feed's own rows** — that list
    is the most recent 100, so deriving a start date from it silently clamped the
    range to the last few weeks, narrower than 1M. Compare goes inert on All time:
    nothing precedes the first transaction, so that window is flat at the opening
@@ -616,10 +670,73 @@ that budget rather than replacing it.
     half-truth.
     Verified against the live database: `archive_wallet` on `Kredyty` raises
     "Kredyty still holds a balance of -353860; move it out before archiving".
-14. **Next:** budgets CRUD (the feed rings stay empty until a budget can be
-    created), and the Insights screen. Hard-deleting a transaction-free wallet is
-    still unbuilt — the FK already permits exactly that case and nothing else.
-15. Deferred by explicit decision: split transactions, FX conversion in charts
+14. **Visual refresh — DONE**, on the `visual-refresh` branch, against
+    `design/design_handoff_visual_refresh/`. The brief was that the UI read as
+    aged, for five named reasons, and all five are addressed: one sans instead
+    of a serif/sans split, raised cards instead of 1px boxes, three elevation
+    levels instead of a flat ground, a floating dock with the add button beside
+    it instead of a bar welded to the edge with a FAB over the feed, and one
+    inset segmented track instead of outlined pills.
+
+    **`aspect-square` needs a cap.** The swatch strips and the icon grid size
+    themselves off the row they sit in, which is right on a phone and wrong at
+    the 512px the frame caps at on a desktop — the six accent swatches became
+    72px slabs and the icon tiles 67px. Each now pairs `w-full` with a `max-w-*`
+    so the track drives the size up to a ceiling, and the grids carry
+    `justify-items-center` so the slack spreads rather than collecting on the
+    right. (`justify-between` does nothing on a grid; that was the first
+    attempt.) The accent swatches land on exactly 44px, so the swatch is its own
+    touch target.
+
+    **The dock labels only the active tab**, in a pill washed with 16% of the
+    accent — the design-language doc's treatment, not the screen set's filled
+    accent circle, which the two disagreed about. The cells are therefore
+    unequal: the active one is `flex-none` and takes the width its word needs,
+    the other four share what is left. Measured at 390px: the nav is 288 wide,
+    the widest pill ("Wallets", "Insights") is 107, and the remaining four cells
+    are 41 each — enough for a 20px glyph, with no room for a sixth tab or a
+    materially longer label.
+
+    **What did not change is as important as what did.** The ten category slots
+    and both money colours were already exactly what the handoff specified —
+    checked value by value — so the palette is untouched, and so is every schema
+    invariant. `data-mode` stayed rather than becoming the handoff's
+    `data-theme`: the attribute name is an implementation detail already wired
+    through three places.
+
+    Four decisions taken against the handoff's literal text:
+
+    - **The Total Wealth chart stays ECharts**, restyled. The handoff draws it as
+      a plain SVG polyline, which would cost the tooltip, the axis and the
+      expense/income sign split; its single-colour line is an artifact of
+      all-negative sample data.
+    - **The range is now `1M / 1Q / 1Y / All`.** `7D` is gone — a week of a
+      *balance* is a flat line — and `1Q` fills the gap people actually wanted.
+      The state is local, not persisted, so no migration was needed.
+    - **"Count in total wealth" was not built.** It needs a new column and it
+      contradicts the rule that the wallets screen's totals run over every
+      wallet, archived included. Recurring and the category editor's "Monthly
+      budget" row are absent for the same kind of reason: no schema behind them.
+    - **The wallet colour row offers all ten slots**, not the handoff's seven.
+      A wallet drawn from a narrower set would be the only place in the app
+      where a colour is unavailable for no stated reason.
+
+    Built beyond a restyle, because they were cheap and the prototypes show
+    them: a **wallet icon picker** (which is why `wallets.glyph` is nullable now
+    — see `walletGlyph`), a read-only **Tags** list, **Export data** as a CSV,
+    and the static Currency and About rows.
+
+    `src/lib/export.ts` is **paged**, and that is not optional: PostgREST caps a
+    response at 1000 rows and enforces it by silently truncating, and there are
+    over five thousand transactions. An unpaged select would produce a file that
+    parses perfectly and quietly stops in 2024.
+
+15. **Next:** budgets CRUD (the feed rail shows only its dashed placeholder until
+    a budget can be created), and the Insights screen. Hard-deleting a
+    transaction-free wallet is still unbuilt — the FK already permits exactly
+    that case and nothing else. Tag CRUD has no design yet, which is why
+    `/tags` is a list and not an editor.
+16. Deferred by explicit decision: split transactions, FX conversion in charts
    (`exchange_rates`), non-monthly budget periods, MCP/AI entry.
 
 Resolved by the redesign: icons are Lucide; both light and dark grounds ship, each
@@ -654,6 +771,18 @@ or from stretching a fixed box to `bottom: 0` — the dynamic unit is stale on a
 cold standalone launch, and the fixed box is sized against the same short
 viewport described above.
 
+**Screen transitions are entry-only, and never on a pop.**
+`src/app/ScreenTransition.tsx` slides a full-screen route in — from the right for
+a detail screen, from the bottom for the entry and creation forms — at 240ms
+`cubic-bezier(.32,.72,0,1)`. Animating the *exit* too would mean keeping the old
+screen mounted while the new one arrives, which for these screens means two live
+subscriptions to the same queries and two `useViewportHeight` listeners fighting
+over one measurement. A `POP` (back button, swipe-back) is not animated at all:
+sliding a screen in from the right on the way back says the opposite of what the
+gesture means. `prefers-reduced-motion` drops the transform entirely — index.css
+already flattens durations globally, and starting from a transform that never
+animates would strand the screen off-screen.
+
 **The keyboard is only visible in the *visual* viewport.** `innerHeight`
 deliberately does not move when iOS raises it — that is what keeps the frame
 from collapsing mid-typing — so `useKeyboardInset` reads the overlap as
@@ -684,8 +813,9 @@ stack, so it is called from the keypad's `pointerdown`, not from an effect —
 which is also where the key's fill goes on, because feedback that waits for the
 release reads as lag. Everything non-Apple falls through to `navigator.vibrate`.
 
-Known gaps: the detail screen's footer shows the wallet's balance *now*, not the
-balance as of that transaction, which would need a further query. `delete_transfer`
+Known gaps: the detail screen's "Balance now" row shows the wallet's balance
+*now*, not the balance as of that transaction, which would need a further query
+— the label says so rather than leaving it to be assumed. `delete_transfer`
 is reached only from the detail screen's delete, and the **cross-currency transfer
 path cannot be exercised** while every wallet is PLN.
 

@@ -2,7 +2,7 @@ import { useId } from 'react'
 
 /**
  * Tiny trend line for a wallet row. Deliberately hand-rolled SVG rather than a
- * chart instance: at 120×22 with no axes, ticks or tooltip, a full charting
+ * chart instance: at 50×18 with no axes, ticks or tooltip, a full charting
  * engine costs far more than the mark is worth, and there would be one per row.
  *
  * **Painted by sign, not by the wallet's colour** — expense below zero, income
@@ -18,12 +18,14 @@ import { useId } from 'react'
  */
 export function Sparkline({
   values,
-  width = 120,
-  height = 22,
+  width = 50,
+  height = 18,
+  strokeWidth = 1.8,
 }: {
   values: number[]
   width?: number
   height?: number
+  strokeWidth?: number
 }) {
   // Called before the early return: hooks cannot sit behind a condition, and a
   // one-point series still has to not crash.
@@ -83,7 +85,14 @@ export function Sparkline({
           </linearGradient>
         </defs>
       )}
-      <polyline fill="none" stroke={stroke} strokeWidth={1.5} points={points} />
+      <polyline
+        fill="none"
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        points={points}
+      />
     </svg>
   )
 }

@@ -1,15 +1,15 @@
 /**
- * The appearance model: a theme is one hue applied at several lightnesses,
- * parameterised by two user settings — accent and ground tint.
+ * The appearance model: an accent, a mode, and one switch deciding whether the
+ * accent touches the surfaces at all.
  */
 
 export const ACCENTS = {
-  gold: { hue: 85, light: '#b68235', dark: '#e1ad66' },
-  copper: { hue: 48, light: 'oklch(56% 0.13 48)', dark: 'oklch(72% 0.13 48)' },
-  claret: { hue: 18, light: 'oklch(45% 0.13 18)', dark: 'oklch(67% 0.13 18)' },
-  olive: { hue: 120, light: 'oklch(50% 0.08 120)', dark: 'oklch(74% 0.08 120)' },
-  ink: { hue: 252, light: 'oklch(46% 0.09 252)', dark: 'oklch(72% 0.09 252)' },
-  plum: { hue: 340, light: 'oklch(48% 0.12 340)', dark: 'oklch(70% 0.12 340)' },
+  ink: { hue: 255, light: 'oklch(52% 0.14 255)', dark: 'oklch(76% 0.12 255)' },
+  gold: { hue: 85, light: 'oklch(54% 0.12 85)', dark: 'oklch(74% 0.13 85)' },
+  copper: { hue: 40, light: 'oklch(52% 0.13 40)', dark: 'oklch(68% 0.13 40)' },
+  moss: { hue: 155, light: 'oklch(50% 0.11 155)', dark: 'oklch(70% 0.12 155)' },
+  plum: { hue: 300, light: 'oklch(50% 0.12 300)', dark: 'oklch(66% 0.12 300)' },
+  slate: { hue: 200, light: 'oklch(50% 0.09 200)', dark: 'oklch(72% 0.1 200)' },
 } as const
 
 export type AccentName = keyof typeof ACCENTS
@@ -17,42 +17,48 @@ export type AccentName = keyof typeof ACCENTS
 export const ACCENT_ORDER: AccentName[] = [
   'gold',
   'copper',
-  'claret',
-  'olive',
   'ink',
+  'moss',
   'plum',
+  'slate',
 ]
 
 export const ACCENT_LABELS: Record<AccentName, string> = {
   gold: 'Gold',
   copper: 'Copper',
-  claret: 'Claret',
-  olive: 'Olive',
   ink: 'Ink',
+  moss: 'Moss',
   plum: 'Plum',
+  slate: 'Slate',
 }
 
-/** Chroma applied to the dark ground. Above ~0.02 it reads as a coloured screen. */
-export const TINTS = [
-  { value: 0, label: 'None' },
-  { value: 0.008, label: 'Slight' },
-  { value: 0.014, label: 'Warm' },
-  { value: 0.026, label: 'Strong' },
-] as const
+/**
+ * The palette before the visual refresh had `claret` and `olive` where `slate`
+ * and `moss` now sit. A stored preference names one of six strings, so without
+ * this the two retired names would fail `normalisePrefs` and silently reset a
+ * deliberate choice to Gold.
+ */
+const RETIRED_ACCENTS: Record<string, AccentName> = {
+  claret: 'copper',
+  olive: 'moss',
+}
 
-export type Tint = (typeof TINTS)[number]['value']
+/** How much accent is mixed into cards and the dock when tinting is on. */
+export const SURFACE_TINT = '4%'
+
 export type Mode = 'light' | 'dark' | 'system'
 
 export type ThemePrefs = {
   mode: Mode
   accent: AccentName
-  tint: Tint
+  /** Mixes a little accent into `--c-card` / `--c-dock`. Off by default. */
+  tintSurfaces: boolean
 }
 
 export const DEFAULT_PREFS: ThemePrefs = {
   mode: 'system',
   accent: 'gold',
-  tint: 0.008,
+  tintSurfaces: false,
 }
 
 export const THEME_STORAGE_KEY = 'oszczedz.theme'
@@ -109,9 +115,18 @@ export function oklchToHex(lightness: number, chroma: number, hueDeg: number): s
   )
 }
 
-/** The resolved ground, matching the `--c-bg` definitions in index.css. */
-const groundHex = (mode: 'light' | 'dark', tint: number, hue: number): string =>
-  mode === 'dark' ? oklchToHex(0.17, tint, hue) : oklchToHex(0.96, 0.004, hue)
+/**
+ * The resolved ground, matching the `--c-bg` definitions in index.css.
+ *
+ * Two constants rather than a computation: the ground no longer takes the
+ * accent's hue or a user-chosen chroma, so there is nothing left to vary. The
+ * pre-paint script in index.html carries the same two strings, which is why it
+ * no longer needs a copy of the OKLab matrix.
+ */
+export const GROUND_HEX = {
+  light: oklchToHex(0.965, 0.004, 262),
+  dark: oklchToHex(0.15, 0.008, 262),
+} as const
 
 /**
  * Writes the theme onto <html>. Everything else in the app reads these
@@ -124,27 +139,37 @@ export function applyTheme(prefs: ThemePrefs) {
 
   root.dataset.mode = resolved
   root.style.setProperty('--h', String(accent.hue))
-  root.style.setProperty('--tint', String(prefs.tint))
   root.style.setProperty('--c-accent', resolved === 'dark' ? accent.dark : accent.light)
+  root.style.setProperty('--c-accent-mix', prefs.tintSurfaces ? SURFACE_TINT : '0%')
   root.style.colorScheme = resolved
 
   // The status bar is iOS's to paint now that it is no longer translucent, so
   // hand it the ground rather than let it pick.
   document
     .querySelector('meta[name="theme-color"]')
-    ?.setAttribute('content', groundHex(resolved, prefs.tint, accent.hue))
+    ?.setAttribute('content', GROUND_HEX[resolved])
 }
 
 /** Tolerates partial or stale stored shapes rather than throwing on boot. */
 export function normalisePrefs(raw: unknown): ThemePrefs {
-  const p = (raw ?? {}) as Partial<ThemePrefs>
+  const p = (raw ?? {}) as Partial<ThemePrefs> & { tint?: unknown }
+  const accent = typeof p.accent === 'string' ? p.accent : ''
+
   return {
-    mode: p.mode === 'light' || p.mode === 'dark' || p.mode === 'system'
-      ? p.mode
-      : DEFAULT_PREFS.mode,
-    accent: p.accent && p.accent in ACCENTS ? p.accent : DEFAULT_PREFS.accent,
-    tint: TINTS.some((t) => t.value === p.tint)
-      ? (p.tint as Tint)
-      : DEFAULT_PREFS.tint,
+    mode:
+      p.mode === 'light' || p.mode === 'dark' || p.mode === 'system'
+        ? p.mode
+        : DEFAULT_PREFS.mode,
+    accent:
+      accent in ACCENTS
+        ? (accent as AccentName)
+        : (RETIRED_ACCENTS[accent] ?? DEFAULT_PREFS.accent),
+    // `tint` is the retired four-step ground chroma. Anything above zero was a
+    // deliberate "I want to see the accent in the ground", which is what the
+    // switch now means.
+    tintSurfaces:
+      typeof p.tintSurfaces === 'boolean'
+        ? p.tintSurfaces
+        : Number(p.tint ?? 0) > 0,
   }
 }

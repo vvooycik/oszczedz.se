@@ -2,18 +2,24 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router'
 import { useGoBack } from '@/app/useGoBack'
 import {
-  ArrowDownToLine,
-  ArrowLeftRight,
-  ArrowUpDown,
-  Calendar,
-  ChevronRight,
-  Pencil,
-  Tag,
-  Wallet,
-  X,
-} from 'lucide-react'
+  IconArrowBarToDown,
+  IconArrowsLeftRight,
+  IconArrowsUpDown,
+  IconCalendar,
+  IconChevronRight,
+  IconPencil,
+  IconPlus,
+  IconSelector,
+  IconTag,
+  IconWallet,
+} from '@tabler/icons-react'
 import { FullScreen } from '@/app/AppShell'
-import { CategoryGlyph } from '@/components/CategoryGlyph'
+import { Button } from '@/components/ui/Button'
+import { colourFieldStyle } from '@/components/ui/ColourField'
+import { ScreenHeader } from '@/components/ui/ScreenHeader'
+import { Tile } from '@/components/ui/Tile'
+import { useTheme } from '@/theme/ThemeProvider'
+import { iconFor } from '@/lib/icons'
 import { CategorySheet } from './CategorySheet'
 import { DateSheet } from './DateSheet'
 import {
@@ -57,6 +63,7 @@ export function AddScreen() {
   const editing = Boolean(editId)
 
   const goBack = useGoBack()
+  const { resolvedMode } = useTheme()
   const wallets = useWallets()
   const categories = useCategories()
   const tags = useTags()
@@ -304,7 +311,7 @@ export function AddScreen() {
   if (editing && !hydrated) {
     return (
       <FullScreen>
-        <p className="px-5 py-10 text-[13px] text-ink-muted">
+        <p className="px-4 py-10 text-[13px] text-ink-muted">
           {existing.error ? 'Could not load this transaction.' : 'Loading…'}
         </p>
       </FullScreen>
@@ -317,27 +324,24 @@ export function AddScreen() {
   if (editing && row?.transfer_id) {
     return (
       <FullScreen>
-        <div className="px-5 py-10">
-          <p className="text-[13px] leading-[1.55] text-ink-muted">
+        <div className="px-4 py-10">
+          <p className="text-[14px] leading-[1.55] text-ink-muted">
             Transfers are edited as a pair, and that flow does not exist yet.
             Delete this one and enter it again.
           </p>
-          <button
-            onClick={goBack}
-            className="mt-4 rounded-[4px] px-4 py-2 text-[13.5px] text-ink-muted"
-            style={{ border: '1px solid var(--color-line)' }}
-          >
+          <Button variant="secondary" className="mt-4" onClick={goBack}>
             Back
-          </button>
+          </Button>
         </div>
       </FullScreen>
     )
   }
 
   return (
-    <FullScreen>
-      {/* The chosen category owns the accent for this whole screen; gold until
-          something is picked.
+    <FullScreen style={colourFieldStyle(category?.color, resolvedMode)}>
+      {/* The chosen category owns the accent for this whole screen — the field
+          behind it, the hero tile, the commit button — and gold until something
+          is picked.
 
           This overrides --color-accent, not --c-accent: a custom property's
           var() references resolve against the element that *declares* it, so
@@ -351,120 +355,109 @@ export function AddScreen() {
             : undefined
         }
       >
-        <header className="flex flex-none items-center gap-3 px-5 pt-3 pb-3">
-          <button onClick={goBack} aria-label="Close" className="text-ink-muted">
-            <X size={22} strokeWidth={1.5} />
-          </button>
-          <div className="flex-1 text-center font-sans text-[14px] text-ink-muted">
-            {editing ? 'Edit transaction' : 'Add transaction'}
-          </div>
-          <span className="w-[22px]" />
-        </header>
+        <ScreenHeader
+          onField
+          onClose={goBack}
+          title={editing ? 'Edit transaction' : 'Add transaction'}
+        />
 
-        <div className="no-scrollbar flex-1 overflow-y-auto px-5">
-          {/* The working behind the figure below. Its height is reserved even
-              when empty, so starting a sum does not shove the amount down the
-              screen, and it is clipped rather than wrapped — an unusually long
-              tape loses its left end, which is the part already folded in. */}
-          <div className="tnum h-4 overflow-hidden pr-6 text-right font-sans text-[12px] whitespace-nowrap text-ink-faint">
-            {tape}
-          </div>
-          <div
-            className="flex items-end gap-2.5 pb-2.5"
-            style={{ borderBottom: '1px solid var(--color-line)' }}
-          >
-            {/* A transfer has no sign to choose: direction is which wallet is
-                which, and `create_transfer` applies the signs itself. */}
-            {isTransfer ? (
-              <span
-                className="flex size-9 flex-none items-center justify-center rounded-[4px] text-ink-muted"
-                style={{ border: '1px dashed var(--color-line)' }}
-              >
-                <ArrowLeftRight size={16} strokeWidth={1.5} />
-              </span>
-            ) : (
-              <button
-                onClick={() => setNegative((s) => !s)}
-                aria-label={negative ? 'Expense' : 'Income'}
-                className="tnum flex size-9 flex-none items-center justify-center rounded-[4px] text-[19px]"
-                style={{ border: '1px solid var(--color-line)', color: signColor }}
-              >
-                {negative ? '−' : '+'}
-              </button>
-            )}
+        <div className="no-scrollbar flex-1 overflow-y-auto px-4">
+          {/* ------------------------------------------------------ the hero */}
+          <div className="flex flex-col items-center pt-2 pb-5">
+            <button
+              type="button"
+              onClick={() => setCatOpen(true)}
+              aria-label="Choose a category"
+              className="active:opacity-80"
+            >
+              {category ? (
+                <Tile color={categoryVar(category.color)} size={64} variant="solid">
+                  <Icon64 category={category} />
+                </Tile>
+              ) : (
+                <span
+                  className="flex size-16 items-center justify-center rounded-card"
+                  style={{ border: '1.5px dashed var(--color-dash)' }}
+                >
+                  <IconPlus size={26} stroke={2} className="text-ink-dim" />
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCatOpen(true)}
+              className="mt-3 flex items-center gap-1 text-[15px] font-semibold"
+              style={{ color: category ? 'var(--field-ink)' : 'var(--color-ink-dim)' }}
+            >
+              {category?.name ?? 'Choose a category'}
+              <IconChevronRight size={16} stroke={2} className="opacity-50" />
+            </button>
+
+            {/* The working behind the figure. Its height is reserved even when
+                empty, so starting a sum does not shove the amount down the
+                screen, and it is clipped rather than wrapped — an unusually long
+                tape loses its left end, which is the part already folded in. */}
+            <div className="tnum mt-4 h-4 w-full overflow-hidden text-center text-[12.5px] whitespace-nowrap text-ink-muted">
+              {tape}
+            </div>
+
             <div
-              className="tnum flex-1 text-right"
+              className="tnum mt-1 flex items-end justify-center"
               style={{
-                fontSize: 42,
+                fontSize: 52,
+                fontWeight: 600,
                 lineHeight: 1,
-                letterSpacing: '-.02em',
-                color: figure === null ? undefined : signColor,
-                opacity: figure === null ? 0.3 : 1,
+                letterSpacing: '-.04em',
+                color: figure === null ? 'var(--color-ink-dim)' : signColor,
               }}
             >
               {figure ?? '0,00'}
-            </div>
-            <span className="pb-1.5 font-sans text-[14px] text-ink-faint">zł</span>
-          </div>
-
-          <button
-            onClick={() => setCatOpen(true)}
-            className="flex w-full items-center gap-3 py-3.5 text-left"
-            style={{ borderBottom: '1px solid var(--color-line-soft)' }}
-          >
-            {category ? (
-              <CategoryGlyph glyph={category.glyph} color={category.color} />
-            ) : (
               <span
-                className="size-[34px] flex-none rounded-full"
-                style={{ border: '1px solid var(--color-line)' }}
-              />
-            )}
-            <span
-              className="flex-1 text-[15px]"
-              style={{ color: category ? 'var(--color-accent)' : 'var(--color-ink-dim)' }}
-            >
-              {category?.name ?? 'Choose a category'}
-            </span>
-            <ChevronRight size={18} strokeWidth={1.5} className="text-ink-dim" />
-          </button>
+                className="text-ink-faint"
+                style={{ fontSize: 22, fontWeight: 500, letterSpacing: 0 }}
+              >
+                &nbsp;{currencySymbol(sourceWallet?.currency ?? 'PLN')}
+              </span>
+            </div>
 
-          <div
-            className="flex items-center gap-3 py-3.5"
-            style={{ borderBottom: '1px solid var(--color-line-soft)' }}
-          >
-            <Wallet size={18} strokeWidth={1.5} className="w-[34px] flex-none text-ink-faint" />
-            {isTransfer && (
-              <span className="font-sans text-[11.5px] text-ink-faint">From</span>
+            {/* A transfer has no sign to choose: direction is which wallet is
+                which, and `create_transfer` applies the signs itself. */}
+            {isTransfer ? (
+              <span className="mt-3 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-medium"
+                style={{ background: 'var(--field-scrim)', color: 'var(--field-ink)' }}
+              >
+                <IconArrowsLeftRight size={14} stroke={2} />
+                Transfer
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setNegative((s) => !s)}
+                aria-label={negative ? 'Switch to income' : 'Switch to expense'}
+                className="mt-3 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-semibold"
+                style={{
+                  background: `color-mix(in oklab, ${signColor} 18%, transparent)`,
+                  color: signColor,
+                }}
+              >
+                {negative ? '−' : '+'} {negative ? 'Expense' : 'Income'}
+              </button>
             )}
-            <select
-              value={walletId}
-              onChange={(e) => pickSource(e.target.value)}
-              className="flex-1 bg-transparent text-[15px] outline-none"
-            >
-              {selectable.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-            </select>
           </div>
 
-          {isTransfer && (
-            <div
-              className="flex items-center gap-3 py-3.5"
-              style={{ borderBottom: '1px solid var(--color-line-soft)' }}
-            >
-              <ArrowDownToLine
-                size={18}
-                strokeWidth={1.5}
-                className="w-[34px] flex-none text-ink-faint"
-              />
-              <span className="font-sans text-[11.5px] text-ink-faint">To</span>
+          {/* --------------------------------------------------- the fields */}
+          <div
+            className="rounded-card"
+            style={{ background: 'var(--field-block)' }}
+          >
+            <FieldRow icon={<IconWallet size={18} stroke={2} />}>
+              {isTransfer && <span className="text-[12px] text-ink-muted">From</span>}
               <select
-                value={targetWalletId}
-                onChange={(e) => pickTarget(e.target.value)}
-                className="flex-1 bg-transparent text-[15px] outline-none"
+                value={walletId}
+                onChange={(e) => pickSource(e.target.value)}
+                className="flex-1 appearance-none bg-transparent text-[15px] outline-none"
+                style={{ color: 'var(--field-ink)' }}
               >
                 {selectable.map((w) => (
                   <option key={w.id} value={w.id}>
@@ -472,129 +465,160 @@ export function AddScreen() {
                   </option>
                 ))}
               </select>
-              {/* Swapping is the common correction, and it cannot produce an
-                  invalid pair — the two are already different. */}
+              <IconSelector size={17} stroke={2} className="flex-none text-ink-dim" />
+            </FieldRow>
+
+            {isTransfer && (
+              <>
+                <FieldDivider />
+                <FieldRow icon={<IconArrowBarToDown size={18} stroke={2} />}>
+                  <span className="text-[12px] text-ink-muted">To</span>
+                  <select
+                    value={targetWalletId}
+                    onChange={(e) => pickTarget(e.target.value)}
+                    className="flex-1 appearance-none bg-transparent text-[15px] outline-none"
+                    style={{ color: 'var(--field-ink)' }}
+                  >
+                    {selectable.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name}
+                      </option>
+                    ))}
+                  </select>
+                  {/* Swapping is the common correction, and it cannot produce an
+                      invalid pair — the two are already different. */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWalletId(targetWalletId)
+                      setTargetWalletId(walletId)
+                    }}
+                    aria-label="Swap wallets"
+                    className="flex size-8 flex-none items-center justify-center rounded-[10px]"
+                    style={{ background: 'var(--field-scrim)', color: 'var(--field-ink)' }}
+                  >
+                    <IconArrowsUpDown size={15} stroke={2} />
+                  </button>
+                </FieldRow>
+              </>
+            )}
+
+            {crossCurrency && (
+              <>
+                <FieldDivider />
+                <FieldRow icon={null}>
+                  <span className="flex-1 text-[13.5px]">
+                    Amount received
+                    <span className="block pt-0.5 text-[11.5px] leading-[1.4] text-ink-muted">
+                      {sourceWallet!.currency} → {targetWallet!.currency}, so each
+                      leg carries its own figure
+                    </span>
+                  </span>
+                  <input
+                    value={targetAmount}
+                    onChange={(e) => setTargetAmount(e.target.value)}
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    aria-label="Amount received"
+                    className="tnum w-24 bg-transparent text-right text-[15px] font-semibold outline-none placeholder:text-ink-faint"
+                    style={{
+                      color: targetAmountBad ? 'var(--color-expense)' : 'var(--field-ink)',
+                    }}
+                  />
+                  <span className="text-[12.5px] text-ink-faint">
+                    {currencySymbol(targetWallet!.currency)}
+                  </span>
+                </FieldRow>
+              </>
+            )}
+
+            <FieldDivider />
+            <FieldRow icon={<IconCalendar size={18} stroke={2} />}>
               <button
-                onClick={() => {
-                  setWalletId(targetWalletId)
-                  setTargetWalletId(walletId)
-                }}
-                aria-label="Swap wallets"
-                className="flex-none rounded-[3px] px-2 py-1.5 text-ink-muted"
-                style={{ border: '1px solid var(--color-line)' }}
+                type="button"
+                onClick={() => setDateOpen(true)}
+                className="flex-1 text-left text-[15px]"
+                style={{ color: 'var(--field-ink)' }}
               >
-                <ArrowUpDown size={15} strokeWidth={1.5} />
+                {relativeDayLabel(date)}
               </button>
-            </div>
-          )}
+              <button
+                type="button"
+                onClick={() => setDate(addDays(today(), -1))}
+                className="flex-none rounded-full px-3 py-1.5 text-[12px]"
+                style={{ background: 'var(--field-scrim)', color: 'var(--field-ink)' }}
+              >
+                Yesterday
+              </button>
+            </FieldRow>
 
-          {crossCurrency && (
-            <div
-              className="flex items-center gap-3 py-3.5"
-              style={{ borderBottom: '1px solid var(--color-line-soft)' }}
-            >
-              <span className="w-[34px] flex-none" />
-              <span className="flex-1 text-[13.5px]">
-                Amount received
-                <span className="block pt-0.5 font-sans text-[11px] leading-[1.4] text-ink-faint">
-                  {sourceWallet!.currency} → {targetWallet!.currency}, so each leg
-                  carries its own figure
-                </span>
-              </span>
+            <FieldDivider />
+            <FieldRow icon={<IconPencil size={18} stroke={2} />}>
               <input
-                value={targetAmount}
-                onChange={(e) => setTargetAmount(e.target.value)}
-                inputMode="decimal"
-                placeholder="0,00"
-                aria-label="Amount received"
-                className="tnum w-28 bg-transparent text-right text-[17px] outline-none placeholder:text-ink-dim"
-                style={{
-                  color: targetAmountBad ? 'var(--color-expense)' : undefined,
-                }}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Write a note"
+                className="flex-1 bg-transparent text-[15px] outline-none placeholder:text-ink-faint"
+                style={{ color: 'var(--field-ink)' }}
               />
-              <span className="font-sans text-[12px] text-ink-faint">
-                {currencySymbol(targetWallet!.currency)}
-              </span>
-            </div>
-          )}
+            </FieldRow>
 
-          <div
-            className="flex items-center gap-3 py-3.5"
-            style={{ borderBottom: '1px solid var(--color-line-soft)' }}
-          >
-            <Calendar size={18} strokeWidth={1.5} className="w-[34px] flex-none text-ink-faint" />
-            <button onClick={() => setDateOpen(true)} className="flex-1 text-left text-[15px]">
-              {relativeDayLabel(date)}
-            </button>
-            <button
-              onClick={() => setDate(addDays(today(), -1))}
-              className="rounded-[3px] px-2.5 py-[5px] font-sans text-[11.5px] text-ink-muted"
-              style={{ border: '1px dashed var(--color-ink-dim)' }}
-            >
-              Yesterday
-            </button>
+            {/* Tags are off for transfers: `create_transfer` returns the pair's
+                id rather than the two rows', so there is nothing to attach them
+                to without a second lookup and a choice of which leg wears them. */}
+            {!isTransfer && (tags.data ?? []).length > 0 && (
+              <>
+                <FieldDivider />
+                <FieldRow icon={<IconTag size={18} stroke={2} />}>
+                  <div className="no-scrollbar flex flex-1 gap-[7px] overflow-x-auto">
+                    {(tags.data ?? []).map((tag) => {
+                      const on = tagIds.includes(tag.id)
+                      return (
+                        <button
+                          key={tag.id}
+                          type="button"
+                          onClick={() =>
+                            setTagIds((ids) =>
+                              ids.includes(tag.id)
+                                ? ids.filter((i) => i !== tag.id)
+                                : [...ids, tag.id],
+                            )
+                          }
+                          className="flex-none rounded-full px-3 py-1.5 text-[12px]"
+                          style={
+                            on
+                              ? {
+                                  background: 'var(--color-accent)',
+                                  color: 'var(--color-accent-fg)',
+                                }
+                              : {
+                                  background: 'var(--field-scrim)',
+                                  color: 'var(--field-ink)',
+                                }
+                          }
+                        >
+                          {tag.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </FieldRow>
+              </>
+            )}
           </div>
 
-          <div
-            className="flex items-center gap-3 py-3.5"
-            style={{ borderBottom: '1px solid var(--color-line-soft)' }}
-          >
-            <Pencil size={18} strokeWidth={1.5} className="w-[34px] flex-none text-ink-faint" />
-            <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Write a note"
-              className="flex-1 bg-transparent text-[15px] outline-none placeholder:text-ink-dim"
-            />
-          </div>
-
-          {/* Tags are off for transfers: `create_transfer` returns the pair's id
-              rather than the two rows', so there is nothing to attach them to
-              without a second lookup and a choice of which leg wears them. */}
-          {!isTransfer && (tags.data ?? []).length > 0 && (
-            <div className="flex items-center gap-3 py-3.5">
-              <Tag size={18} strokeWidth={1.5} className="w-[34px] flex-none text-ink-faint" />
-              <div className="no-scrollbar flex flex-1 gap-[7px] overflow-x-auto">
-                {(tags.data ?? []).map((tag) => {
-                  const on = tagIds.includes(tag.id)
-                  return (
-                    <button
-                      key={tag.id}
-                      onClick={() =>
-                        setTagIds((ids) =>
-                          ids.includes(tag.id)
-                            ? ids.filter((i) => i !== tag.id)
-                            : [...ids, tag.id],
-                        )
-                      }
-                      className="flex-none rounded-[3px] px-2.5 py-1.5 font-sans text-[11.5px]"
-                      style={{
-                        border: `1px solid ${on ? 'var(--color-accent)' : 'var(--color-line)'}`,
-                        color: on ? 'var(--color-accent)' : 'var(--color-ink-muted)',
-                      }}
-                    >
-                      {tag.name}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {error && <p className="py-2 text-[12.5px] text-expense">{error}</p>}
+          {error && <p className="pt-3 text-[12.5px] text-expense">{error}</p>}
           {savedCount > 0 && !error && (
-            <p className="py-2 text-[12.5px] text-ink-muted">
+            <p className="pt-3 text-[12.5px] text-ink-muted">
               Saved {savedCount} — wallet and date kept
             </p>
           )}
         </div>
 
+        {/* -------------------------------------------------- keypad + save */}
         <div
-          className="flex-none px-5 pt-2.5"
-          style={{
-            borderTop: '1px solid var(--color-line-soft)',
-            paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
-          }}
+          className="flex-none px-4 pt-3"
+          style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}
         >
           {/* Functional update: a captured entry drops digits on fast taps. */}
           <Keypad op={entry.op} onKey={(key) => setEntry((s) => applyKey(s, key))} />
@@ -603,22 +627,26 @@ export function AddScreen() {
             {/* Chained entry is an adding idea; there is no second row to edit. */}
             {!editing && (
               <button
+                type="button"
                 disabled={!canSave || busy}
                 onClick={() => save(true)}
-                className="flex-1 rounded-[4px] py-2.5 text-[13.5px] disabled:opacity-40"
-                style={{ border: '1px solid var(--color-line)', color: 'var(--color-ink-muted)' }}
+                className="flex-1 rounded-field py-[15px] text-[14.5px] font-semibold transition-transform duration-[90ms] active:scale-[.98] disabled:opacity-40"
+                style={{ background: 'var(--field-key)', color: 'var(--field-ink)' }}
               >
                 Save &amp; add another
               </button>
             )}
-            <button
+            {/* Category-coloured, not accent: the whole screen is themed by the
+                category, and a commit button in a different colour would be the
+                one thing on it that is not. */}
+            <Button
+              className="flex-1"
+              tone={category ? categoryVar(category.color) : undefined}
               disabled={!canSave || busy}
               onClick={() => save(false)}
-              className="flex-1 rounded-[4px] py-2.5 text-[13.5px] text-accent disabled:opacity-40"
-              style={{ border: '1px solid var(--color-accent)' }}
             >
               {busy ? 'Saving…' : editing ? 'Save changes' : 'Save'}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -626,6 +654,7 @@ export function AddScreen() {
           open={catOpen}
           onClose={() => setCatOpen(false)}
           categories={pickable}
+          selectedId={category?.id}
           allowTransfer={!editing}
           onPick={(picked) => {
             setCategory(picked)
@@ -642,4 +671,33 @@ export function AddScreen() {
       </div>
     </FullScreen>
   )
+}
+
+/** A row inside the entry screen's field block, with its 34px glyph column. */
+function FieldRow({
+  icon,
+  children,
+}: {
+  icon: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex items-center gap-3 px-4 py-[13px]">
+      <span className="flex w-[26px] flex-none justify-center text-ink-muted">
+        {icon}
+      </span>
+      {children}
+    </div>
+  )
+}
+
+/** Inset past the glyph column, on the field's own divider rather than the ink one. */
+function FieldDivider() {
+  return <div className="ml-[57px] h-px" style={{ background: 'var(--field-divider)' }} />
+}
+
+/** The hero tile's glyph, at the one size that needs it. */
+function Icon64({ category }: { category: Category }) {
+  const Glyph = iconFor(category.kind === 'transfer' ? 'arrow-left-right' : category.glyph)
+  return <Glyph size={28} stroke={2} />
 }

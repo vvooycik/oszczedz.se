@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { IconChevronRight, IconPlus } from '@tabler/icons-react'
 import { FullScreen } from '@/app/AppShell'
 import { useGoBack } from '@/app/useGoBack'
 import { CategoryGlyph } from '@/components/CategoryGlyph'
-import { Pill } from '@/components/Pill'
+import { Card, Divider } from '@/components/ui/Card'
+import { ActionTile } from '@/components/ui/Button'
+import { ScreenHeader } from '@/components/ui/ScreenHeader'
+import { SegmentedTrack } from '@/components/ui/SegmentedTrack'
 import {
   useCategories,
   useCategoryUsage,
@@ -95,74 +98,64 @@ export function CategoriesScreen() {
 
   return (
     <FullScreen>
-      <header className="flex flex-none items-center gap-3 px-5 pt-3 pb-2">
-        <button onClick={goBack} aria-label="Back" className="text-ink-muted">
-          <ChevronLeft size={22} strokeWidth={1.5} />
-        </button>
-        <h1 className="text-[18px]">Categories</h1>
-        <span className="flex-1" />
-        <span className="tnum text-[11.5px] text-ink-faint">{all.length} total</span>
-      </header>
+      <ScreenHeader
+        title="Categories"
+        onBack={goBack}
+        size={19}
+        actions={
+          <ActionTile
+            label="New category"
+            onClick={() =>
+              edit({ id: 'new', name: '', kind: tab, glyph: 'circle', color: 'slate' })
+            }
+          >
+            <IconPlus size={20} stroke={2} />
+          </ActionTile>
+        }
+      />
 
-      <div className="flex flex-none gap-2 px-5 pt-3">
-        {TABS.map((option) => (
-          <Pill key={option.key} active={tab === option.key} onClick={() => setTab(option.key)}>
-            {option.label}
-          </Pill>
-        ))}
+      <div className="flex-none px-4 pt-2">
+        <SegmentedTrack options={TABS} value={tab} onChange={setTab} />
       </div>
 
       <div
-        className="no-scrollbar flex-1 overflow-y-auto px-5"
-        // Clears the floating button, so the last row is never trapped under it.
-        style={{ paddingBottom: 'calc(96px + env(safe-area-inset-bottom, 0px))' }}
+        className="no-scrollbar flex flex-1 flex-col gap-[14px] overflow-y-auto px-4 pt-3.5"
+        style={{ paddingBottom: 'calc(32px + env(safe-area-inset-bottom, 0px))' }}
       >
-        <div className="mt-3.5 h-px" style={{ background: 'var(--color-line)' }} />
+        <Card>
+          {rows.map((category, index) => (
+            <div key={category.id}>
+              {index > 0 && <Divider inset={57} />}
+              <button
+                onClick={() => edit(draftFrom(category))}
+                className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left active:bg-press"
+              >
+                <CategoryGlyph
+                  glyph={category.glyph}
+                  color={category.color}
+                  size={36}
+                  dashed={category.kind === 'transfer'}
+                />
+                <span className="flex-1 truncate text-[15px] font-medium">
+                  {category.name}
+                </span>
+                <span className="tnum text-[12px] text-ink-dim">
+                  {usage?.[category.id] ?? 0}
+                </span>
+                <IconChevronRight size={18} stroke={2} className="flex-none text-ink-dim" />
+              </button>
+            </div>
+          ))}
+        </Card>
 
-        {rows.map((category) => (
-          <button
-            key={category.id}
-            onClick={() => edit(draftFrom(category))}
-            className="flex w-full items-center gap-3 py-3.5 text-left"
-            style={{ borderBottom: '1px solid var(--color-line-soft)' }}
-          >
-            <CategoryGlyph
-              glyph={category.glyph}
-              color={category.color}
-              dashed={category.kind === 'transfer'}
-            />
-            <span className="flex-1 text-[15px]">{category.name}</span>
-            <span className="tnum text-[11.5px] text-ink-faint">
-              {usage?.[category.id] ?? 0}
-            </span>
-            <ChevronRight size={18} strokeWidth={1.5} className="text-ink-dim" />
-          </button>
-        ))}
-
-        <p className="mt-[22px] px-0.5 text-[11.5px] leading-[1.5] text-ink-muted">
-          Categories are shared across wallets. Order follows the name, the same as
-          the picker.
+        <p className="px-1 text-[12.5px] leading-[1.5] text-ink-muted">
+          {all.length} in total, shared across wallets. Order follows the name, the
+          same as the picker — a wallet's own set is what changes that.
         </p>
       </div>
 
-      <button
-        aria-label="New category"
-        onClick={() =>
-          edit({ id: 'new', name: '', kind: tab, glyph: 'circle', color: 'slate' })
-        }
-        className="absolute right-5 z-20 flex size-14 items-center justify-center rounded-full bg-bg text-accent"
-        style={{
-          bottom: 'calc(28px + env(safe-area-inset-bottom, 0px))',
-          border: '1px solid var(--color-accent)',
-          boxShadow: '0 3px 10px rgba(45,43,43,.16)',
-        }}
-      >
-        <Plus size={24} strokeWidth={1.5} />
-      </button>
-
-      {draft && (
+      {draft && open && (
         <CategoryEditorSheet
-          open={open}
           mode={mode}
           draft={draft}
           usageCount={usage?.[draft.id] ?? 0}

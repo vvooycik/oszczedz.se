@@ -476,7 +476,12 @@ export type WalletDraft = {
   name: string
   type: WalletType
   color_scheme: string
-  glyph: string
+  /**
+   * Null means "not chosen", and the wallets list falls back to the type's own
+   * mark — see `walletGlyph`. Writing the type's glyph here instead would
+   * freeze whatever the type happened to be at creation.
+   */
+  glyph: string | null
   /**
    * Signed, like every other amount: negative is money owed. A card's debt and
    * a loan's outstanding total are both negative opening balances, which is what
@@ -532,6 +537,8 @@ export type WalletEdit = {
   id: string
   name: string
   color_scheme: string
+  /** Null falls the mark back to the type's — see `walletGlyph`. */
+  glyph: string | null
   /** Cards only; ignored for every other type. */
   credit_limit: Minor | null
   /** Loans only; ignored for every other type. */
@@ -557,6 +564,7 @@ export const useUpdateWallet = () => {
         .update({
           name: edit.name.trim(),
           color_scheme: edit.color_scheme,
+          glyph: edit.glyph,
           credit_limit: edit.credit_limit,
           installment_count: edit.installment_count,
         })

@@ -1,7 +1,11 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
+import { IconArrowDownRight, IconArrowUpRight, IconArrowsLeftRight } from '@tabler/icons-react'
 import { BudgetRail } from '@/components/BudgetRail'
 import { TransactionFeed } from '@/components/TransactionFeed'
 import { FirstRunSetup } from '@/components/FirstRunSetup'
+import { Card } from '@/components/ui/Card'
+import { Label } from '@/components/ui/Label'
+import { SegmentedTrack } from '@/components/ui/SegmentedTrack'
 import {
   useBalanceHistory,
   useBudgetProgress,
@@ -11,7 +15,7 @@ import {
   useWalletBalances,
   useWallets,
 } from '@/data/queries'
-import { asMinor, formatAmount, formatSigned } from '@/lib/money'
+import { asMinor, currencySymbol, formatAmountMoney, formatSigned } from '@/lib/money'
 import { addDays, addMonths, today } from '@/lib/dates'
 
 // Charts are per-currency in v1 — no FX conversion.
@@ -23,15 +27,19 @@ const BalanceChart = lazy(() =>
   import('@/charts/BalanceChart').then((m) => ({ default: m.BalanceChart })),
 )
 
-type Range = '7D' | '1M' | '1Y' | 'ALL'
+type Range = '1M' | '1Q' | '1Y' | 'ALL'
 
-/** The short codes read as units; the whole history does not, so it gets words. */
-const RANGE_LABEL: Record<Range, string> = {
-  '7D': '7D',
-  '1M': '1M',
-  '1Y': '1Y',
-  ALL: 'All time',
-}
+/**
+ * 7D is gone and 1Q is new. A week was never a useful window on *total wealth* —
+ * it is a balance, not a spend, and a week of it is a flat line — while the gap
+ * between a month and a year was the one people actually wanted.
+ */
+const RANGES: { key: Range; label: string }[] = [
+  { key: '1M', label: '1M' },
+  { key: '1Q', label: '1Q' },
+  { key: '1Y', label: '1Y' },
+  { key: 'ALL', label: 'All' },
+]
 
 /**
  * A range and the comparable window immediately before it, so "compare" always
@@ -40,19 +48,17 @@ const RANGE_LABEL: Record<Range, string> = {
 function rangeFor(range: Range, earliest: string) {
   const to = today()
   const from =
-    range === '7D'
-      ? addDays(to, -6)
-      : range === '1M'
-        ? addMonths(to, -1)
+    range === '1M'
+      ? addMonths(to, -1)
+      : range === '1Q'
+        ? addMonths(to, -3)
         : range === '1Y'
           ? addMonths(to, -12)
           : earliest
 
   const spanDays = Math.max(
     1,
-    Math.round(
-      (new Date(to).getTime() - new Date(from).getTime()) / 86_400_000,
-    ),
+    Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000),
   )
   return {
     from,
@@ -64,10 +70,10 @@ function rangeFor(range: Range, earliest: string) {
     // across the chart, and a thousand rows fetched to draw it.
     comparable: range !== 'ALL',
     label:
-      range === '7D'
-        ? 'vs previous 7 days'
-        : range === '1M'
-          ? 'vs previous month'
+      range === '1M'
+        ? 'vs previous month'
+        : range === '1Q'
+          ? 'vs previous quarter'
           : range === '1Y'
             ? 'vs 12 months ago'
             : 'since the start',
@@ -104,19 +110,19 @@ export function FeedScreen() {
   )
   if (failed?.error) {
     return (
-      <p className="px-5 py-10 text-[13px] text-expense">
+      <p className="px-4 py-10 text-[13px] text-expense">
         {failed.error instanceof Error ? failed.error.message : 'Something went wrong'}
       </p>
     )
   }
 
   if (!wallets.data || !categories.data) {
-    return <p className="px-5 py-10 text-[13px] text-ink-muted">Loading…</p>
+    return <p className="px-4 py-10 text-[13px] text-ink-muted">Loading…</p>
   }
 
   if (wallets.data.length === 0 || categories.data.length === 0) {
     return (
-      <div className="px-5 py-6">
+      <div className="px-4 py-6">
         <FirstRunSetup />
       </div>
     )
@@ -129,88 +135,97 @@ export function FeedScreen() {
   const series = current.data ?? []
   const delta =
     series.length > 1 ? series[series.length - 1]!.balance - series[0]!.balance : 0
+  const up = delta >= 0
+  const deltaColour = up ? 'var(--color-income)' : 'var(--color-expense)'
+  const comparing = compare && window.comparable
 
   return (
-    <>
-      <BudgetRail budgets={budgets.data ?? []} />
-
-      <div className="mx-5 h-px" style={{ background: 'var(--color-line)' }} />
-
-      <section className="px-5 pt-4">
-        <div className="kicker text-ink-muted">Total wealth</div>
-        <div
-          className="tnum mt-2 font-normal"
-          style={{ fontSize: 44, lineHeight: 1.1, letterSpacing: '-.02em' }}
-        >
-          {formatSigned(asMinor(wealth), { plus: false })}
-        </div>
-        <div className="mt-[7px] flex items-baseline gap-3.5 text-[12.5px]">
-          <span
-            className="tnum"
-            style={{
-              color: delta >= 0 ? 'var(--color-income)' : 'var(--color-expense)',
-            }}
-          >
-            {delta >= 0 ? '↑' : '↓'} {formatAmount(asMinor(delta))}
-          </span>
-          <span className="text-ink-muted">{window.label}</span>
-        </div>
-      </section>
-
-      <div className="mt-2.5">
-        <Suspense fallback={<div className="h-44 w-full" />}>
-          <BalanceChart
-            current={series}
-            prior={prior.data ?? []}
-            currency={CURRENCY}
-            compare={compare && window.comparable}
-          />
-        </Suspense>
-      </div>
-
-      <div className="flex gap-[7px] px-5 pt-3 font-sans">
-        {(['7D', '1M', '1Y', 'ALL'] as Range[]).map((r) => {
-          const active = r === range
-          return (
-            <button
-              key={r}
-              onClick={() => setRange(r)}
-              className="rounded-[3px] px-3 py-[5px] text-[11.5px]"
+    <div className="flex flex-col gap-[14px] px-4 pt-2.5">
+      <Card>
+        <div className="px-[18px] pt-[18px]">
+          <div className="flex items-center justify-between">
+            <Label>Total wealth</Label>
+            {/* The delta rides on a 20% wash of its own colour rather than on a
+                neutral chip: the sign is the whole content of the number. */}
+            <span
+              className="flex items-center gap-[5px] rounded-full px-[9px] py-1 text-[12.5px] font-semibold"
               style={{
-                border: `1px solid ${active ? 'var(--color-accent)' : 'var(--color-line)'}`,
-                color: active ? 'var(--color-accent)' : 'var(--color-ink-muted)',
+                color: deltaColour,
+                background: `color-mix(in oklab, ${deltaColour} 20%, transparent)`,
               }}
             >
-              {RANGE_LABEL[r]}
-            </button>
-          )
-        })}
-        {/* Kept mounted but inert on All time: removing it would shift the row
-            every time the range changes. */}
-        <button
-          onClick={() => setCompare((c) => !c)}
-          disabled={!window.comparable}
-          className="ml-auto rounded-[3px] px-3 py-[5px] text-[11.5px]"
-          style={{
-            border: `1px solid ${
-              compare && window.comparable ? 'var(--color-accent)' : 'var(--color-line)'
-            }`,
-            color:
-              compare && window.comparable
-                ? 'var(--color-accent)'
-                : 'var(--color-ink-muted)',
-            opacity: window.comparable ? 1 : 0.4,
-          }}
-        >
-          Compare {compare && window.comparable ? '✓' : ''}
-        </button>
-      </div>
+              {up ? (
+                <IconArrowUpRight size={13} stroke={2} />
+              ) : (
+                <IconArrowDownRight size={13} stroke={2} />
+              )}
+              <span className="tnum">{formatAmountMoney(asMinor(delta), CURRENCY)}</span>
+            </span>
+          </div>
+          <div
+            className="tnum mt-2.5"
+            style={{ fontSize: 42, fontWeight: 600, lineHeight: 1, letterSpacing: '-.035em' }}
+          >
+            {formatSigned(asMinor(wealth), { plus: false })}
+            <span
+              className="text-ink-faint"
+              style={{ fontSize: 19, fontWeight: 500, letterSpacing: 0 }}
+            >
+              {' '}
+              {currencySymbol(CURRENCY)}
+            </span>
+          </div>
+          <div className="mt-1.5 text-[12.5px] text-ink-muted">{window.label}</div>
+        </div>
+
+        {/* Flush to the card's edges — the chart is the card's own bottom, not
+            a picture sitting inside its padding. */}
+        <div className="mt-1">
+          <Suspense fallback={<div className="h-[130px] w-full" />}>
+            <BalanceChart
+              current={series}
+              prior={prior.data ?? []}
+              currency={CURRENCY}
+              compare={comparing}
+            />
+          </Suspense>
+        </div>
+
+        <div className="flex items-center gap-2 px-[14px] pt-1 pb-[14px]">
+          <SegmentedTrack
+            className="flex-1"
+            options={RANGES}
+            value={range}
+            onChange={setRange}
+          />
+          {/* Kept mounted but inert on All time: removing it would shift the row
+              every time the range changes. */}
+          <button
+            type="button"
+            onClick={() => setCompare((c) => !c)}
+            disabled={!window.comparable}
+            className="flex min-h-[34px] flex-none items-center gap-1.5 rounded-full px-3 text-[12.5px] font-medium"
+            style={{
+              color: comparing ? 'var(--color-accent)' : 'var(--color-ink-muted)',
+              background: comparing
+                ? 'color-mix(in oklab, var(--color-accent) 18%, transparent)'
+                : 'transparent',
+              opacity: window.comparable ? 1 : 0.4,
+            }}
+          >
+            <IconArrowsLeftRight size={14} stroke={2} />
+            Compare
+          </button>
+        </div>
+      </Card>
+
+      <BudgetRail budgets={budgets.data ?? []} />
 
       <TransactionFeed
         transactions={transactions.data ?? []}
         wallets={wallets.data}
         categories={categories.data}
       />
-    </>
+    </div>
   )
 }

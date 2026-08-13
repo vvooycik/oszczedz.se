@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 import { Sheet } from '@/components/Sheet'
 import {
   addDays,
@@ -29,15 +29,15 @@ export function DateSheet({
 
   return (
     <Sheet open={open} onClose={onClose} height="56%" label="Choose a date">
-      <div className="flex items-center justify-between px-5 pt-4">
+      <div className="flex items-center justify-between px-4 pt-2">
         <button
           onClick={() => setMonth((m) => startOfMonth(addMonths(m, -1)))}
           aria-label="Previous month"
           className="text-ink-muted"
         >
-          <ChevronLeft size={20} strokeWidth={1.5} />
+          <IconChevronLeft size={20} stroke={2} />
         </button>
-        <div className="text-[15px]">
+        <div className="text-[15px] font-semibold">
           {formatMonthLong(month)} {fromISODate(month).getFullYear()}
         </div>
         <button
@@ -45,19 +45,19 @@ export function DateSheet({
           aria-label="Next month"
           className="text-ink-muted"
         >
-          <ChevronRight size={20} strokeWidth={1.5} />
+          <IconChevronRight size={20} stroke={2} />
         </button>
       </div>
 
-      <div className="grid grid-cols-7 px-5 pt-4 text-center">
+      <div className="grid grid-cols-7 px-4 pt-4 text-center">
         {WEEKDAY_INITIALS.map((d, i) => (
-          <span key={i} className="font-sans text-[10px] text-ink-dim">
+          <span key={i} className="text-[10.5px] text-ink-dim">
             {d}
           </span>
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-y-1 px-5 pt-2">
+      <div className="grid grid-cols-7 gap-y-1 px-4 pt-2">
         {cells.map((iso, i) =>
           iso === null ? (
             <span key={`pad-${i}`} />
@@ -71,7 +71,7 @@ export function DateSheet({
               className="tnum mx-auto flex size-9 items-center justify-center rounded-full text-[13px]"
               style={
                 iso === value
-                  ? { border: '1px solid var(--color-accent)', color: 'var(--color-accent)' }
+                  ? { background: 'var(--color-accent)', color: 'var(--color-accent-fg)', fontWeight: 600 }
                   : iso === now
                     ? { color: 'var(--color-ink)', fontWeight: 500 }
                     : { color: 'var(--color-ink-muted)' }
@@ -83,7 +83,7 @@ export function DateSheet({
         )}
       </div>
 
-      <div className="mt-auto flex gap-2 px-5 pb-8">
+      <div className="mt-auto flex gap-2.5 px-4 pb-8">
         {[
           { label: 'Yesterday', iso: addDays(now, -1) },
           { label: 'Today', iso: now },
@@ -94,8 +94,7 @@ export function DateSheet({
               onPick(quick.iso)
               onClose()
             }}
-            className="flex-1 rounded-[4px] py-2.5 font-sans text-[12.5px]"
-            style={{ border: '1px solid var(--color-line)', color: 'var(--color-ink-muted)' }}
+            className="flex-1 rounded-field bg-inset py-3 text-[13px] font-medium"
           >
             {quick.label}
           </button>

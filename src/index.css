@@ -5,40 +5,82 @@
  *
  * Three layers, in this order:
  *
- *   1. `--h` / `--tint` / `--c-accent` — set on <html> by JS at runtime from the
- *      user's Appearance settings (see src/theme/ThemeProvider.tsx). The
- *      accent's *hue* also tints the ground, which is why it is a variable
- *      rather than six hardcoded palettes.
+ *   1. `--h` / `--c-accent` / `--c-accent-mix` — set on <html> by JS at runtime
+ *      from the user's Appearance settings (see src/theme/ThemeProvider.tsx).
  *   2. `[data-mode]` blocks below resolve every raw colour for light or dark.
  *      A colour must never be defined in only one of them.
  *   3. `@theme static` maps those raws onto Tailwind's token names, so
- *      `bg-surface` / `text-expense` work as utilities.
+ *      `bg-card` / `text-expense` / `shadow-card` work as utilities.
  *
  * `static` is load-bearing: a plain `@theme` block only emits variables whose
  * utility classes appear in the source, and several tokens here are read only
  * from JS (category colours come from the database by name), so they would
  * resolve to an empty string at runtime.
+ *
+ * Note what layer 1 no longer does. The ground used to take the accent's hue,
+ * so every surface drifted with the theme; surfaces are now pinned to one cool
+ * hue (262) and the accent reaches them only through `--c-accent-mix`, which is
+ * 0% or 4% depending on one switch in Appearance. `--h` survives only because
+ * the accent itself is authored around it.
  */
 
 :root {
   /* Overwritten by JS; these are the Gold defaults so first paint is correct. */
   --h: 85;
-  --tint: 0.008;
-  --c-accent: #b68235;
+  --c-accent: oklch(74% 0.13 85);
+  /* 0% or 4% — Appearance's "Tint surfaces with accent". */
+  --c-accent-mix: 0%;
 }
 
 /* ------------------------------------------------------------------- light */
 :root[data-mode='light'] {
-  --c-bg: oklch(96% 0.004 var(--h));
-  --c-surface: oklch(92% 0.004 var(--h));
+  --c-bg: oklch(96.5% 0.004 262);
+  /* Pure white cards on an off-white ground; the shadow does the lifting. */
+  --c-card: color-mix(in oklab, var(--c-accent) var(--c-accent-mix), #ffffff);
+  --c-dock: color-mix(in oklab, var(--c-accent) var(--c-accent-mix), #ffffff);
+  --c-inset: oklch(93.5% 0.006 262);
+  --c-accent-fg: #ffffff;
 
   --c-ink: #201f1d;
-  --c-ink-muted: rgba(32, 31, 29, 0.55);
+  --c-ink-muted: rgba(32, 31, 29, 0.5);
   --c-ink-faint: rgba(32, 31, 29, 0.45);
+  --c-label: rgba(32, 31, 29, 0.5);
   --c-ink-dim: rgba(32, 31, 29, 0.32);
-  --c-border: rgba(32, 31, 29, 0.16);
-  --c-border-soft: rgba(32, 31, 29, 0.1);
-  --c-track: rgba(32, 31, 29, 0.14);
+  --c-divider: rgba(32, 31, 29, 0.09);
+  --c-tile: rgba(32, 31, 29, 0.06);
+  --c-dash: rgba(32, 31, 29, 0.34);
+  --c-track: rgba(32, 31, 29, 0.08);
+  --c-press: rgba(32, 31, 29, 0.04);
+  /* The ghost weight: the chart's prior-period line and the dashed outline of
+     a thing that does not exist yet. Nudged up in light mode because dark ink
+     at .16 on a near-white ground is fainter than light ink at .16 on black. */
+  --c-hint: rgba(32, 31, 29, 0.2);
+
+  /* Elevation. The light theme uses **no** inner top highlight — that trick
+     only reads on a dark ground, where the card is lighter than what is behind
+     it. Here the card is already the lightest thing on screen. */
+  --sh-card: 0 1px 2px rgba(32, 31, 29, 0.05), 0 8px 20px rgba(32, 31, 29, 0.07);
+  --sh-dock: 0 2px 6px rgba(32, 31, 29, 0.08), 0 14px 30px rgba(32, 31, 29, 0.12);
+  --sh-fab: 0 8px 20px rgba(32, 31, 29, 0.22);
+  --sh-drawer: 0 -14px 40px rgba(32, 31, 29, 0.18);
+  --sh-drag: 0 6px 16px rgba(32, 31, 29, 0.14);
+
+  /* How much of a category's colour a tinted tile carries. The same 34% that
+     reads on the dark ground goes muddy on white. */
+  --tile-mix: 16%;
+
+  /* Controls sitting *on* a colour field — the entry screen's header tiles,
+     field block, keypad keys. A card-coloured control disappears into the
+     tint, so they get a scrim instead. The light values are the important
+     ones: white glyphs simply vanish on a pale field, so this is ink at 78%
+     over a barely-there wash, not a lightened copy of the dark treatment. */
+  --field-scrim: rgba(32, 31, 29, 0.06);
+  --field-ink: rgba(32, 31, 29, 0.78);
+  --field-ink-dim: rgba(32, 31, 29, 0.45);
+  --field-divider: rgba(32, 31, 29, 0.09);
+  --field-key: rgba(32, 31, 29, 0.05);
+  --field-key-soft: rgba(32, 31, 29, 0.03);
+  --field-block: rgba(32, 31, 29, 0.04);
 
   --c-expense: oklch(46% 0.13 34);
   --c-income: oklch(52% 0.09 148);
@@ -61,18 +103,39 @@
 
 /* -------------------------------------------------------------------- dark */
 :root[data-mode='dark'] {
-  /* Tint applies to the dark ground only — on a near-white surface it is
-     invisible, and on OLED it is the difference between warm black and grey. */
-  --c-bg: oklch(17% var(--tint) var(--h));
-  --c-surface: oklch(21% var(--tint) var(--h));
+  --c-bg: oklch(15% 0.008 262);
+  --c-card: color-mix(in oklab, var(--c-accent) var(--c-accent-mix), oklch(20.5% 0.012 262));
+  --c-dock: color-mix(in oklab, var(--c-accent) var(--c-accent-mix), oklch(24% 0.013 262));
+  --c-inset: oklch(25% 0.014 262);
+  --c-accent-fg: oklch(17% 0.03 262);
 
-  --c-ink: #f3f2f2;
-  --c-ink-muted: rgba(243, 242, 242, 0.5);
-  --c-ink-faint: rgba(243, 242, 242, 0.45);
-  --c-ink-dim: rgba(243, 242, 242, 0.35);
-  --c-border: rgba(243, 242, 242, 0.14);
-  --c-border-soft: rgba(243, 242, 242, 0.1);
-  --c-track: rgba(243, 242, 242, 0.15);
+  --c-ink: #f4f4f6;
+  --c-ink-muted: rgba(244, 244, 246, 0.42);
+  --c-ink-faint: rgba(244, 244, 246, 0.35);
+  --c-label: rgba(244, 244, 246, 0.4);
+  --c-ink-dim: rgba(244, 244, 246, 0.3);
+  --c-divider: rgba(244, 244, 246, 0.06);
+  --c-tile: rgba(244, 244, 246, 0.07);
+  --c-dash: rgba(244, 244, 246, 0.32);
+  --c-track: rgba(244, 244, 246, 0.1);
+  --c-press: rgba(244, 244, 246, 0.04);
+  --c-hint: rgba(244, 244, 246, 0.16);
+
+  --sh-card: inset 0 1px 0 rgba(255, 255, 255, 0.055), 0 10px 26px rgba(0, 0, 0, 0.32);
+  --sh-dock: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 12px 30px rgba(0, 0, 0, 0.5);
+  --sh-fab: 0 10px 24px rgba(0, 0, 0, 0.45);
+  --sh-drawer: 0 -14px 40px rgba(0, 0, 0, 0.5);
+  --sh-drag: 0 8px 18px rgba(0, 0, 0, 0.35);
+
+  --tile-mix: 34%;
+
+  --field-scrim: rgba(0, 0, 0, 0.24);
+  --field-ink: #ffffff;
+  --field-ink-dim: rgba(255, 255, 255, 0.5);
+  --field-divider: rgba(255, 255, 255, 0.08);
+  --field-key: rgba(255, 255, 255, 0.07);
+  --field-key-soft: rgba(255, 255, 255, 0.04);
+  --field-block: rgba(0, 0, 0, 0.24);
 
   --c-expense: oklch(64% 0.15 34);
   --c-income: oklch(74% 0.1 150);
@@ -91,17 +154,27 @@
 }
 
 @theme static {
+  /* Three elevation levels where there used to be one flat ground: the ground
+     itself, the cards that sit on it, and the dock floating above both. */
   --color-bg: var(--c-bg);
-  --color-surface: var(--c-surface);
+  --color-card: var(--c-card);
+  --color-dock: var(--c-dock);
+  --color-inset: var(--c-inset);
+
   --color-accent: var(--c-accent);
+  --color-accent-fg: var(--c-accent-fg);
 
   --color-ink: var(--c-ink);
   --color-ink-muted: var(--c-ink-muted);
   --color-ink-faint: var(--c-ink-faint);
+  --color-label: var(--c-label);
   --color-ink-dim: var(--c-ink-dim);
-  --color-line: var(--c-border);
-  --color-line-soft: var(--c-border-soft);
+  --color-divider: var(--c-divider);
+  --color-tile: var(--c-tile);
+  --color-dash: var(--c-dash);
   --color-track: var(--c-track);
+  --color-press: var(--c-press);
+  --color-hint: var(--c-hint);
 
   /* Money direction. Separated by lightness, not hue — red vs green at equal
      lightness is unreadable under deuteranopia. Never re-tune these to match
@@ -122,11 +195,22 @@
   --color-indigo: var(--c-indigo);
   --color-rose: var(--c-rose);
 
-  --font-serif: 'Spectral', Georgia, serif;
-  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --shadow-card: var(--sh-card);
+  --shadow-dock: var(--sh-dock);
+  --shadow-fab: var(--sh-fab);
+  --shadow-drawer: var(--sh-drawer);
+  --shadow-drag: var(--sh-drag);
 
-  --radius-card: 4px;
-  --radius-sheet: 12px;
+  --font-sans: 'Instrument Sans', system-ui, sans-serif;
+
+  /* Radii, by the thing they belong to rather than by size, so a card and a
+     screen's outer container cannot drift apart. */
+  --radius-card: 22px;
+  --radius-tile-lg: 18px;
+  --radius-field: 16px;
+  --radius-tile: 14px;
+  --radius-tile-sm: 13px;
+  --radius-drawer: 28px;
 }
 
 html {
@@ -137,34 +221,15 @@ body {
   margin: 0;
   background: var(--color-bg);
   color: var(--color-ink);
-  /* Spectral for words. Every figure overrides to IBM Plex Sans via .tnum or
-     font-sans — the split is deliberate: figures read as accounting. */
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   overscroll-behavior-y: none;
 }
 
-/* Numerals: always the sans, always tabular so columns of money line up. */
+/* Numerals. One family now runs everywhere, so this no longer switches face —
+   it only makes columns of money line up. Every figure in the app wears it. */
 .tnum {
-  font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
-}
-
-/* Small uppercase section label used throughout the design. */
-.kicker {
-  font-family: var(--font-sans);
-  font-weight: 500;
-  font-size: 10px;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-}
-
-input,
-select,
-textarea,
-button {
-  font: inherit;
-  /* Below 16px iOS Safari zooms the viewport on focus. */
-  font-size: max(1rem, 16px);
+  font-feature-settings: 'tnum' 1;
 }
 
 /* The design has no visible scrollbars on its horizontal rails. */
@@ -173,4 +238,22 @@ button {
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/*
+ * Reduced motion. The design's transforms — screens pushing in from the right,
+ * the drawer sliding up, the selected pill sliding between segments — all
+ * become opacity or nothing. Declared once here rather than remembered at
+ * fourteen call sites; JS-driven transforms read the same query through
+ * `useReducedMotion`.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

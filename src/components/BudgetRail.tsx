@@ -1,98 +1,86 @@
 import { Link } from 'react-router'
-import { Plus } from 'lucide-react'
+import { IconPlus } from '@tabler/icons-react'
 import { iconFor } from '@/lib/icons'
 import { categoryVar } from '@/theme/tokens'
-import { asMinor, formatMoneyShort } from '@/lib/money'
+import { asMinor, formatMoney } from '@/lib/money'
+import { Card } from './ui/Card'
+import { Tile } from './ui/Tile'
 import type { BudgetProgress } from '@/lib/db'
 
-const SIZE = 62
-const RADIUS = 29
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS
-
 /**
- * Horizontally scrolling ring per budget: how much of the limit is spent, the
- * category glyph inside, and what is left underneath.
+ * Horizontally scrolling card per budget: the category's mark, how far through
+ * the limit it is, and what is left.
  *
- * Over-budget rings fill completely and switch to the expense colour — the ring
- * cannot show more than a full turn, so the number carries the overage.
+ * It used to be a ring. A ring reads as a gauge, which is the wrong instrument
+ * for a number that is mostly "somewhere in the middle" — and it had nowhere to
+ * put the name and the remainder except underneath, at 10.5px. The card gives
+ * both a line of their own and turns the fraction into a bar, which is easier
+ * to compare across four budgets sitting side by side.
+ *
+ * Over-budget bars fill completely and switch to the expense colour — a bar
+ * cannot show more than full, so the number carries the overage.
  */
-function BudgetRing({ budget }: { budget: BudgetProgress }) {
+function BudgetCard({ budget }: { budget: BudgetProgress }) {
   const spent = budget.spent ?? 0
   const limit = budget.limit_amount ?? 0
   const over = limit > 0 && spent > limit
   const fraction = limit > 0 ? Math.min(spent / limit, 1) : 0
 
   const Icon = iconFor(budget.glyph)
-  const color = over ? 'var(--color-expense)' : categoryVar(budget.color)
-  const remaining = limit - spent
+  const hue = categoryVar(budget.color)
+  const bar = over ? 'var(--color-expense)' : hue
 
   return (
-    <Link to="/budgets" className="flex w-[66px] flex-none flex-col items-center gap-[7px]">
-      <div className="relative" style={{ width: SIZE, height: SIZE }}>
-        <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="block">
-          <circle
-            cx={SIZE / 2}
-            cy={SIZE / 2}
-            r={RADIUS}
-            fill="none"
-            stroke="var(--color-track)"
-            strokeWidth={2.5}
+    <Link to="/budgets" className="flex-none">
+      <Card className="flex w-[132px] flex-col gap-[9px] px-[14px] py-3">
+        <div className="flex items-center justify-between">
+          <Tile color={hue} size={28}>
+            <Icon size={15} stroke={2} />
+          </Tile>
+          <span className="tnum text-[12px] font-semibold text-ink-muted">
+            {limit > 0 ? `${Math.round((spent / limit) * 100)}%` : '—'}
+          </span>
+        </div>
+
+        <div className="min-w-0">
+          <div className="truncate text-[13px] font-medium">{budget.name}</div>
+          <div
+            className="tnum mt-px truncate text-[12px]"
+            style={{ color: over ? 'var(--color-expense)' : 'var(--color-ink-muted)' }}
+          >
+            {over
+              ? `${formatMoney(asMinor(spent - limit), budget.currency ?? 'PLN')} over`
+              : `${formatMoney(asMinor(limit - spent), budget.currency ?? 'PLN')} left`}
+          </div>
+        </div>
+
+        <div className="h-1 rounded-full bg-track">
+          <div
+            className="h-1 rounded-full"
+            style={{ width: `${fraction * 100}%`, background: bar }}
           />
-          <circle
-            cx={SIZE / 2}
-            cy={SIZE / 2}
-            r={RADIUS}
-            fill="none"
-            stroke={color}
-            strokeWidth={2.5}
-            strokeLinecap="round"
-            strokeDasharray={`${fraction * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
-            transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}
-          />
-        </svg>
-        <span
-          className="absolute inset-0 flex items-center justify-center"
-          style={{ color: categoryVar(budget.color) }}
-        >
-          <Icon size={22} strokeWidth={1.5} />
-        </span>
-      </div>
-      <div className="text-center text-[11px] leading-[1.3] text-ink/80">
-        <span className="line-clamp-1">{budget.name}</span>
-        <span
-          className="tnum block text-[10.5px]"
-          style={{ color: over ? 'var(--color-expense)' : 'var(--color-ink-muted)' }}
-        >
-          {over
-            ? `${formatMoneyShort(asMinor(spent - limit))} over`
-            : `${formatMoneyShort(asMinor(remaining))} left`}
-        </span>
-      </div>
+        </div>
+      </Card>
     </Link>
   )
 }
 
 export function BudgetRail({ budgets }: { budgets: BudgetProgress[] }) {
   return (
-    <div className="no-scrollbar flex gap-[14px] overflow-x-auto px-5 pt-3.5 pb-2">
+    <div className="no-scrollbar -mx-4 flex gap-[10px] overflow-x-auto px-4">
       {budgets.map((b) => (
-        <BudgetRing key={b.budget_id} budget={b} />
+        <BudgetCard key={b.budget_id} budget={b} />
       ))}
 
-      <Link to="/budgets" className="flex w-[66px] flex-none flex-col items-center gap-[7px]">
-        <span
-          className="flex items-center justify-center rounded-full text-ink-muted"
-          style={{
-            width: SIZE,
-            height: SIZE,
-            border: '1.5px dashed var(--color-ink-dim)',
-          }}
-        >
-          <Plus size={22} strokeWidth={1.5} />
-        </span>
-        <span className="text-center text-[11px] leading-[1.3] text-ink-muted">
-          Set a budget
-        </span>
+      {/* Dashed rather than a card: it is an invitation, not a thing that
+          exists yet, and the dash is this design's mark for exactly that. */}
+      <Link
+        to="/budgets"
+        className="flex w-[88px] flex-none flex-col items-center justify-center gap-1.5 rounded-card text-ink-faint"
+        style={{ border: '1.5px dashed var(--color-hint)' }}
+      >
+        <IconPlus size={18} stroke={2} />
+        <span className="text-[11.5px]">Budget</span>
       </Link>
     </div>
   )

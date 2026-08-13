@@ -3,7 +3,7 @@ import type { EChartsOption } from 'echarts'
 import { EChart } from './EChart'
 import { token } from '@/theme/tokens'
 import { useTheme } from '@/theme/ThemeProvider'
-import { asMinor, formatMoney, formatMoneyShort } from '@/lib/money'
+import { asMinor, formatMoney } from '@/lib/money'
 import { formatDayHeader } from '@/lib/dates'
 
 export type BalancePoint = { day: string; balance: number }
@@ -51,7 +51,6 @@ export function BalanceChart({
     // men who cannot take the hue difference.
     const below = token.expense()
     const above = token.income()
-    const signOf = (v: number | undefined) => ((v ?? 0) < 0 ? below : above)
 
     // visualMap addresses series by index, and the prior-period overlay only
     // exists when comparing.
@@ -106,13 +105,20 @@ export function BalanceChart({
           }
         : {}),
       animationDuration: 300,
-      grid: { top: 12, right: 10, bottom: 22, left: 8, containLabel: false },
+      // Flush left and right: the chart is the card's bottom edge, so the line
+      // must reach it. The small paddings that remain are stroke and end-dot
+      // radius, not margin - without them the terminal marker is clipped in
+      // half by the plot boundary.
+      // The 8px on the right is not margin — it is the end dot's radius plus
+      // its 2.5px ring. At 6 the marker was sliced in half by the plot edge.
+      grid: { top: 14, right: 8, bottom: 20, left: 0, containLabel: false },
       tooltip: {
         trigger: 'axis',
-        backgroundColor: token.surface(),
-        borderColor: token.line(),
-        textStyle: { color: token.ink(), fontFamily: 'IBM Plex Sans' },
-        axisPointer: { type: 'line', lineStyle: { color: token.line() } },
+        backgroundColor: token.card(),
+        borderColor: token.divider(),
+        borderRadius: 14,
+        textStyle: { color: token.ink(), fontFamily: 'Instrument Sans' },
+        axisPointer: { type: 'line', lineStyle: { color: token.divider() } },
         formatter: (params) => {
           const rows = Array.isArray(params) ? params : [params]
           const head = rows[0]
@@ -162,7 +168,7 @@ export function BalanceChart({
         axisTick: { show: false },
         axisLabel: {
           color: token.inkFaint(),
-          fontFamily: 'IBM Plex Sans',
+          fontFamily: 'Instrument Sans',
           fontSize: 10,
           showMinLabel: true,
           showMaxLabel: true,
@@ -187,7 +193,7 @@ export function BalanceChart({
         axisLine: { show: false },
         axisTick: { show: false },
         axisLabel: { show: false },
-        splitLine: { lineStyle: { color: token.lineSoft() } },
+        splitLine: { lineStyle: { color: token.divider() } },
       },
       series: [
         ...(compare && prior.length
@@ -209,9 +215,9 @@ export function BalanceChart({
                 symbol: 'none' as const,
                 showSymbol: false,
                 lineStyle: {
-                  color: token.inkFaint(),
-                  width: 1.25,
-                  type: [3, 4] as number[],
+                  color: token.hint(),
+                  width: 1.6,
+                  type: [3, 5] as number[],
                 },
                 z: 1,
               },
@@ -223,10 +229,17 @@ export function BalanceChart({
           data: current.map((p) => p.balance),
           smooth: false,
           showSymbol: false,
-          lineStyle: { width: 2 },
+          lineStyle: { width: 2.2, cap: 'round' as const, join: 'round' as const },
           // Both the line and this fill take their colour from visualMap, which
-          // splits them at zero. Only the opacity is set here.
-          areaStyle: { opacity: 0.16 },
+          // splits them at zero. Only the opacity and the anchor are set here.
+          //
+          // **`origin: 'start'` is load-bearing.** The default anchors the fill
+          // to the zero line, and total wealth here is negative for its whole
+          // history — with `scale: true`, zero sits off the top of the plot, so
+          // the fill ran *upward* from the line and painted a slab across the
+          // entire chart. Anchoring to the axis minimum puts it under the line,
+          // which is what a filled area means.
+          areaStyle: { opacity: 0.3, origin: 'start' as const },
           z: 2,
         },
         // The end marker is its own series because visualMap overrides the
@@ -241,11 +254,11 @@ export function BalanceChart({
           type: 'line',
           data: current.map((p, i) => (i === last ? p.balance : null)),
           showSymbol: true,
-          symbolSize: 7,
+          symbolSize: 9,
           itemStyle: {
             color: token.bg(),
-            borderColor: signOf(current[last]?.balance),
-            borderWidth: 2,
+            borderColor: token.ink(),
+            borderWidth: 2.5,
           },
           silent: true,
           z: 3,
@@ -260,13 +273,11 @@ export function BalanceChart({
 
   if (current.length === 0) {
     return (
-      <div className="flex h-44 items-center justify-center text-[13px] text-ink-muted">
+      <div className="flex h-[130px] items-center justify-center text-[13px] text-ink-muted">
         No balance history yet
       </div>
     )
   }
 
-  return <EChart option={option} className="h-44 w-full" />
+  return <EChart option={option} className="h-[130px] w-full" />
 }
-
-export const formatAxisMoney = (v: number) => formatMoneyShort(asMinor(v))

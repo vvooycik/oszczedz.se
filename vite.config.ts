@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
+import pkg from './package.json' with { type: 'json' }
 
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
@@ -28,6 +29,12 @@ export default defineConfig(({ command, mode }) => {
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: { '@': path.resolve(import.meta.dirname, 'src') },
+    },
+    // The About row shows a version, and package.json is the only place it is
+    // written down. Inlined rather than imported so the JSON does not end up in
+    // the bundle for the sake of one string.
+    define: {
+      __APP_VERSION__: JSON.stringify(pkg.version),
     },
   }
 })

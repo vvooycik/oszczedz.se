@@ -2,11 +2,13 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { useAuth } from '@/auth/AuthProvider'
 import { LoginPage } from '@/auth/LoginPage'
 import { AppShell } from '@/app/AppShell'
+import { ScreenTransition } from '@/app/ScreenTransition'
 import { FeedScreen } from '@/screens/FeedScreen'
 import { WalletsScreen } from '@/screens/WalletsScreen'
 import { ComingSoonScreen, MoreScreen } from '@/screens/MoreScreen'
 import { AppearanceScreen } from '@/screens/AppearanceScreen'
 import { CategoriesScreen } from '@/screens/categories/CategoriesScreen'
+import { TagsScreen } from '@/screens/TagsScreen'
 import { NewWalletScreen } from '@/screens/wallets/NewWalletScreen'
 import { WalletScreen } from '@/screens/wallets/WalletScreen'
 import { EditWalletScreen } from '@/screens/wallets/EditWalletScreen'
@@ -48,18 +50,84 @@ export default function App() {
           <Route path="more" element={<MoreScreen />} />
         </Route>
 
-        {/* Screens that cover the tabs entirely. */}
-        <Route path="/add" element={<AddScreen />} />
-        <Route path="/tx/:id" element={<TransactionScreen />} />
+        {/* Screens that cover the tabs entirely. Each arrives through
+            `ScreenTransition`: detail screens push in from the right, the
+            entry and creation forms present from the bottom. */}
+        <Route
+          path="/add"
+          element={
+            <ScreenTransition>
+              <AddScreen />
+            </ScreenTransition>
+          }
+        />
+        <Route
+          path="/tx/:id"
+          element={
+            <ScreenTransition>
+              <TransactionScreen />
+            </ScreenTransition>
+          }
+        />
         {/* Same form as /add, seeded from the row it names. */}
-        <Route path="/tx/:id/edit" element={<AddScreen />} />
-        <Route path="/appearance" element={<AppearanceScreen />} />
-        <Route path="/categories" element={<CategoriesScreen />} />
+        <Route
+          path="/tx/:id/edit"
+          element={
+            <ScreenTransition>
+              <AddScreen />
+            </ScreenTransition>
+          }
+        />
+        <Route
+          path="/appearance"
+          element={
+            <ScreenTransition>
+              <AppearanceScreen />
+            </ScreenTransition>
+          }
+        />
+        <Route
+          path="/categories"
+          element={
+            <ScreenTransition>
+              <CategoriesScreen />
+            </ScreenTransition>
+          }
+        />
+        <Route
+          path="/tags"
+          element={
+            <ScreenTransition>
+              <TagsScreen />
+            </ScreenTransition>
+          }
+        />
         {/* `/wallets/new` stays above the dynamic segment by route ranking, not
             by source order — a static segment always outranks a param. */}
-        <Route path="/wallets/new" element={<NewWalletScreen />} />
-        <Route path="/wallets/:id" element={<WalletScreen />} />
-        <Route path="/wallets/:id/edit" element={<EditWalletScreen />} />
+        <Route
+          path="/wallets/new"
+          element={
+            <ScreenTransition>
+              <NewWalletScreen />
+            </ScreenTransition>
+          }
+        />
+        <Route
+          path="/wallets/:id"
+          element={
+            <ScreenTransition>
+              <WalletScreen />
+            </ScreenTransition>
+          }
+        />
+        <Route
+          path="/wallets/:id/edit"
+          element={
+            <ScreenTransition>
+              <EditWalletScreen />
+            </ScreenTransition>
+          }
+        />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

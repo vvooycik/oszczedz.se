@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Delete } from 'lucide-react'
+import { IconBackspace } from '@tabler/icons-react'
 import { asMinor, formatSigned, parseAmount, toRawAmount, type Minor } from '@/lib/money'
 import { tapFeedback } from '@/lib/touch'
 
@@ -198,7 +198,7 @@ export function Keypad({
 
   return (
     <div
-      className="grid gap-[7px]"
+      className="grid gap-2"
       style={{ gridTemplateColumns: 'repeat(3, 1fr) .82fr' }}
     >
       {LAYOUT.map((key) => {
@@ -209,6 +209,7 @@ export function Keypad({
         return (
           <button
             key={key}
+            type="button"
             onPointerDown={() => {
               setPressed(key)
               tapFeedback()
@@ -217,17 +218,27 @@ export function Keypad({
             onPointerCancel={release}
             onPointerLeave={release}
             onClick={() => onKey(key)}
-            aria-label={key === 'del' ? 'Delete' : key}
+            aria-label={key === 'del' ? 'Backspace' : key}
             aria-pressed={operator ? armed : undefined}
-            className="tnum flex items-center justify-center rounded-[4px] py-[11px] text-[19px]"
+            className="tnum flex items-center justify-center rounded-field py-3.5"
             style={{
-              border: `1px solid ${armed ? 'var(--color-accent)' : 'var(--color-line)'}`,
-              color: armed
+              // Digits carry more weight than the operators beside them: the
+              // keys sit on the entry screen's colour field, where a single
+              // fill for both would make the whole pad one texture.
+              fontSize: operator ? 19 : 21,
+              fontWeight: 500,
+              background: armed
                 ? 'var(--color-accent)'
+                : down
+                  ? 'var(--field-scrim)'
+                  : operator
+                    ? 'var(--field-key-soft)'
+                    : 'var(--field-key)',
+              color: armed
+                ? 'var(--color-accent-fg)'
                 : operator
-                  ? 'var(--color-ink-muted)'
-                  : 'var(--color-ink)',
-              background: down ? 'var(--color-surface)' : 'transparent',
+                  ? 'var(--field-ink-dim)'
+                  : 'var(--field-ink)',
               transform: down ? 'scale(.96)' : 'none',
               transition: down
                 ? 'none'
@@ -237,7 +248,7 @@ export function Keypad({
               touchAction: 'manipulation',
             }}
           >
-            {key === 'del' ? <Delete size={19} strokeWidth={1.5} /> : key}
+            {key === 'del' ? <IconBackspace size={21} stroke={2} /> : key}
           </button>
         )
       })}

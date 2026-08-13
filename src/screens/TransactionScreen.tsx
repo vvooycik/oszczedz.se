@@ -1,9 +1,26 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { ArrowDown, ArrowUp, ChevronLeft, Copy, Info, Tag, Trash2, Wallet as WalletIcon, Pencil } from 'lucide-react'
+import {
+  IconArrowDown,
+  IconArrowUp,
+  IconChevronRight,
+  IconClock,
+  IconCopy,
+  IconInfoCircle,
+  IconPencil,
+  IconScale,
+  IconTag,
+  IconTrash,
+  IconWallet,
+} from '@tabler/icons-react'
 import { FullScreen } from '@/app/AppShell'
 import { useGoBack } from '@/app/useGoBack'
-import { CategoryGlyph } from '@/components/CategoryGlyph'
+import { Card, CardRow, Divider } from '@/components/ui/Card'
+import { ColourField } from '@/components/ui/ColourField'
+import { Label } from '@/components/ui/Label'
+import { ActionTile, Button } from '@/components/ui/Button'
+import { iconFor } from '@/lib/icons'
+import { isAdjustment } from '@/lib/adjustments'
 import {
   useAddTransaction,
   useBudgetProgress,
@@ -17,7 +34,15 @@ import {
   useWalletBalances,
   useWallets,
 } from '@/data/queries'
-import { asMinor, formatAmount, formatMoney, formatSigned } from '@/lib/money'
+import {
+  asMinor,
+  currencySymbol,
+  formatAmount,
+  formatAmountMoney,
+  formatMoney,
+  formatSigned,
+  formatSignedMoney,
+} from '@/lib/money'
 import { addMonths, formatFullDate, formatMonthShort, startOfMonth, today } from '@/lib/dates'
 import { categoryVar } from '@/theme/tokens'
 
@@ -44,21 +69,32 @@ function CategoryHistory({
   return (
     // Columns must stretch to the container's height, not shrink to their
     // content — a percentage height needs a definite parent to resolve against.
-    <div className="flex h-24 gap-2">
+    <div className="flex h-[110px] gap-2.5">
       {values.map((v, i) => (
-        <div key={months[i]} className="flex flex-1 flex-col items-center gap-1.5">
+        <div key={months[i]} className="flex flex-1 flex-col items-center gap-2">
           <div className="flex w-full flex-1 items-end">
+            {/* Filled rather than outlined now: the bars sit on a card, not on
+                the ground, so an outline reads as a hole in it. The current
+                month is solid and the rest a 40% mix of the same hue — one
+                colour, two weights, so which month is which needs no legend.
+                A month with nothing in it keeps a 3px stub, because an absent
+                bar and a tiny one mean different things. */}
             <div
-              className="w-full rounded-t-[2px]"
-              style={{
-                height: `${Math.max((v / max) * 100, 2)}%`,
-                background: i === current ? color : 'transparent',
-                border: `1px solid ${color}`,
-                opacity: i === current ? 1 : 0.55,
-              }}
+              className="w-full rounded-lg"
+              style={
+                v === 0
+                  ? { height: 3, background: 'var(--color-track)' }
+                  : {
+                      height: `${Math.max((v / max) * 100, 4)}%`,
+                      background:
+                        i === current
+                          ? color
+                          : `color-mix(in oklab, ${color} 40%, transparent)`,
+                    }
+              }
             />
           </div>
-          <span className="tnum text-[9.5px] text-ink-dim">
+          <span className="tnum text-[11px] font-medium text-ink-dim">
             {formatMonthShort(months[i]!).slice(0, 3)}
           </span>
         </div>
@@ -88,7 +124,7 @@ export function TransactionScreen() {
   if (tx.isLoading || !tx.data) {
     return (
       <FullScreen>
-        <p className="px-5 py-10 text-[13px] text-ink-muted">
+        <p className="px-4 py-10 text-[13px] text-ink-muted">
           {tx.error ? 'Could not load this transaction.' : 'Loading…'}
         </p>
       </FullScreen>
@@ -119,6 +155,26 @@ export function TransactionScreen() {
   const outLeg = legs.data?.find((l) => l.amount < 0)
   const inLeg = legs.data?.find((l) => l.amount > 0)
 
+  // A balance adjustment is real movement that nobody chose to spend, so it
+  // wears the same dashed mark a transfer does and its amount stays neutral.
+  // The two are told apart by the glyph, not by one of them being filled.
+  const adjustment = isAdjustment(category)
+  const dashed = isTransfer || adjustment
+  const heroGlyph = isTransfer ? 'arrow-left-right' : category?.glyph
+  const amountColour =
+    dashed
+      ? 'var(--color-ink)'
+      : row.amount > 0
+        ? 'var(--color-income)'
+        : 'var(--color-expense)'
+
+  // The tallest bar in the six-month history, so the card can say what the
+  // scale actually is instead of leaving it to be guessed.
+  const categoryPeak = categoryTotals.reduce(
+    (max, m) => Math.max(max, Math.abs(m.total ?? 0)),
+    0,
+  )
+
   const onDelete = async () => {
     await remove.mutateAsync(row)
     // Back where you came from, not home: a row opened from a wallet belongs to
@@ -141,211 +197,271 @@ export function TransactionScreen() {
         className="flex h-full flex-col"
         style={{ ['--color-accent' as string]: accent }}
       >
-        <header className="flex flex-none items-center gap-3 px-5 pt-3 pb-2 font-sans">
-          <button onClick={goBack} aria-label="Back" className="text-ink-muted">
-            <ChevronLeft size={22} strokeWidth={1.5} />
-          </button>
-          <div className="flex-1" />
-          {/* Transfers are left out: editing one leg on its own unbalances the
-              pair, and there is no paired flow yet. */}
-          {!isTransfer && (
-            <button
-              aria-label="Edit"
-              className="text-ink-muted"
-              onClick={() => navigate(`/tx/${row.id}/edit`)}
-            >
-              <Pencil size={19} strokeWidth={1.5} />
-            </button>
-          )}
-          <button
-            aria-label="Duplicate"
-            className="text-ink-muted"
-            onClick={async () => {
-              await duplicate.mutateAsync({
-                wallet_id: row.wallet_id,
-                category_id: row.category_id,
-                amount: asMinor(row.amount),
-                date: today(),
-                note: row.note,
-              })
-              // Same rule as delete: back where you came from. The copy is dated
-              // today and keeps this row's wallet, so a wallet feed shows it just
-              // as the home feed would.
-              goBack()
-            }}
+        <div className="no-scrollbar flex-1 overflow-y-auto">
+          {/* Header block only: the tint fades into the ground by 72%, so the
+              cards below sit on the surface they do everywhere else. */}
+          <ColourField
+            colour={isTransfer ? null : category?.color}
+            className="px-4 pb-6"
           >
-            <Copy size={19} strokeWidth={1.5} />
-          </button>
-          <button
-            aria-label="Delete"
-            onClick={() => setConfirming(true)}
-            style={{ color: 'var(--color-expense)' }}
-          >
-            <Trash2 size={19} strokeWidth={1.5} />
-          </button>
-        </header>
-
-        <div className="no-scrollbar flex-1 overflow-y-auto px-5 pb-8">
-          <div
-            className="flex flex-col items-center pt-4 pb-5"
-            style={{ borderBottom: '1px solid var(--color-line)' }}
-          >
-            <CategoryGlyph
-              glyph={category?.glyph}
-              color={category?.color}
-              size={62}
-              transfer={isTransfer}
-            />
-            <div
-              className="tnum mt-3.5"
-              style={{
-                fontSize: 44,
-                lineHeight: 1.1,
-                letterSpacing: '-.02em',
-                color: isTransfer
-                  ? 'var(--color-ink)'
-                  : row.amount > 0
-                    ? 'var(--color-income)'
-                    : 'var(--color-expense)',
-              }}
-            >
-              {isTransfer
-                ? formatAmount(asMinor(row.amount))
-                : formatSigned(asMinor(row.amount))}
-            </div>
-            <div className="mt-1 text-[16px]" style={{ color: accent }}>
-              {isTransfer ? 'Transfer' : (category?.name ?? 'Uncategorised')}
-            </div>
-            <div className="tnum mt-1.5 text-[12px] text-ink-faint">
-              {formatFullDate(row.date)}
-            </div>
-          </div>
-
-          {isTransfer && outLeg && inLeg ? (
-            <>
-              <div className="flex flex-col py-5">
-                {[outLeg, inLeg].map((leg, i) => {
-                  const legWallet = wallets.data?.find((w) => w.id === leg.wallet_id)
-                  const Icon = i === 0 ? ArrowUp : ArrowDown
-                  return (
-                    <div key={leg.id} className="flex items-center gap-3 py-2">
-                      <Icon size={16} strokeWidth={1.5} className="w-6 flex-none text-ink-dim" />
-                      <span className="flex-1 text-[15px]">{legWallet?.name ?? '—'}</span>
-                      <span className="tnum text-[14px] text-ink-muted">
-                        {formatSigned(asMinor(leg.amount))}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-              <div
-                className="flex gap-2.5 rounded-[4px] p-3.5 text-[12.5px] leading-[1.55] text-ink-muted"
-                style={{ border: '1px solid var(--color-line)' }}
-              >
-                <Info size={16} strokeWidth={1.5} className="mt-0.5 flex-none" />
-                <p>
-                  A transfer moves money between your own wallets, so it is left
-                  out of spending charts and never counts against a budget.
-                  Deleting it removes both legs together.
-                </p>
-              </div>
-            </>
-          ) : (
-            <>
-              <Row icon={<WalletIcon size={17} strokeWidth={1.5} />} label="Wallet">
-                {wallet?.name ?? '—'}
-              </Row>
-              {row.note && (
-                <Row icon={<Pencil size={17} strokeWidth={1.5} />} label="Note">
-                  {row.note}
-                </Row>
-              )}
-              {tagNames.length > 0 && (
-                <Row icon={<Tag size={17} strokeWidth={1.5} />} label="Tags">
-                  <span className="flex flex-wrap justify-end gap-1.5">
-                    {tagNames.map((name) => (
-                      <span
-                        key={name}
-                        className="rounded-[3px] px-2.5 py-1 font-sans text-[11.5px]"
-                        style={{ border: `1px solid ${accent}`, color: accent }}
-                      >
-                        {name}
-                      </span>
-                    ))}
-                  </span>
-                </Row>
-              )}
-
-              {budget && (budget.limit_amount ?? 0) > 0 && (
-                <section>
-                  <div className="kicker pt-6 pb-2.5 text-ink-muted">
-                    Against the budget
-                  </div>
-                  <div
-                    className="rounded-[4px] p-3.5"
-                    style={{ border: '1px solid var(--color-line)' }}
-                  >
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-[14px]">{budget.name}</span>
-                      <span className="tnum text-[13px]">
-                        {formatAmount(asMinor(budget.spent ?? 0))} /{' '}
-                        {formatAmount(asMinor(budget.limit_amount ?? 0))}
-                      </span>
-                    </div>
-                    {/* This transaction's slice sits at the end of the spent
-                        portion, so its share of the month is legible at a glance. */}
-                    <div
-                      className="mt-2.5 flex h-1.5 overflow-hidden rounded-[2px]"
-                      style={{ background: 'var(--color-track)' }}
-                    >
-                      <div
-                        style={{
-                          width: `${Math.min(100, (((budget.spent ?? 0) - Math.abs(row.amount)) / (budget.limit_amount || 1)) * 100)}%`,
-                          background: 'var(--color-ink-dim)',
-                        }}
-                      />
-                      <div
-                        style={{
-                          width: `${Math.min(100, (Math.abs(row.amount) / (budget.limit_amount || 1)) * 100)}%`,
-                          background: accent,
-                        }}
-                      />
-                    </div>
-                    <p className="mt-2 text-[11.5px] text-ink-muted">
-                      This one is {formatAmount(asMinor(Math.abs(row.amount)))} of it.
-                    </p>
-                  </div>
-                </section>
-              )}
-
-              <section>
-                <div className="kicker pt-6 pb-2.5 text-ink-muted">
-                  {category?.name ?? 'Category'}, last six months
-                </div>
-                <div
-                  className="rounded-[4px] p-3.5"
-                  style={{ border: '1px solid var(--color-line)' }}
+            <header className="flex items-center gap-2 pt-1 pb-5">
+              <ActionTile label="Back" onField onClick={goBack}>
+                <IconChevronRight size={20} stroke={2} className="rotate-180" />
+              </ActionTile>
+              <div className="flex-1" />
+              {/* Transfers are left out: editing one leg on its own unbalances
+                  the pair, and there is no paired flow yet. */}
+              {!isTransfer && (
+                <ActionTile
+                  label="Edit"
+                  onField
+                  onClick={() => navigate(`/tx/${row.id}/edit`)}
                 >
-                  <CategoryHistory totals={categoryTotals} color={accent} />
-                </div>
-              </section>
-            </>
-          )}
+                  <IconPencil size={19} stroke={2} />
+                </ActionTile>
+              )}
+              <ActionTile
+                label="Duplicate"
+                onField
+                onClick={async () => {
+                  await duplicate.mutateAsync({
+                    wallet_id: row.wallet_id,
+                    category_id: row.category_id,
+                    amount: asMinor(row.amount),
+                    date: today(),
+                    note: row.note,
+                  })
+                  // Same rule as delete: back where you came from. The copy is
+                  // dated today and keeps this row's wallet, so a wallet feed
+                  // shows it just as the home feed would.
+                  goBack()
+                }}
+              >
+                <IconCopy size={19} stroke={2} />
+              </ActionTile>
+              <ActionTile
+                label="Delete"
+                onField
+                tone="var(--color-expense)"
+                onClick={() => setConfirming(true)}
+              >
+                <IconTrash size={19} stroke={2} />
+              </ActionTile>
+            </header>
 
-          <p className="tnum pt-6 text-[11px] text-ink-dim">
-            Recorded {new Date(row.created_at).toLocaleString('en-GB')} · {wallet?.name}{' '}
-            balance now {formatMoney(asMinor(walletBalance), wallet?.currency ?? CURRENCY)}
-          </p>
+            <div className="flex flex-col items-center">
+              <span
+                className="flex size-[60px] items-center justify-center rounded-tile-lg"
+                style={{
+                  background: 'var(--field-scrim)',
+                  color: 'var(--field-ink)',
+                  ...(dashed
+                    ? {
+                        background: 'transparent',
+                        border: '1.5px dashed var(--color-dash)',
+                        boxSizing: 'border-box' as const,
+                      }
+                    : null),
+                }}
+              >
+                <HeroGlyph glyph={heroGlyph} />
+              </span>
+
+              <div
+                className="tnum mt-4"
+                style={{
+                  fontSize: 44,
+                  fontWeight: 600,
+                  lineHeight: 1,
+                  letterSpacing: '-0.035em',
+                  color: amountColour,
+                }}
+              >
+                {isTransfer
+                  ? formatAmount(asMinor(row.amount))
+                  : formatSigned(asMinor(row.amount))}
+                <span
+                  className="text-ink-faint"
+                  style={{ fontSize: 20, fontWeight: 500, letterSpacing: 0 }}
+                >
+                  {' '}
+                  {currencySymbol(wallet?.currency ?? CURRENCY)}
+                </span>
+              </div>
+
+              <span
+                className="mt-3.5 rounded-full px-3 py-1.5 text-[13px] font-medium"
+                style={{ background: 'var(--field-scrim)', color: 'var(--field-ink)' }}
+              >
+                {isTransfer ? 'Transfer' : (category?.name ?? 'Uncategorised')}
+              </span>
+              <div className="tnum mt-2.5 text-[13px] text-ink-muted">
+                {formatFullDate(row.date)}
+              </div>
+            </div>
+          </ColourField>
+
+          <div className="flex flex-col gap-[14px] px-4 pb-8">
+            {isTransfer && outLeg && inLeg ? (
+              <>
+                <Card>
+                  {[outLeg, inLeg].map((leg, i) => {
+                    const legWallet = wallets.data?.find((w) => w.id === leg.wallet_id)
+                    const Arrow = i === 0 ? IconArrowUp : IconArrowDown
+                    return (
+                      <div key={leg.id}>
+                        {i > 0 && <Divider inset={55} />}
+                        <CardRow press={false}>
+                          <span className="flex w-[26px] flex-none justify-center text-ink-dim">
+                            <Arrow size={18} stroke={2} />
+                          </span>
+                          <span className="flex-1 truncate text-[15px] font-medium">
+                            {legWallet?.name ?? '—'}
+                          </span>
+                          <span className="tnum text-[15px] font-semibold text-ink-muted">
+                            {formatSignedMoney(
+                              asMinor(leg.amount),
+                              legWallet?.currency ?? CURRENCY,
+                            )}
+                          </span>
+                        </CardRow>
+                      </div>
+                    )
+                  })}
+                </Card>
+
+                <Card className="flex gap-2.5 p-[18px] text-[12.5px] leading-[1.55] text-ink-muted">
+                  <IconInfoCircle size={16} stroke={2} className="mt-0.5 flex-none" />
+                  <p>
+                    A transfer moves money between your own wallets, so it is left
+                    out of spending charts and never counts against a budget.
+                    Deleting it removes both legs together.
+                  </p>
+                </Card>
+              </>
+            ) : (
+              <>
+                <Card>
+                  <DetailRow icon={<IconWallet size={17} stroke={2} />} label="Wallet">
+                    {wallet?.name ?? '—'}
+                  </DetailRow>
+                  {row.note && (
+                    <>
+                      <Divider inset={63} />
+                      <DetailRow icon={<IconPencil size={17} stroke={2} />} label="Note">
+                        {row.note}
+                      </DetailRow>
+                    </>
+                  )}
+                  {tagNames.length > 0 && (
+                    <>
+                      <Divider inset={63} />
+                      <DetailRow icon={<IconTag size={17} stroke={2} />} label="Tags">
+                        <span className="flex flex-wrap justify-end gap-1.5">
+                          {tagNames.map((name) => (
+                            <span
+                              key={name}
+                              className="rounded-full px-2.5 py-1 text-[12px] font-medium"
+                              style={{
+                                background: `color-mix(in oklab, ${accent} 20%, transparent)`,
+                                color: accent,
+                              }}
+                            >
+                              {name}
+                            </span>
+                          ))}
+                        </span>
+                      </DetailRow>
+                    </>
+                  )}
+                  <Divider inset={63} />
+                  <DetailRow icon={<IconClock size={17} stroke={2} />} label="Recorded">
+                    <span className="tnum">
+                      {new Date(row.created_at).toLocaleString('en-GB')}
+                    </span>
+                  </DetailRow>
+                  <Divider inset={63} />
+                  {/* The wallet's balance *now*, not as of this row — a running
+                      balance at an arbitrary date would need its own query. */}
+                  <DetailRow
+                    icon={<IconScale size={17} stroke={2} />}
+                    label="Balance now"
+                  >
+                    <span className="tnum">
+                      {formatMoney(
+                        asMinor(walletBalance),
+                        wallet?.currency ?? CURRENCY,
+                      )}
+                    </span>
+                  </DetailRow>
+                </Card>
+
+                {budget && (budget.limit_amount ?? 0) > 0 && (
+                  <section className="flex flex-col gap-2">
+                    <Label className="px-1">Against the budget</Label>
+                    <Card className="p-[18px]">
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-[15px] font-medium">{budget.name}</span>
+                        <span className="tnum text-[13px] text-ink-muted">
+                          {formatAmount(asMinor(budget.spent ?? 0))} /{' '}
+                          {formatAmountMoney(
+                            asMinor(budget.limit_amount ?? 0),
+                            budget.currency ?? CURRENCY,
+                          )}
+                        </span>
+                      </div>
+                      {/* This transaction's slice sits at the end of the spent
+                          portion, so its share of the month is legible at a
+                          glance. */}
+                      <div className="mt-3 flex h-1.5 overflow-hidden rounded-full bg-track">
+                        <div
+                          style={{
+                            width: `${Math.min(100, (((budget.spent ?? 0) - Math.abs(row.amount)) / (budget.limit_amount || 1)) * 100)}%`,
+                            background: 'var(--color-ink-dim)',
+                          }}
+                        />
+                        <div
+                          style={{
+                            width: `${Math.min(100, (Math.abs(row.amount) / (budget.limit_amount || 1)) * 100)}%`,
+                            background: accent,
+                          }}
+                        />
+                      </div>
+                      <p className="mt-2.5 text-[12.5px] text-ink-muted">
+                        This one is{' '}
+                        {formatAmountMoney(
+                          asMinor(Math.abs(row.amount)),
+                          budget.currency ?? CURRENCY,
+                        )}{' '}
+                        of it.
+                      </p>
+                    </Card>
+                  </section>
+                )}
+
+                <section className="flex flex-col gap-2">
+                  <div className="flex items-baseline justify-between px-1">
+                    <Label>{category?.name ?? 'Category'} · six months</Label>
+                    <span className="tnum text-[12px] text-ink-muted">
+                      peak {formatAmountMoney(asMinor(categoryPeak), CURRENCY)}
+                    </span>
+                  </div>
+                  <Card className="p-[18px]">
+                    <CategoryHistory totals={categoryTotals} color={accent} />
+                  </Card>
+                </section>
+              </>
+            )}
+          </div>
         </div>
 
         {confirming && (
-          <div className="absolute inset-0 z-40 flex items-end bg-black/50 p-5">
-            <div
-              className="w-full rounded-[8px] bg-bg p-5"
-              style={{ border: '1px solid var(--color-line)' }}
-            >
-              <h2 className="text-[16px]">Delete this {isTransfer ? 'transfer' : 'transaction'}?</h2>
-              <p className="mt-2 text-[12.5px] leading-[1.55] text-ink-muted">
+          <div className="absolute inset-0 z-40 flex items-end bg-black/50 p-4">
+            <Card className="w-full p-[18px]">
+              <h2 className="text-[17px] font-semibold">
+                Delete this {isTransfer ? 'transfer' : 'transaction'}?
+              </h2>
+              <p className="mt-2 text-[13px] leading-[1.55] text-ink-muted">
                 {isTransfer && outLeg && inLeg
                   ? `Both legs go together. ${
                       wallets.data?.find((w) => w.id === outLeg.wallet_id)?.name ?? '—'
@@ -354,27 +470,19 @@ export function TransactionScreen() {
                     } will both be recalculated.`
                   : 'Balances and charts recalculate immediately. This cannot be undone.'}
               </p>
-              <div className="mt-4 flex gap-2">
-                <button
-                  onClick={() => setConfirming(false)}
-                  className="flex-1 rounded-[4px] py-2.5 text-[13.5px] text-ink-muted"
-                  style={{ border: '1px solid var(--color-line)' }}
-                >
+              <div className="mt-4 flex gap-2.5">
+                <Button variant="secondary" onClick={() => setConfirming(false)}>
                   Keep
-                </button>
-                <button
+                </Button>
+                <Button
+                  tone="var(--color-expense)"
                   onClick={onDelete}
                   disabled={remove.isPending}
-                  className="flex-1 rounded-[4px] py-2.5 text-[13.5px] disabled:opacity-50"
-                  style={{
-                    border: '1px solid var(--color-expense)',
-                    color: 'var(--color-expense)',
-                  }}
                 >
                   {remove.isPending ? 'Deleting…' : 'Delete'}
-                </button>
+                </Button>
               </div>
-            </div>
+            </Card>
           </div>
         )}
       </div>
@@ -382,7 +490,8 @@ export function TransactionScreen() {
   )
 }
 
-function Row({
+/** A label/value row in the details card, with its 34px leading glyph column. */
+function DetailRow({
   icon,
   label,
   children,
@@ -392,13 +501,18 @@ function Row({
   children: React.ReactNode
 }) {
   return (
-    <div
-      className="flex items-start gap-3 py-3.5"
-      style={{ borderBottom: '1px solid var(--color-line-soft)' }}
-    >
-      <span className="flex w-6 flex-none justify-center pt-0.5 text-ink-dim">{icon}</span>
-      <span className="flex-none font-sans text-[12px] text-ink-muted">{label}</span>
-      <span className="flex-1 text-right text-[15px]">{children}</span>
+    <div className="flex items-start gap-3 px-4 py-[13px]">
+      <span className="flex w-[26px] flex-none justify-center pt-px text-ink-faint">
+        {icon}
+      </span>
+      <span className="flex-none text-[13px] text-ink-muted">{label}</span>
+      <span className="flex-1 text-right text-[15px] font-medium">{children}</span>
     </div>
   )
+}
+
+/** The hero mark, drawn on the field rather than in a tinted tile. */
+function HeroGlyph({ glyph }: { glyph: string | null | undefined }) {
+  const Glyph = iconFor(glyph)
+  return <Glyph size={28} stroke={2} />
 }

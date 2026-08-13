@@ -55,7 +55,7 @@ export function FirstRunSetup() {
   }
 
   return (
-    <div className="rounded-[4px] p-4" style={{ border: '1px solid var(--color-line)' }}>
+    <div className="rounded-card p-4" style={{ border: '1px solid var(--color-divider)' }}>
       <h2 className="text-[16px]">Nothing here yet</h2>
       <p className="mt-1.5 text-[13px] leading-[1.55] text-ink-muted">
         Create a PLN account and a handful of starter categories so you can add a
@@ -65,7 +65,7 @@ export function FirstRunSetup() {
       <button
         onClick={run}
         disabled={busy}
-        className="mt-4 rounded-[4px] px-4 py-2 text-[13.5px] text-accent disabled:opacity-50"
+        className="mt-4 rounded-field px-4 py-2 text-[13.5px] text-accent disabled:opacity-50"
         style={{ border: '1px solid var(--color-accent)' }}
       >
         {busy ? 'Creating…' : 'Set up'}

@@ -1,7 +1,9 @@
 import { Link } from 'react-router'
 import { CategoryGlyph } from './CategoryGlyph'
+import { Card, Divider } from './ui/Card'
+import { Label } from './ui/Label'
 import { isAdjustment } from '@/lib/adjustments'
-import { asMinor, currencySymbol, formatAmount, formatSigned } from '@/lib/money'
+import { asMinor, formatAmountMoney, formatSignedMoney } from '@/lib/money'
 import { formatDayHeader } from '@/lib/dates'
 import type { Category, Transaction, Wallet } from '@/lib/db'
 
@@ -59,22 +61,21 @@ function Row({
     return (
       <Link
         to={`/tx/${entry.out.id}`}
-        className="flex items-center gap-3 px-3.5 py-3"
+        className="flex items-center gap-[13px] px-4 py-[13px] active:bg-press"
       >
         <CategoryGlyph glyph={null} color={null} transfer />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[15px] text-ink/75">
+          <div className="truncate text-[15px] font-medium text-ink/75">
             {from?.name ?? '—'} → {to?.name ?? '—'}
           </div>
-          <div className="mt-0.5 truncate text-[11.5px] text-ink-muted">
+          <div className="mt-px truncate text-[12.5px] text-ink-muted">
             Transfer · not counted as spending
           </div>
         </div>
         {/* The target leg, so the target wallet's currency — a cross-currency
             transfer has a different amount on each side. */}
-        <div className="tnum flex-none text-[14px] text-ink-faint">
-          {formatAmount(asMinor(entry.in.amount))}
-          {to && ` ${currencySymbol(to.currency)}`}
+        <div className="tnum flex-none text-[15px] font-semibold whitespace-nowrap text-ink-faint">
+          {formatAmountMoney(asMinor(entry.in.amount), to?.currency ?? 'PLN')}
         </div>
       </Link>
     )
@@ -101,7 +102,10 @@ function Row({
     .join(' · ')
 
   return (
-    <Link to={`/tx/${tx.id}`} className="flex items-center gap-3 px-3.5 py-3">
+    <Link
+      to={`/tx/${tx.id}`}
+      className="flex items-center gap-[13px] px-4 py-[13px] active:bg-press"
+    >
       <CategoryGlyph
         glyph={category?.glyph}
         color={category?.color}
@@ -109,15 +113,17 @@ function Row({
         neutral={adjustment}
       />
       <div className="min-w-0 flex-1">
-        <div className={`truncate text-[15px] ${adjustment ? 'text-ink/75' : ''}`}>
+        <div
+          className={`truncate text-[15px] font-medium ${adjustment ? 'text-ink/75' : ''}`}
+        >
           {category?.name ?? 'Uncategorised'}
         </div>
         {meta && (
-          <div className="mt-0.5 truncate text-[11.5px] text-ink-muted">{meta}</div>
+          <div className="mt-px truncate text-[12.5px] text-ink-muted">{meta}</div>
         )}
       </div>
       <div
-        className="tnum flex-none text-[14px]"
+        className="tnum flex-none text-[15px] font-semibold whitespace-nowrap"
         style={{
           color: adjustment
             ? 'var(--color-ink-faint)'
@@ -126,8 +132,7 @@ function Row({
               : 'var(--color-expense)',
         }}
       >
-        {formatSigned(asMinor(tx.amount))}
-        {wallet && ` ${currencySymbol(wallet.currency)}`}
+        {formatSignedMoney(asMinor(tx.amount), wallet?.currency ?? 'PLN')}
       </div>
     </Link>
   )
@@ -158,14 +163,14 @@ export function TransactionFeed({
 
   if (days.length === 0) {
     return (
-      <p className="px-5 py-8 text-center text-[13px] text-ink-muted">
+      <p className="px-4 py-8 text-center text-[13px] text-ink-muted">
         Nothing recorded yet.
       </p>
     )
   }
 
   return (
-    <div className="flex flex-col gap-[11px] px-5 pt-5 pb-40">
+    <div className="flex flex-col gap-[14px]">
       {days.map((day) => {
         const rows = byDay.get(day)!
         // Transfers move money between own wallets, so they net to zero and are
@@ -185,32 +190,25 @@ export function TransactionFeed({
         const entries = collapseTransfers(rows)
 
         return (
-          <div key={day} className="flex flex-col gap-[11px]">
-            <div className="flex items-baseline justify-between">
-              <span className="kicker text-ink-muted">{formatDayHeader(day)}</span>
+          <div key={day} className="flex flex-col gap-2">
+            <div className="flex items-baseline justify-between px-1">
+              <Label>{formatDayHeader(day)}</Label>
               <span
-                className="tnum text-[11.5px]"
+                className="tnum text-[12.5px] font-semibold"
                 style={{
-                  color:
-                    net > 0 ? 'var(--color-income)' : 'var(--color-ink-muted)',
+                  color: net > 0 ? 'var(--color-income)' : 'var(--color-ink-faint)',
                 }}
               >
-                {formatSigned(asMinor(net), { plus: net > 0 })}
-                {netCurrency && ` ${currencySymbol(netCurrency)}`}
+                {formatSignedMoney(asMinor(net), netCurrency ?? 'PLN', {
+                  plus: net > 0,
+                })}
               </span>
             </div>
 
-            <div
-              className="flex flex-col rounded-[4px]"
-              style={{ border: '1px solid var(--color-line)' }}
-            >
+            <Card>
               {entries.map((entry, i) => (
-                <div
-                  key={entry.kind === 'transfer' ? entry.out.id : entry.tx.id}
-                  style={{
-                    borderTop: i === 0 ? undefined : '1px solid var(--color-line)',
-                  }}
-                >
+                <div key={entry.kind === 'transfer' ? entry.out.id : entry.tx.id}>
+                  {i > 0 && <Divider />}
                   <Row
                     entry={entry}
                     wallets={walletMap}
@@ -219,7 +217,7 @@ export function TransactionFeed({
                   />
                 </div>
               ))}
-            </div>
+            </Card>
           </div>
         )
       })}

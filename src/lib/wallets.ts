@@ -1,12 +1,5 @@
 /**
  * What each wallet type is called and what it looks like.
- *
- * The icon comes from the **type**, not from the row's `glyph` column. That
- * column is free text and the legacy import wrote `'wallet'` into all seven, so
- * reading it would draw the same mark on an account, a savings account, a credit
- * card and a loan — the one distinction the icon exists to make. The create
- * screen writes the type's glyph into the column so the two agree for anything
- * made in the app; the list does not depend on that having happened.
  */
 import type { LoanProgress, Wallet, WalletMonthlyNet, WalletType } from './db'
 
@@ -35,6 +28,20 @@ export const glyphForWalletType = (type: WalletType): string =>
 
 export const labelForWalletType = (type: WalletType): string =>
   BY_TYPE.get(type)?.label ?? 'Wallet'
+
+/**
+ * The mark a wallet draws: its own glyph if it has been given one, otherwise
+ * the type's.
+ *
+ * The column used to be ignored entirely, because the legacy import wrote
+ * `'wallet'` into all seven rows and trusting it would have drawn one icon on
+ * an account, a savings account, a card and a loan — the single distinction the
+ * mark exists to make. There is an icon picker now, so the column is a real
+ * choice; the migration cleared that sentinel back to null so "unset" is
+ * expressible and this fallback can mean what it says.
+ */
+export const walletGlyph = (wallet: Wallet): string =>
+  wallet.glyph ?? glyphForWalletType(wallet.type)
 
 /**
  * Archived wallets stay in `useWallets` — the feed still has to resolve the name

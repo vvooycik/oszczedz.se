@@ -53,11 +53,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     supabase
       .from('user_settings')
-      .select('mode, accent, tint')
+      .select('mode, accent, tint_surfaces')
       .maybeSingle()
       .then(({ data, error }) => {
         if (cancelled || error || !data) return
-        const next = normalisePrefs({ ...data, tint: Number(data.tint) })
+        const next = normalisePrefs({ ...data, tintSurfaces: data.tint_surfaces })
         setState(next)
         localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(next))
       })
@@ -91,9 +91,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       // write self-heals on the next cold boot — but it must actually be sent.
       // A supabase-js builder is a lazy thenable: it only issues the request
       // when subscribed, so `void builder` would silently never run.
+      // The row's column is `tint_surfaces`; the pref is `tintSurfaces`. Spell
+      // the payload out rather than spreading `next`, so a rename on either
+      // side is a type error instead of a silently ignored column.
       supabase
         .from('user_settings')
-        .upsert(next, { onConflict: 'user_id' })
+        .upsert(
+          { mode: next.mode, accent: next.accent, tint_surfaces: next.tintSurfaces },
+          { onConflict: 'user_id' },
+        )
         .then(({ error }) => {
           if (error) console.warn('Could not persist theme settings:', error.message)
         })

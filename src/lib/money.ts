@@ -126,3 +126,24 @@ export function formatSigned(amount: Minor, opts?: { plus?: boolean }): string {
   if (amount < 0) return `−${body}`
   return opts?.plus === false ? body : `+${body}`
 }
+
+/**
+ * Signed, with the unit: "−49,99 zł", "+400,00 zł".
+ *
+ * **Every amount on screen carries its symbol.** The old design dropped it on
+ * feed rows to save width, which quietly asked the reader to remember which
+ * wallet's currency a row belonged to — and currency lives on the wallet, so
+ * that was never a safe assumption even with one currency in use today.
+ *
+ * Not `formatMoney`, which puts the symbol where pl-PL wants it and formats the
+ * sign its own way; this keeps `formatSigned`'s U+2212 and explicit plus.
+ */
+export const formatSignedMoney = (
+  amount: Minor,
+  currency: string,
+  opts?: { plus?: boolean },
+): string => `${formatSigned(amount, opts)} ${currencySymbol(currency)}`
+
+/** Magnitude with the unit and no sign: "9 591,72 zł". */
+export const formatAmountMoney = (amount: Minor, currency: string): string =>
+  `${formatAmount(amount)} ${currencySymbol(currency)}`

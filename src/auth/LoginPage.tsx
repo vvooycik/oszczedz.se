@@ -16,8 +16,8 @@ export function LoginPage() {
     setBusy(false)
   }
 
-  const field = 'w-full rounded-[4px] bg-transparent px-3 py-2.5 text-[15px] outline-none'
-  const border = { border: '1px solid var(--color-line)' }
+  const field = 'w-full rounded-field bg-transparent px-3 py-2.5 text-[15px] outline-none'
+  const border = { border: '1px solid var(--color-divider)' }
 
   return (
     <div className="mx-auto flex h-dvh max-w-lg items-center justify-center px-6">
@@ -55,7 +55,7 @@ export function LoginPage() {
         <button
           type="submit"
           disabled={busy}
-          className="mt-4 w-full rounded-[4px] py-2.5 text-[14px] text-accent disabled:opacity-50"
+          className="mt-4 w-full rounded-field py-2.5 text-[14px] text-accent disabled:opacity-50"
           style={{ border: '1px solid var(--color-accent)' }}
         >
           {busy ? 'Signing in…' : 'Sign in'}
