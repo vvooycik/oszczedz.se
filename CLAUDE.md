@@ -678,6 +678,18 @@ About row. Bump the version there, not in the component.
     it instead of a bar welded to the edge with a FAB over the feed, and one
     inset segmented track instead of outlined pills.
 
+    **A full-bleed header needs `FullScreen bleed`.** The frame holds the top
+    safe-area inset for every screen, which meant the wallet and transaction
+    colour fields began below a band of bare ground. Those two hand the inset to
+    the content instead and spend `--safe-top` on the field itself, so the tint
+    reaches y=0. The entry screen needs nothing — its field is on the frame's own
+    `style`, and a background paints under padding.
+
+    That is as far up as it goes. With `apple-mobile-web-app-status-bar-style:
+    default` the status bar sits *outside* the web view, and iOS paints that
+    strip from `<meta name="theme-color">` — which `applyTheme` sets to the
+    ground. Tinting it per screen would mean rewriting that meta on navigation.
+
     **`aspect-square` needs a cap.** The swatch strips and the icon grid size
     themselves off the row they sit in, which is right on a phone and wrong at
     the 512px the frame caps at on a desktop — the six accent swatches became

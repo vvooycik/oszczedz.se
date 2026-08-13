@@ -30,6 +30,20 @@
   --c-accent: oklch(74% 0.13 85);
   /* 0% or 4% — Appearance's "Tint surfaces with accent". */
   --c-accent-mix: 0%;
+
+  /*
+   * The room a screen leaves at its top. Named because it is not always the
+   * frame that spends it: a screen whose header is a full-bleed colour field
+   * takes the inset as its own padding instead, so the tint reaches the very
+   * top of the web view rather than starting below a band of bare ground.
+   *
+   * The 12px floor is for the browser and the desktop shell, where the safe
+   * area is zero and content would otherwise touch the edge. On a notched
+   * iPhone in standalone the inset reports 0 too — the status bar sits
+   * *outside* the web view with `apple-mobile-web-app-status-bar-style:
+   * default`, and iOS paints that strip itself from `<meta name="theme-color">`.
+   */
+  --safe-top: max(env(safe-area-inset-top, 0px), 12px);
 }
 
 /* ------------------------------------------------------------------- light */

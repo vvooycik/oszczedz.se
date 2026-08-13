@@ -28,10 +28,7 @@ export function AppShell() {
     >
       <main
         className="no-scrollbar flex-1 overflow-y-auto"
-        style={{
-          paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)',
-          paddingBottom: DOCK_SPACER,
-        }}
+        style={{ paddingTop: 'var(--safe-top)', paddingBottom: DOCK_SPACER }}
       >
         <Outlet />
       </main>
@@ -48,6 +45,12 @@ export function AppShell() {
  * covers, so a sheet opened from one of these screens fills exactly the frame
  * and not the page.
  *
+ * **`bleed` hands the top inset to the content.** A screen whose header is a
+ * full-bleed colour field has to start painting at y=0; with the frame holding
+ * the padding, the tint began below a band of bare ground. Those screens set
+ * `bleed` and spend `--safe-top` on the field itself. Everything else leaves it
+ * here, where one rule covers every screen.
+ *
  * **`overlay` is for a screen presented *over* another one** — the category
  * editor above the categories list, the per-wallet category picker above the
  * wallet. Those are rendered as children of the screen they cover rather than
@@ -60,10 +63,13 @@ export function FullScreen({
   children,
   style,
   overlay = false,
+  bleed = false,
 }: {
   children: React.ReactNode
   style?: React.CSSProperties
   overlay?: boolean
+  /** The first child paints to the top edge and owns the safe-area inset. */
+  bleed?: boolean
 }) {
   const height = useViewportHeight()
 
@@ -74,7 +80,7 @@ export function FullScreen({
       }`}
       style={{
         height: overlay ? undefined : (height ?? '100svh'),
-        paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)',
+        paddingTop: bleed ? undefined : 'var(--safe-top)',
         ...style,
       }}
     >

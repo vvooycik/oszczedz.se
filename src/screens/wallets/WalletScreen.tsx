@@ -91,11 +91,15 @@ export function WalletScreen() {
   const trend = balanceHistory(wallet, nets.data ?? [])
 
   return (
-    <FullScreen>
+    <FullScreen bleed>
       <div className="no-scrollbar flex-1 overflow-y-auto">
         {/* Header block only — the tint fades into the ground by 72%, so the
             feed below sits on the same surface it does everywhere else. */}
-        <ColourField colour={wallet.color_scheme} className="px-4 pb-5">
+        <ColourField
+          colour={wallet.color_scheme}
+          className="px-4 pb-5"
+          style={{ paddingTop: 'var(--safe-top)' }}
+        >
           <header className="flex items-center gap-3 pt-1 pb-4">
             <ActionTile label="Back" onField onClick={goBack}>
               <IconChevronLeft size={20} stroke={2} />

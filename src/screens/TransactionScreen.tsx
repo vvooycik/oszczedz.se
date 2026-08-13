@@ -190,7 +190,7 @@ export function TransactionScreen() {
   }
 
   return (
-    <FullScreen>
+    <FullScreen bleed>
       {/* Category owns the accent here too. Override the token itself — see
           the note in AddScreen for why --c-accent would not cascade. */}
       <div
@@ -203,6 +203,7 @@ export function TransactionScreen() {
           <ColourField
             colour={isTransfer ? null : category?.color}
             className="px-4 pb-6"
+            style={{ paddingTop: 'var(--safe-top)' }}
           >
             <header className="flex items-center gap-2 pt-1 pb-5">
               <ActionTile label="Back" onField onClick={goBack}>
