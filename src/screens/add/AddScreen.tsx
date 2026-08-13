@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router'
 import { useGoBack } from '@/app/useGoBack'
+import { useKeyboardInset } from '@/app/useKeyboardInset'
 import {
   IconArrowBarToDown,
   IconArrowsLeftRight,
@@ -64,6 +65,18 @@ export function AddScreen() {
 
   const goBack = useGoBack()
   const { resolvedMode } = useTheme()
+
+  /**
+   * The system keyboard and the calculator keypad must never be up together.
+   *
+   * Typing a note or a received amount raises iOS's own keyboard, which covers
+   * the keypad anyway — leaving it mounted means two keyboards fighting for the
+   * same 330px and a Save button buried under both. Read from the *visual*
+   * viewport rather than from focus handlers, because that is the only thing
+   * that knows the keyboard is actually up: a field can hold focus with the
+   * keyboard dismissed, and the hook already exists for `Sheet`.
+   */
+  const keyboard = useKeyboardInset()
   const wallets = useWallets()
   const categories = useCategories()
   const tags = useTags()
@@ -520,7 +533,7 @@ export function AddScreen() {
                     inputMode="decimal"
                     placeholder="0,00"
                     aria-label="Amount received"
-                    className="tnum w-24 bg-transparent text-right text-[15px] font-semibold outline-none placeholder:text-ink-faint"
+                    className="tnum w-24 bg-transparent text-right text-[16px] font-semibold outline-none placeholder:text-ink-faint"
                     style={{
                       color: targetAmountBad ? 'var(--color-expense)' : 'var(--field-ink)',
                     }}
@@ -558,7 +571,7 @@ export function AddScreen() {
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Write a note"
-                className="flex-1 bg-transparent text-[15px] outline-none placeholder:text-ink-faint"
+                className="flex-1 bg-transparent text-[16px] outline-none placeholder:text-ink-faint"
                 style={{ color: 'var(--field-ink)' }}
               />
             </FieldRow>
@@ -618,12 +631,23 @@ export function AddScreen() {
         {/* -------------------------------------------------- keypad + save */}
         <div
           className="flex-none px-4 pt-3"
-          style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}
+          style={{
+            // Sits *on* the system keyboard rather than behind it, so Save
+            // stays reachable while a note is being typed. The frame's height
+            // does not shrink for the keyboard by design, so this is the only
+            // way the footer clears it.
+            marginBottom: keyboard,
+            paddingBottom: keyboard
+              ? 12
+              : 'calc(12px + env(safe-area-inset-bottom, 0px))',
+          }}
         >
           {/* Functional update: a captured entry drops digits on fast taps. */}
-          <Keypad op={entry.op} onKey={(key) => setEntry((s) => applyKey(s, key))} />
+          {keyboard === 0 && (
+            <Keypad op={entry.op} onKey={(key) => setEntry((s) => applyKey(s, key))} />
+          )}
 
-          <div className="mt-2.5 flex gap-2">
+          <div className={`flex gap-2 ${keyboard === 0 ? 'mt-2.5' : ''}`}>
             {/* Chained entry is an adding idea; there is no second row to edit. */}
             {!editing && (
               <button

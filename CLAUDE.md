@@ -699,6 +699,24 @@ About row. Bump the version there, not in the component.
     the tint. `black-translucent` would put content under the bar for real and
     stays rejected; see the standalone-metadata note above for the measurement.
 
+    **Every text field is at least 16px, and that is a hard floor.** iOS zooms
+    the viewport when a focused field is smaller and never zooms back out,
+    leaving the whole app scrolled sideways; Safari has ignored
+    `user-scalable=no` and `maximum-scale` since iOS 10, so the font size is the
+    only lever. The handoff puts body text at 14.5–15px and the fields
+    deliberately deviate — a pixel and a half against an app that has to be
+    pinched back into place is not a trade. `index.css` carries a floor on
+    `input, select, textarea`, but it is a net and not the rule: a Tailwind
+    utility beats an element selector, so each field states its own size.
+
+    **The system keyboard and the calculator keypad are never up together.**
+    Typing a note raises iOS's keyboard over the keypad, which left two
+    keyboards fighting for the same 330px and Save buried under both. The entry
+    screen reads `useKeyboardInset` — the *visual* viewport is the only thing
+    that knows a keyboard is actually up, since a field can hold focus without
+    one — drops the keypad while it is, and spends the inset as a margin so Save
+    sits on the keyboard rather than behind it.
+
     **`aspect-square` needs a cap.** The swatch strips and the icon grid size
     themselves off the row they sit in, which is right on a phone and wrong at
     the 512px the frame caps at on a desktop — the six accent swatches became

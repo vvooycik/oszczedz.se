@@ -246,6 +246,25 @@ body {
   font-feature-settings: 'tnum' 1;
 }
 
+/*
+ * **iOS zooms the viewport when a focused field is under 16px**, and never
+ * zooms back out — the whole app is left scrolled sideways. It is the one
+ * hard floor on type size in this design, and there is no way around it:
+ * Safari has ignored `user-scalable=no` and `maximum-scale` since iOS 10.
+ *
+ * This is a floor, not the rule that sets the size — a Tailwind utility beats
+ * an element selector, so a field with `text-[14px]` still zooms. Every text
+ * field in the app therefore states 16px or more itself; this only catches one
+ * that forgets to say anything.
+ */
+input,
+select,
+textarea,
+button {
+  font: inherit;
+  font-size: max(1rem, 16px);
+}
+
 /* The design has no visible scrollbars on its horizontal rails. */
 .no-scrollbar {
   scrollbar-width: none;

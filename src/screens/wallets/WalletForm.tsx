@@ -198,7 +198,7 @@ export function AmountInput({
         inputMode={numeric ? 'numeric' : 'decimal'}
         placeholder={placeholder}
         aria-label={label}
-        className="tnum w-32 bg-transparent text-right text-[15px] font-semibold outline-none placeholder:text-ink-faint"
+        className="tnum w-32 bg-transparent text-right text-[16px] font-semibold outline-none placeholder:text-ink-faint"
         style={{ color: invalid ? 'var(--color-expense)' : undefined }}
       />
       <span className="text-[13px] text-ink-faint">{unit}</span>

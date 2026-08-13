@@ -261,7 +261,7 @@ export function CategoryEditorSheet({
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}
-                  className="w-full bg-transparent text-[14.5px] outline-none placeholder:text-ink-faint"
+                  className="w-full bg-transparent text-[16px] outline-none placeholder:text-ink-faint"
                 />
               </label>
             )}

@@ -16,7 +16,7 @@ export function LoginPage() {
     setBusy(false)
   }
 
-  const field = 'w-full rounded-field bg-transparent px-3 py-2.5 text-[15px] outline-none'
+  const field = 'w-full rounded-field bg-transparent px-3 py-2.5 text-[16px] outline-none'
   const border = { border: '1px solid var(--color-divider)' }
 
   return (
