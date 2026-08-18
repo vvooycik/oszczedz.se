@@ -42,8 +42,20 @@ Icons come from `src/lib/icons.ts`, which maps the kebab-case names stored in
 there, never by indexing the library namespace — the rule is *stricter* than it
 was under Lucide, not looser: Lucide shipped 2025 icons and a namespace index
 cost **180 kB gzipped**, more than the entire initial bundle, and Tabler ships
-5 900. Curated, a glyph costs ~100 bytes gzipped, so the list grows freely; the
-whole Lucide→Tabler swap moved the initial chunk by −0.6 kB.
+6 179. The whole Lucide→Tabler swap moved the initial chunk by −0.6 kB.
+
+**A glyph costs ~86 bytes gzipped, measured** — the map grew from 111 keys to
+**256** and the initial chunk from 177 kB to 189.6. So the list grows, but it is
+not free, and there is no lazy path available for the picker-only ones:
+`iconFor` has to answer synchronously because a feed row's glyph comes out of
+the database and is drawn on the same paint as the row. Everything in the map is
+in the initial chunk, login screen included. A few hundred is comfortable; a
+thousand would be 86 kB and the largest single thing the app ships.
+
+**Tabler has no taxi**, checked against 3.46 — `car-taxi-front` draws
+`IconCarSuv`, deliberately a different silhouette from `car` so a ride share and
+the car itself are not the same mark in a feed. Searching "taxi" in the picker
+finds it, because the search matches the key.
 
 **The map's keys are data and did not change.** 59 categories and a few wallets
 hold Lucide-flavoured strings in their `glyph` columns, so the refresh swapped
@@ -176,6 +188,16 @@ Enforced outside the DDL:
   time, while invariant 5 makes the target the positive leg. One row is the
   answer — no second query, and no leg matching to drift from the invariant.
 - `delete_category(id, reassign_to)` — moves the category's transactions onto another category and deletes it in one statement; raises rather than orphaning rows when a target is needed and none was given
+- `monthly_cash_flow` view — money in and money out per month per currency, kept
+  apart rather than netted. Not derivable from `monthly_category_totals`, which
+  sums *signed* amounts per category and so reports a refund as a smaller total
+  with no way back to the two figures.
+- `spending_pace(currency, start, step, periods = 6, max_points = 120)` —
+  cumulative spend through a period against the median of the preceding ones,
+  both series in one bounded answer. See the Insight tab roadmap item.
+- `category_period_totals(currency, start, step, periods = 6)` — spend per
+  category for a period and the six before it, `period_index` 0 being the
+  selected one
 
 ## Data
 
@@ -442,9 +464,12 @@ Without it Vite inlines the values as `undefined`, the guard in `src/lib/supabas
 folds to a constant, and the bundler dead-code-eliminates supabase-js and every
 chart behind it — producing a *successful* build of an app that throws on load.
 
-ECharts is code-split so it stays off the login path — **~174 kB gzipped initial,
-~189 kB for the chart chunk** after the visual refresh (it was ~170/189 before,
-so the whole restyle plus ten new components cost ~4 kB). Keep an eye on this: a
+ECharts is code-split so it stays off the login path — **~194 kB gzipped initial,
+~189 kB for the chart chunk**. The initial figure was ~174 kB after the visual
+refresh and grew to ~177 with the wallet add button and balance-adjustment
+sheet, then to ~190 when the glyph set went from 111 to 256 (that 12 kB is icons
+and nothing else), then to ~194 with the whole Insight tab — four blocks for
+4.5 kB, because none of them is an ECharts instance. Keep an eye on this: a
 second charting library adds to that budget rather than replacing it.
 
 `__APP_VERSION__` is inlined by `vite.config.ts` from `package.json`, for the
@@ -610,10 +635,24 @@ About row. Bump the version there, not in the component.
     Side effect worth noting: this **retires the untested Sheet-inside-AppShell**
     from item 7. The categories sheet now opens on a `FullScreen` route, the
     same proven arrangement `CategoriesScreen` uses.
+
+    The screen carries **its own add button**, in the dock's position and shape
+    but painted in the wallet's colour rather than the accent — this screen is
+    themed by the wallet the whole way down, the same argument the entry screen
+    makes for its category-coloured Save. It goes to **`/add?wallet=<id>`**, and
+    the scroll column reserves `DOCK_SPACER` so the last feed row still clears
+    it. The wallet travels in the URL rather than in router state so a reload
+    keeps it. In `AddScreen` it is a *starting value* that outranks
+    `useLastUsedWallet` and does not wait on it — the caller has already
+    answered the question that query exists to answer — and it is still checked
+    against `activeWallets` before it is used, so an id that no longer resolves
+    falls through to the ordinary default. The button is **not drawn on an
+    archived wallet**: a closed wallet is hidden from the entry form's select,
+    so it would open a form that immediately disagreed with where it came
+    from.
 11. **Editing a wallet — DONE.** Pencil on the detail header → `/wallets/:id/edit`:
-    name, colour, the type's own number (credit limit, or settlements — which is
-    how the imported `Kredyty` finally gets an installment count), and the
-    balance.
+    name, colour, and the type's own number (credit limit, or settlements —
+    which is how the imported `Kredyty` finally gets an installment count).
     **Type is not editable, by decision.** Moving it would have to carry
     `credit_limit` and the loan columns across two CHECK constraints, re-answer
     what an account's balance means once it is a card, and invent an installment
@@ -646,12 +685,34 @@ About row. Bump the version there, not in the component.
     excludes rows by `transfer_id`, which an adjustment does not have, and the
     money genuinely did move — hiding it would make the charts disagree with the
     balance. Excluding it is a separate decision, not an oversight.
-    The balance field carries the same three readings as the create screen, and
-    the one trap is the **overdrawn account**: `toRawAmount` is never signed, so
-    seeding the field from it drops the minus, and −123,45 would read back as
-    +123,45 and offer an adjustment of twice the balance. The sign is put back
-    for non-debt types only — a card and a loan want the unsigned figure, since
-    the field asks what is *owed*.
+    **The balance is not a field on that form** — it is
+    `src/screens/wallets/AdjustBalanceSheet.tsx`, opened from a row on the
+    wallet detail screen (where the balance is the figure being read) and from
+    a row on the edit screen. One implementation, because it is one act: the
+    edit screen used to carry its own copy of the subtraction, which saved with
+    the form and could not offer a card's remaining reading.
+
+    It opens on what the wallet is worth *now*, so leaving it alone records
+    nothing and typing what the bank says is the whole interaction — **the user
+    never computes the difference**, which was the point of building it.
+
+    Same three readings as the create screen, plus a fourth for a credit card:
+    **Remaining or Owed**, on a segmented track, because a statement quotes what
+    is left to spend and the wallet stores what is owed (`remaining =
+    credit_limit + balance`, balance negative). Both are offered rather than
+    remaining alone, since the screen behind the sheet leads with *Owed* and a
+    silent switch would disagree with the figure above it. Moving the segment
+    re-seeds the field — leaving the other quote in place would offer an
+    adjustment the size of the credit limit — and that re-seed happens **during
+    render, not in an effect**, or one paint shows the wrong reading. It is
+    keyed on open-plus-reading rather than on the balance, so a background
+    refetch cannot overwrite what has been typed.
+
+    The trap in seeding is the **overdrawn account**: `toRawAmount` is never
+    signed, so a naive seed drops the minus and −123,45 reads back as +123,45,
+    offering an adjustment of twice the balance. The sign is put back for the
+    readings that can legitimately go negative (an account, a card past its
+    limit) and withheld from the debt readings, which ask what is *owed*.
 12. **Transfers — DONE.** The add screen creates them, and the picker's Transfer
     tab is no longer inert.
     **The category's kind is the mode switch.** "Moving money between my own
@@ -804,9 +865,11 @@ About row. Bump the version there, not in the component.
       a plain SVG polyline, which would cost the tooltip, the axis and the
       expense/income sign split; its single-colour line is an artifact of
       all-negative sample data.
-    - **The range is now `1M / 1Q / 1Y / All`.** `7D` is gone — a week of a
-      *balance* is a flat line — and `1Q` fills the gap people actually wanted.
-      The state is local, not persisted, so no migration was needed.
+    - **The range is now `1M / 1Q / 1Y / All`, defaulting to `1Q`.** `7D` is
+      gone — a week of a *balance* is a flat line — and `1Q` fills the gap
+      people actually wanted, which is also why the chart opens on it rather
+      than on `1Y`. The state is local, not persisted, so no migration was
+      needed.
     - **"Count in total wealth" was not built.** It needs a new column and it
       contradicts the rule that the wallets screen's totals run over every
       wallet, archived included. Recurring and the category editor's "Monthly
@@ -844,12 +907,103 @@ About row. Bump the version there, not in the component.
     "Wrong email or password." and clears it on the next keystroke in either
     field. Any other error is shown as it came, because it is a real fault.
 
-16. **Next:** budgets CRUD (the feed rail shows only its dashed placeholder until
-    a budget can be created), and the Insights screen. Hard-deleting a
-    transaction-free wallet is still unbuilt — the FK already permits exactly
-    that case and nothing else. Tag CRUD has no design yet, which is why
-    `/tags` is a list and not an editor.
-17. Deferred by explicit decision: split transactions, FX conversion in charts
+16. **Insight tab — DONE**, against `design/design_handoff_insight_tab/`. Four
+    blocks in one scroll — **Pace, Cash flow, Categories, Balances** — in that
+    order, because the first question is always "am I fine right now" and the
+    rest is context. `src/screens/insights/`.
+
+    **One sticky control owns the period for all four**, so the answers always
+    describe the same window; no block carries its own range switch. Four
+    independent pickers would be four chances for the screen to contradict
+    itself.
+
+    **Periods are calendar-aligned and steppable**, unlike the feed's trailing
+    windows, and `src/lib/insights.ts` is the whole of that maths. The feed reads
+    a *balance*, where a sliding thirty days is exactly right; this screen reads
+    a *period*, and every sentence on it — "day 18 of 31", "usual for August",
+    "vs typical August" — is meaningless against a window that started on the
+    19th of last month. **There is no All time**: nothing precedes it to compare
+    against and it has no end to project towards, so Pace would half-answer on
+    it. The lifetime view already lives on the Home chart.
+
+    **Nothing here is an ECharts instance.** No axis engine, no zoom, and the
+    handoff itself rules out tooltips on the first pass, so the 189 kB chart
+    chunk would have been the entire cost for none of the benefit — the same
+    call `Sparkline` makes. All four blocks are hand-rolled SVG, and every SVG
+    scales uniformly (`width: 100%`, `height: auto`) rather than through
+    `preserveAspectRatio: none`, which would widen every stroke with the card
+    and turn the end dot into an ellipse.
+
+    **Three new aggregates, each row-bounded by construction** — see the schema
+    list. That is not tidiness: PostgREST truncates past 1000 rows silently
+    (invariant 2), and a daily expense series over seven years is 2 500. The
+    widest real case measured 157 rows.
+
+    **The median must ignore periods the records do not cover, and that was a
+    real bug, not a precaution.** On 1Y the six preceding years reach 2020 while
+    the history starts 2023-10-15, so three empty years and one ten-week year
+    folded in as near-zeros and put "usual" at 29,55 zł a day against a real
+    781,46 — the chart reported a catastrophe when what it had found was the
+    edge of the data. `spending_pace` now counts a prior period only if it
+    *starts* on or after the first transaction, so a partial period is dropped
+    for the same reason an empty one is. When nothing survives, `typical` comes
+    back null the whole way down and the card drops its chip and its projection
+    sentence rather than inventing a comparison. `bucketFlow` draws the same
+    line client-side for the cash-flow average, and marks unrecorded columns
+    with an em dash — printing "+0" would claim the period broke even.
+
+    Two comparisons on the Pace card are allowed to disagree, and the copy is
+    written so that reads as intended rather than as a bug: the chip reads *now*
+    (spend to date against the median at the same day), the sentence reads *the
+    finish* (a linear projection against the median's whole period). A month
+    that usually spends late is genuinely on pace today and genuinely lands
+    under, because a straight line cannot know about the back half. They are
+    coloured by their own verdicts, not by one shared tone.
+
+    **Delta colour is judgement, not direction**, in both the pace chip and the
+    category rows: over the median is expense-red, under is income-green, and
+    within **±10%** takes no colour at all. One threshold (`LEVEL_BAND`), so a
+    category and the period containing it cannot disagree about what counts as
+    normal.
+
+    In the cash-flow block **both bars rise from a shared baseline**. A diverging
+    chart spends half its height repeating what the colour already says and
+    leaves the two impossible to compare, since neither starts where the other
+    does. The bar heights are a *floor*, never a rescale — the real data is
+    lumpy enough that one month had no income at all beside one at ten times the
+    outflow, and normalising each column would destroy the only comparison the
+    chart exists to make.
+
+    Five deviations from the handoff, all deliberate:
+
+    - **No currency picker.** v1 is PLN-only (invariant 8); there is one
+      currency to pick.
+    - **No All time**, as above.
+    - **Wallet trend lines share a *span*, not a min/max.** `Sparkline` takes an
+      optional `span` and centres each series on its own mean. The literal
+      reading is unusable here: with a loan at −20 000 in the set, one shared
+      min/max flattens every other wallet to a dead line through the middle.
+    - **Those lines cover the wallet's whole monthly history, not the selected
+      period.** A 1M period is one row of `wallet_monthly_net` and therefore no
+      line at all, and a per-wallet daily series would be a fifth round trip and
+      ~150 rows to draw a 56px mark. The period owns the total; the row shows
+      the wallet.
+    - **"All N categories" expands in place** instead of linking out. There is
+      no category detail screen to link to.
+
+    One layout note worth keeping: **a sticky header inside `AppShell` has to be
+    pulled up by `--safe-top`.** `<main>` carries that inset as padding, and a
+    sticky element's offsets are measured against the scrollport, which is the
+    padding box — so `top: 0` alone parks the header 12px down and leaves a band
+    of bare scrollport above it with rows visibly sliding through. A negative
+    margin of `--safe-top` with the same value added back as padding puts the
+    opaque edge at the true top and changes nothing below it.
+
+17. **Next:** budgets CRUD (the feed rail shows only its dashed placeholder until
+    a budget can be created). Hard-deleting a transaction-free wallet is still
+    unbuilt — the FK already permits exactly that case and nothing else. Tag CRUD
+    has no design yet, which is why `/tags` is a list and not an editor.
+18. Deferred by explicit decision: split transactions, FX conversion in charts
    (`exchange_rates`), non-monthly budget periods, MCP/AI entry.
 
 Resolved by the redesign: icons are Lucide; both light and dark grounds ship, each

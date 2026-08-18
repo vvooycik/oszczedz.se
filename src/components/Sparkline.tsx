@@ -21,11 +21,29 @@ export function Sparkline({
   width = 50,
   height = 18,
   strokeWidth = 1.8,
+  span: fixedSpan,
 }: {
   values: number[]
   width?: number
   height?: number
   strokeWidth?: number
+  /**
+   * A value range shared with the marks beside it, in place of this series'
+   * own.
+   *
+   * The Insight tab's balances block asks for wallets to be comparable — "so a
+   * flat wallet reads flat" — which the default cannot do: stretching every
+   * series to its own extremes makes a wallet that moved 12 zł look exactly as
+   * dramatic as one that moved 12 000.
+   *
+   * It is a shared *span*, not a shared min and max. Those are different
+   * things, and the literal version is unusable here: with a loan at −20 000 in
+   * the set, one min/max flattens every other wallet to a dead line through the
+   * middle. Sharing only the zł-per-pixel and centring each series on its own
+   * mean keeps both readings — relative movement is comparable, and each line
+   * still uses its own box.
+   */
+  span?: number
 }) {
   // Called before the early return: hooks cannot sit behind a condition, and a
   // one-point series still has to not crash.
@@ -33,9 +51,14 @@ export function Sparkline({
 
   if (values.length < 2) return <div style={{ width, height }} />
 
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const span = max - min || 1
+  const lo = Math.min(...values)
+  const hi = Math.max(...values)
+  const span = (fixedSpan || hi - lo) || 1
+  // Centred on the series' own middle when the span is shared, so a series that
+  // barely moves sits in the middle of its box instead of filling it.
+  const mid = (lo + hi) / 2
+  const min = fixedSpan ? mid - span / 2 : lo
+  const max = min + span
   const pad = 3
 
   // Inset on all four sides: without it the first and last points sit on the

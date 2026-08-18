@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { IconChevronLeft, IconChevronRight, IconPencil } from '@tabler/icons-react'
+import { IconChevronLeft, IconChevronRight, IconPencil, IconPlus } from '@tabler/icons-react'
 import { FullScreen } from '@/app/AppShell'
+import { DOCK_SPACER } from '@/app/TabBar'
 import { useGoBack } from '@/app/useGoBack'
 import { useTheme } from '@/theme/ThemeProvider'
 import { Sparkline } from '@/components/Sparkline'
 import { TransactionFeed } from '@/components/TransactionFeed'
-import { Card, CardRow } from '@/components/ui/Card'
+import { Card, CardRow, Divider } from '@/components/ui/Card'
 import { colourFieldStyle } from '@/components/ui/ColourField'
 import { Label } from '@/components/ui/Label'
 import { ActionTile } from '@/components/ui/Button'
@@ -27,6 +28,8 @@ import {
   formatSigned,
 } from '@/lib/money'
 import { balanceHistory, isArchived, loanStanding, walletGlyph } from '@/lib/wallets'
+import { categoryVar } from '@/theme/tokens'
+import { AdjustBalanceSheet } from './AdjustBalanceSheet'
 import { WalletCategoriesEditor } from './WalletCategoriesSheet'
 
 /** The bar on a colour field: its track has to be a scrim, not the ink token. */
@@ -62,6 +65,7 @@ export function WalletScreen() {
   const categoryIds = useWalletCategoryIds(id)
 
   const [catOpen, setCatOpen] = useState(false)
+  const [adjustOpen, setAdjustOpen] = useState(false)
   const { resolvedMode } = useTheme()
 
   const wallet = useMemo(
@@ -94,7 +98,13 @@ export function WalletScreen() {
 
   return (
     <FullScreen style={colourFieldStyle(wallet.color_scheme, resolvedMode)}>
-      <div className="no-scrollbar flex-1 overflow-y-auto">
+      {/* The scroll column reserves the same lane the dock gets on a tabbed
+          screen, for the same reason: the last feed row has to be scrollable
+          out from under the button floating over it. */}
+      <div
+        className="no-scrollbar flex-1 overflow-y-auto"
+        style={{ paddingBottom: DOCK_SPACER }}
+      >
         <div className="px-4 pb-5">
           <header className="flex items-center gap-3 pt-1 pb-4">
             <ActionTile label="Back" onField onClick={goBack}>
@@ -210,6 +220,19 @@ export function WalletScreen() {
 
         <div className="flex flex-col gap-[14px] px-4">
           <Card>
+            {/* The balance is the figure this screen leads with, so the way to
+                correct it belongs here rather than three taps away inside Edit
+                wallet — and it is an *event*, not an attribute of the wallet. */}
+            <CardRow onClick={() => setAdjustOpen(true)} className="cursor-pointer">
+              <span className="flex-1 text-[15px] font-medium">Adjust balance</span>
+              <span className="text-[13px] text-ink-muted">
+                {isCard ? 'Owed or remaining' : 'Set what it really holds'}
+              </span>
+              <IconChevronRight size={18} stroke={2} className="text-ink-dim" />
+            </CardRow>
+
+            <Divider inset={16} />
+
             <CardRow onClick={() => setCatOpen(true)} className="cursor-pointer">
               <span className="flex-1 text-[15px] font-medium">Categories</span>
               <span className="text-[13px] text-ink-muted">
@@ -239,6 +262,38 @@ export function WalletScreen() {
           )}
         </div>
       </div>
+
+      {/* The same button the dock carries, in the same place — but this screen
+          knows which wallet it is about, so it hands that to the form rather
+          than letting it fall back to the last-used one.
+
+          Not drawn on an archived wallet: a closed wallet is hidden from the
+          entry form's select entirely, so the button would open a form that
+          immediately disagrees with where it came from. */}
+      {!isArchived(wallet) && (
+        <button
+          aria-label={`Add transaction to ${wallet.name}`}
+          onClick={() => navigate(`/add?wallet=${wallet.id}`)}
+          className="absolute flex size-[60px] items-center justify-center rounded-card text-accent-fg shadow-fab transition-transform duration-[90ms] active:scale-[.98]"
+          style={{
+            right: 16,
+            bottom: 'calc(26px + env(safe-area-inset-bottom, 0px))',
+            // The wallet's colour, not the accent. This screen is themed by the
+            // wallet the whole way down — the same argument the entry screen
+            // makes for its category-coloured Save.
+            background: categoryVar(wallet.color_scheme),
+          }}
+        >
+          <IconPlus size={26} stroke={2} />
+        </button>
+      )}
+
+      <AdjustBalanceSheet
+        wallet={wallet}
+        balance={balance}
+        open={adjustOpen}
+        onClose={() => setAdjustOpen(false)}
+      />
 
       {catOpen && (
         <WalletCategoriesEditor

@@ -8,6 +8,7 @@ import { WalletsScreen } from '@/screens/WalletsScreen'
 import { ComingSoonScreen, MoreScreen } from '@/screens/MoreScreen'
 import { AppearanceScreen } from '@/screens/AppearanceScreen'
 import { CategoriesScreen } from '@/screens/categories/CategoriesScreen'
+import { InsightsScreen } from '@/screens/insights/InsightsScreen'
 import { TagsScreen } from '@/screens/TagsScreen'
 import { NewWalletScreen } from '@/screens/wallets/NewWalletScreen'
 import { WalletScreen } from '@/screens/wallets/WalletScreen'
@@ -29,15 +30,7 @@ export default function App() {
         <Route element={<AppShell />}>
           <Route index element={<FeedScreen />} />
           <Route path="wallets" element={<WalletsScreen />} />
-          <Route
-            path="insights"
-            element={
-              <ComingSoonScreen
-                title="Insights"
-                blurb="Where spending patterns will live — by category, by tag, and over time. The aggregate views behind it already exist; the screen is not designed yet."
-              />
-            }
-          />
+          <Route path="insights" element={<InsightsScreen />} />
           <Route
             path="budgets"
             element={

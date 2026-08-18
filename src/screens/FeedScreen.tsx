@@ -81,7 +81,7 @@ function rangeFor(range: Range, earliest: string) {
 }
 
 export function FeedScreen() {
-  const [range, setRange] = useState<Range>('1Y')
+  const [range, setRange] = useState<Range>('1Q')
   const [compare, setCompare] = useState(true)
 
   const wallets = useWallets()

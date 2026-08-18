@@ -489,6 +489,16 @@ export type Database = {
         }
         Relationships: []
       }
+      monthly_cash_flow: {
+        Row: {
+          currency: string | null
+          inflow: number | null
+          month: string | null
+          outflow: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       monthly_category_totals: {
         Row: {
           category_id: string | null
@@ -550,6 +560,19 @@ export type Database = {
           day: string
         }[]
       }
+      category_period_totals: {
+        Args: {
+          p_currency: string
+          p_periods?: number
+          p_start: string
+          p_step: string
+        }
+        Returns: {
+          category_id: string
+          period_index: number
+          spent: number
+        }[]
+      }
       create_transfer: {
         Args: {
           p_category_id: string
@@ -568,6 +591,20 @@ export type Database = {
       }
       delete_transfer: { Args: { p_transfer_id: string }; Returns: undefined }
       restore_wallet: { Args: { p_wallet_id: string }; Returns: undefined }
+      spending_pace: {
+        Args: {
+          p_currency: string
+          p_max_points?: number
+          p_periods?: number
+          p_start: string
+          p_step: string
+        }
+        Returns: {
+          day_index: number
+          spent: number
+          typical: number
+        }[]
+      }
     }
     Enums: {
       budget_period: "monthly"

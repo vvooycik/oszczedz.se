@@ -6,9 +6,12 @@ import type {
   BudgetProgress,
   Category,
   CategoryKind,
+  CategoryPeriodTotal,
   CategoryUsage,
   LoanProgress,
+  MonthlyCashFlow,
   MonthlyCategoryTotal,
+  PacePoint,
   Tag,
   Transaction,
   Wallet,
@@ -261,6 +264,68 @@ export const useBalanceHistory = (
       ),
   })
 
+/**
+ * Cumulative spend through a period, against the median of the six before it.
+ *
+ * Both series come back together and already thinned, because the alternative
+ * is seven daily series — 2 500 rows for a year, past the silent 1000-row
+ * truncation, to compute two numbers per point the client would immediately
+ * reduce them to.
+ *
+ * `spent` is null past today, which is what stops the solid line at the present.
+ */
+export const useSpendingPace = (currency: string, start: string, step: string) =>
+  useQuery({
+    queryKey: ['spending_pace', currency, start, step],
+    queryFn: async (): Promise<PacePoint[]> =>
+      unwrap(
+        await supabase.rpc('spending_pace', {
+          p_currency: currency,
+          p_start: start,
+          p_step: step,
+        }),
+      ),
+  })
+
+/**
+ * Spend per category for a period and the six before it, in one call.
+ *
+ * `period_index` 0 is the selected period; 1..6 are what it gets judged
+ * against. A category with nothing in a prior period has no row at all rather
+ * than a zero — the client fills that in, because a cross join of every
+ * category against every period would be the wrong thing to make Postgres do.
+ */
+export const useCategoryPeriodTotals = (
+  currency: string,
+  start: string,
+  step: string,
+) =>
+  useQuery({
+    queryKey: ['category_period_totals', currency, start, step],
+    queryFn: async (): Promise<CategoryPeriodTotal[]> =>
+      unwrap(
+        await supabase.rpc('category_period_totals', {
+          p_currency: currency,
+          p_start: start,
+          p_step: step,
+        }),
+      ),
+  })
+
+/** Money in and money out per month. The client buckets months into periods. */
+export const useMonthlyCashFlow = (currency: string) =>
+  useQuery({
+    queryKey: ['monthly_cash_flow', currency],
+    queryFn: async (): Promise<MonthlyCashFlow[]> =>
+      unwrap(
+        await supabase
+          .from('monthly_cash_flow')
+          .select('*')
+          .eq('currency', currency)
+          .order('month'),
+      ),
+  })
+
 export const useBudgetProgress = () =>
   useQuery({
     queryKey: ['budget_progress'],
@@ -296,6 +361,9 @@ const DERIVED_KEYS = [
   ['transactions'],
   ['wallet_balances'],
   ['monthly_category_totals'],
+  ['monthly_cash_flow'],
+  ['spending_pace'],
+  ['category_period_totals'],
   ['balance_history'],
   ['budget_progress'],
   ['wallet_monthly_net'],

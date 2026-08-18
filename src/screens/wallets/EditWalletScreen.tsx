@@ -1,18 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { IconChevronRight } from '@tabler/icons-react'
 import { FullScreen } from '@/app/AppShell'
 import { useGoBack } from '@/app/useGoBack'
 import { Card, Divider } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { ScreenHeader } from '@/components/ui/ScreenHeader'
 import {
-  useAdjustBalance,
   useArchiveWallet,
   useUpdateWallet,
   useWalletBalances,
   useWallets,
 } from '@/data/queries'
-import { today } from '@/lib/dates'
 import {
   asMinor,
   currencySymbol,
@@ -22,26 +21,28 @@ import {
 } from '@/lib/money'
 import { isArchived, labelForWalletType } from '@/lib/wallets'
 import { categoryVar } from '@/theme/tokens'
+import { AdjustBalanceSheet } from './AdjustBalanceSheet'
 import { AmountInput, SettingRow, WalletIdentityCard } from './WalletForm'
 import type { WalletType } from '@/lib/db'
 
-/**
- * What the balance field means per type — the same three readings the create
- * screen uses, so a number typed here means what it meant there. Debt is held as
- * a negative balance, and nobody types a minus to say what they owe.
- */
-const BALANCE_LABEL: Record<WalletType, { label: string; debt: boolean }> = {
-  account: { label: 'Balance now', debt: false },
-  savings: { label: 'Balance now', debt: false },
-  credit_card: { label: 'Owed now', debt: true },
-  loan: { label: 'Outstanding now', debt: true },
+/** What the balance row is called per type, matching the sheet it opens. */
+const BALANCE_LABEL: Record<WalletType, string> = {
+  account: 'Balance',
+  savings: 'Balance',
+  credit_card: 'Owed',
+  loan: 'Outstanding',
 }
 
 /**
- * Editing a wallet: its name, its colour, the one number its type carries, and
- * a way to say what it is really worth.
+ * Editing a wallet: its name, its colour, and the one number its type carries.
  *
  * Type is absent by design — see `useUpdateWallet`.
+ *
+ * **The balance is a row, not a field.** Correcting it is an event that records
+ * a transaction rather than an attribute that saves with the form, so it goes
+ * through the same sheet the wallet screen opens instead of being a second
+ * implementation of the same subtraction here — this one could not offer a
+ * card's remaining reading, and the two would drift.
  */
 export function EditWalletScreen() {
   const { id } = useParams()
@@ -51,7 +52,6 @@ export function EditWalletScreen() {
   const wallets = useWallets()
   const balances = useWalletBalances()
   const update = useUpdateWallet()
-  const adjust = useAdjustBalance()
   const archive = useArchiveWallet()
 
   const wallet = useMemo(
@@ -70,7 +70,7 @@ export function EditWalletScreen() {
   const [glyph, setGlyph] = useState<string | null>(null)
   const [limit, setLimit] = useState('')
   const [installments, setInstallments] = useState('')
-  const [target, setTarget] = useState('')
+  const [adjustOpen, setAdjustOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [archiveError, setArchiveError] = useState<string | null>(null)
 
@@ -87,18 +87,8 @@ export function EditWalletScreen() {
     setInstallments(
       wallet.installment_count === null ? '' : String(wallet.installment_count),
     )
-    // Pre-filled with what the wallet is worth right now, so the field reads as
-    // "correct this" rather than "enter a delta" — and leaving it alone records
-    // nothing, because the difference is zero.
-    //
-    // `toRawAmount` is never signed, which is right for a debt wallet (the field
-    // asks what is owed and negates it back). An *overdrawn account* is the case
-    // that needs the minus put back: without it the field would read −123,45 as
-    // +123,45 and offer to record an adjustment of twice the balance.
-    const raw = toRawAmount(asMinor(balance))
-    setTarget(!BALANCE_LABEL[wallet.type].debt && balance < 0 ? `-${raw}` : raw)
     setHydrated(true)
-  }, [hydrated, wallet, balances.data, balance])
+  }, [hydrated, wallet, balances.data])
 
   if (!wallet || !hydrated) {
     return (
@@ -111,35 +101,22 @@ export function EditWalletScreen() {
   }
 
   const symbol = currencySymbol(wallet.currency)
-  const spec = BALANCE_LABEL[wallet.type]
   const isCard = wallet.type === 'credit_card'
   const isLoan = wallet.type === 'loan'
   const archived = isArchived(wallet)
 
-  const parsedTarget = target.trim() === '' ? null : parseAmount(target)
   const parsedLimit = limit.trim() === '' ? null : parseAmount(limit)
   const parsedInstallments =
     installments.trim() === '' ? null : Number(installments.trim())
 
-  const targetBad = target.trim() !== '' && parsedTarget === null
   const limitBad = limit.trim() !== '' && (parsedLimit === null || parsedLimit <= 0)
   const installmentsBad =
     installments.trim() !== '' &&
     (!Number.isInteger(parsedInstallments) || (parsedInstallments ?? 0) < 1)
 
-  // The typed figure read back as a signed balance, then the gap to close.
-  const wanted =
-    parsedTarget === null
-      ? null
-      : spec.debt
-        ? -Math.abs(parsedTarget)
-        : parsedTarget
-  const delta = wanted === null ? 0 : wanted - balance
-
-  const busy = update.isPending || adjust.isPending
+  const busy = update.isPending
   const canSave =
     name.trim() !== '' &&
-    !targetBad &&
     !limitBad &&
     !installmentsBad &&
     (!isCard || (parsedLimit !== null && parsedLimit > 0)) &&
@@ -168,26 +145,6 @@ export function EditWalletScreen() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save the wallet')
       return
-    }
-
-    // Second write, and it can fail on its own. The rename already landed, so
-    // saying "could not save" here would be false — name what actually did not
-    // happen and leave the field alone so it can be tried again.
-    if (delta !== 0) {
-      try {
-        await adjust.mutateAsync({
-          walletId: wallet.id,
-          delta: asMinor(delta),
-          date: today(),
-        })
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? `Saved the wallet, but the balance adjustment failed: ${err.message}`
-            : 'Saved the wallet, but the balance adjustment failed.',
-        )
-        return
-      }
     }
 
     navigate(`/wallets/${wallet.id}`, { replace: true })
@@ -257,40 +214,22 @@ export function EditWalletScreen() {
             )}
 
             <Divider inset={16} />
-            <SettingRow label={spec.label} invalid={targetBad}>
-              <AmountInput
-                label={spec.label}
-                value={target}
-                onChange={setTarget}
-                unit={symbol}
-                invalid={targetBad}
-              />
+            {/* Not a field: this one does not save with the form, it records a
+                transaction of its own. The row states where it stands and the
+                sheet does the subtraction. */}
+            <SettingRow label={BALANCE_LABEL[wallet.type]}>
+              <button
+                type="button"
+                onClick={() => setAdjustOpen(true)}
+                className="flex items-center gap-1 active:opacity-70"
+              >
+                <span className="tnum text-[15px] font-semibold">
+                  {formatSignedMoney(asMinor(balance), wallet.currency, { plus: false })}
+                </span>
+                <IconChevronRight size={17} stroke={2} className="text-ink-dim" />
+              </button>
             </SettingRow>
           </Card>
-
-          <p className="px-1 text-[12.5px] leading-[1.5] text-ink-muted">
-            {delta !== 0 ? (
-              <>
-                Saving records a{' '}
-                <span
-                  className="tnum font-semibold"
-                  style={{
-                    color: delta > 0 ? 'var(--color-income)' : 'var(--color-expense)',
-                  }}
-                >
-                  {formatSignedMoney(asMinor(delta), wallet.currency)}
-                </span>{' '}
-                adjustment dated today, under “Balance adjustment”. It is an
-                ordinary transaction — recategorise or delete it like any other.
-              </>
-            ) : (
-              <>
-                Correct the balance to what the wallet is really worth. Nothing is
-                overwritten — the difference is recorded as a transaction dated
-                today.
-              </>
-            )}
-          </p>
 
           {error && <p className="px-1 text-[12.5px] text-expense">{error}</p>}
 
@@ -357,6 +296,13 @@ export function EditWalletScreen() {
             </Button>
           </Card>
         </div>
+
+        <AdjustBalanceSheet
+          wallet={wallet}
+          balance={balance}
+          open={adjustOpen}
+          onClose={() => setAdjustOpen(false)}
+        />
 
         <div className="flex flex-none gap-2.5 px-4 pt-2 pb-[max(env(safe-area-inset-bottom,0px),16px)]">
           <Button variant="secondary" full={false} className="w-24" onClick={goBack}>

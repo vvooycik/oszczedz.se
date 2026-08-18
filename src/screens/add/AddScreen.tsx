@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router'
+import { useParams, useSearchParams } from 'react-router'
 import { useGoBack } from '@/app/useGoBack'
 import { useKeyboardInset } from '@/app/useKeyboardInset'
 import { useTextFieldFocused } from '@/app/useTextFieldFocused'
@@ -63,6 +63,17 @@ import type { Category } from '@/lib/db'
 export function AddScreen() {
   const { id: editId } = useParams()
   const editing = Boolean(editId)
+
+  /**
+   * The wallet a caller asked this form to start on — `/add?wallet=<id>`, which
+   * the wallet detail screen's add button uses.
+   *
+   * In the URL rather than in router state so a reload keeps it, and because it
+   * is the whole difference between "add a transaction" and "add a transaction
+   * *here*". It is only a starting value: the select is still a select.
+   */
+  const [searchParams] = useSearchParams()
+  const askedForWallet = searchParams.get('wallet')
 
   const goBack = useGoBack()
   const { resolvedMode } = useTheme()
@@ -138,6 +149,21 @@ export function AddScreen() {
     // Editing already has a wallet; defaulting before hydration would only
     // flash the wrong name.
     if (editing || walletId || !wallets.data?.length) return
+
+    // A wallet can be deleted out from under any of these answers; every branch
+    // below picks from this list rather than trusting an id, so the select can
+    // never hold a value it has no option for. An archived wallet must not
+    // become the default either, even if it was genuinely the last one used.
+    const open = activeWallets(wallets.data)
+    if (!open.length) return
+
+    // An explicit request wins, and does not wait on the last-used query — the
+    // caller has already answered the question that query exists to answer.
+    if (askedForWallet && open.some((w) => w.id === askedForWallet)) {
+      setWalletId(askedForWallet)
+      return
+    }
+
     // Wait for the answer rather than showing the first wallet and swapping it
     // out a moment later — a select that changes under the thumb is worse than
     // one that arrives a beat late. An error settles the query too, and falls
@@ -146,15 +172,16 @@ export function AddScreen() {
 
     // `?? null` also covers the error case, where the query settles with no data.
     const last = lastWallet.data ?? null
-    // A wallet can be deleted out from under the answer; fall back rather than
-    // setting the select to an id it has no option for.
-    // An archived wallet must not become the default, even if it was genuinely
-    // the last one used before it was closed.
-    const open = activeWallets(wallets.data)
-    if (!open.length) return
     const known = last !== null && open.some((w) => w.id === last)
     setWalletId(known ? last : open[0]!.id)
-  }, [editing, wallets.data, walletId, lastWallet.isPending, lastWallet.data])
+  }, [
+    editing,
+    wallets.data,
+    walletId,
+    askedForWallet,
+    lastWallet.isPending,
+    lastWallet.data,
+  ])
 
   /**
    * The category's kind is what puts the form in transfer mode.
