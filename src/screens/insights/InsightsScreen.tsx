@@ -116,7 +116,7 @@ export function InsightsScreen() {
           flow — where a negative margin does what it says — rather than about
           where a stuck element parks. */}
       <h1
-        className="px-5 pt-1 pb-2.5 text-[22px] font-semibold tracking-[-0.02em]"
+        className="px-5 pt-1 pb-2.5 text-[28px] font-semibold tracking-[-0.02em]"
         style={{ marginBottom: 'calc(var(--safe-top) * -1)' }}
       >
         Insight
