@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { today } from './dates'
 import type { Category, Transaction, Wallet } from './db'
 
 /**
@@ -41,6 +42,15 @@ async function allTransactions(): Promise<Transaction[]> {
 const cell = (value: string | number | null): string =>
   `"${String(value ?? '').replace(/"/g, '""')}"`
 
+/**
+ * `status` carries the settled/planned split rather than the export dropping
+ * planned rows.
+ *
+ * Filtering them out would produce a file that quietly disagrees with the app —
+ * subscriptions visible under Upcoming and absent from the download — while
+ * including them unmarked would make a spreadsheet total read as money already
+ * spent. A column says which is which and lets the spreadsheet decide.
+ */
 const HEADERS = [
   'date',
   'amount',
@@ -48,8 +58,10 @@ const HEADERS = [
   'wallet',
   'category',
   'kind',
+  'status',
   'note',
   'transfer_id',
+  'schedule_id',
   'created_at',
 ]
 
@@ -58,6 +70,7 @@ export async function buildTransactionsCsv(
   categories: Category[],
 ): Promise<string> {
   const rows = await allTransactions()
+  const on = today()
   const walletOf = new Map(wallets.map((w) => [w.id, w]))
   const categoryOf = new Map(categories.map((c) => [c.id, c]))
 
@@ -77,8 +90,10 @@ export async function buildTransactionsCsv(
         cell(wallet?.name ?? ''),
         cell(category?.name ?? ''),
         cell(category?.kind ?? ''),
+        cell(tx.date > on ? 'planned' : 'settled'),
         cell(tx.note),
         cell(tx.transfer_id),
+        cell(tx.schedule_id),
         cell(tx.created_at),
       ].join(','),
     )

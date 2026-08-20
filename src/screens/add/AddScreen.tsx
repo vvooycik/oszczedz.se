@@ -11,6 +11,7 @@ import {
   IconChevronRight,
   IconPencil,
   IconPlus,
+  IconRepeat,
   IconSelector,
   IconTag,
   IconWallet,
@@ -24,6 +25,7 @@ import { useTheme } from '@/theme/ThemeProvider'
 import { iconFor } from '@/lib/icons'
 import { CategorySheet } from './CategorySheet'
 import { DateSheet } from './DateSheet'
+import { RepeatSheet, type Repeat } from './RepeatSheet'
 import {
   applyKey,
   EMPTY_ENTRY,
@@ -38,6 +40,7 @@ import {
   useCategories,
   useCreateTransfer,
   useLastUsedWallet,
+  useSaveSchedule,
   useTags,
   useTransaction,
   useTransactionTags,
@@ -47,6 +50,7 @@ import {
 } from '@/data/queries'
 import { asMinor, currencySymbol, parseAmount } from '@/lib/money'
 import { addDays, relativeDayLabel, today } from '@/lib/dates'
+import { cadenceLabel } from '@/lib/schedules'
 import { activeWallets, isArchived } from '@/lib/wallets'
 import { categoryVar } from '@/theme/tokens'
 import type { Category } from '@/lib/db'
@@ -103,6 +107,7 @@ export function AddScreen() {
   const add = useAddTransaction()
   const transfer = useCreateTransfer()
   const update = useUpdateTransaction()
+  const saveSchedule = useSaveSchedule()
   const existing = useTransaction(editId)
   const existingTags = useTransactionTags(editId)
   const lastWallet = useLastUsedWallet()
@@ -118,6 +123,16 @@ export function AddScreen() {
   const [targetAmount, setTargetAmount] = useState('')
   const [date, setDate] = useState(today())
   const [note, setNote] = useState('')
+  /**
+   * Null is an ordinary one-off, which is nearly always what this is. Anything
+   * else turns Save from "insert a row" into "create a rule", the same way the
+   * category's kind turns it into "create a pair" — one control, not two that
+   * could disagree.
+   */
+  const [repeat, setRepeat] = useState<Repeat>(
+    searchParams.get('repeat') ? { frequency: 'monthly', everyN: 1 } : null,
+  )
+  const [repeatOpen, setRepeatOpen] = useState(Boolean(searchParams.get('repeat')))
   const [tagIds, setTagIds] = useState<string[]>([])
 
   // Adding, the picker opens on entry: the first decision is what the money
@@ -300,7 +315,8 @@ export function AddScreen() {
     (!isTransfer || (Boolean(targetWalletId) && targetWalletId !== walletId)) &&
     !targetAmountBad
 
-  const busy = add.isPending || update.isPending || transfer.isPending
+  const busy =
+    add.isPending || update.isPending || transfer.isPending || saveSchedule.isPending
 
   const save = async (again: boolean) => {
     if (!canSave || !category) return
@@ -317,6 +333,35 @@ export function AddScreen() {
     try {
       if (editing) {
         await update.mutateAsync({ ...fields, id: editId! })
+        goBack()
+        return
+      }
+
+      // A rule rather than a row. The date on the form is its anchor, so the
+      // schedule needs nothing positional of its own — and `useSaveSchedule`
+      // materialises straight away, so an entry anchored today lands today
+      // instead of waiting for tomorrow's launch.
+      //
+      // Tags are dropped for the same reason a transfer drops them: there is no
+      // single row to attach them to, and reattaching them per occurrence would
+      // make the join table a thing the materialiser has to know about.
+      if (repeat) {
+        await saveSchedule.mutateAsync({
+          id: 'new',
+          // Named off the note, or the category when there is none. A schedule
+          // needs a name for its own list; asking for one on the entry form
+          // would be a field that exists for a screen you are not on.
+          name: note.trim() || category.name,
+          wallet_id: walletId,
+          target_wallet_id: isTransfer ? targetWalletId : null,
+          category_id: category.id,
+          amount: fields.amount,
+          note: note.trim() || null,
+          frequency: repeat.frequency,
+          every_n: repeat.everyN,
+          anchor: date,
+          ends_on: null,
+        })
         goBack()
         return
       }
@@ -601,6 +646,44 @@ export function AddScreen() {
               </button>
             </FieldRow>
 
+            {/* Not offered while editing. A row a schedule already wrote is
+                history the moment it exists, and its rule is changed on the
+                rule's own screen — turning one landed transaction into a
+                recurrence from here would have to decide what happens to the
+                other eleven. */}
+            {!editing && (
+              <>
+                <FieldDivider />
+                <FieldRow icon={<IconRepeat size={18} stroke={2} />}>
+                  <button
+                    type="button"
+                    onClick={() => setRepeatOpen(true)}
+                    className="flex-1 text-left text-[15px]"
+                    style={{
+                      color: repeat ? 'var(--field-ink)' : 'var(--color-ink-dim)',
+                    }}
+                  >
+                    {repeat
+                      ? cadenceLabel(repeat.frequency, repeat.everyN, date)
+                      : 'Does not repeat'}
+                  </button>
+                  {repeat && (
+                    <button
+                      type="button"
+                      onClick={() => setRepeat(null)}
+                      className="flex-none rounded-full px-3 py-1.5 text-[12px]"
+                      style={{
+                        background: 'var(--field-scrim)',
+                        color: 'var(--field-ink)',
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </FieldRow>
+              </>
+            )}
+
             <FieldDivider />
             <FieldRow icon={<IconPencil size={18} stroke={2} />}>
               <input
@@ -684,8 +767,9 @@ export function AddScreen() {
           )}
 
           <div className={`flex gap-2 ${typing ? '' : 'mt-2.5'}`}>
-            {/* Chained entry is an adding idea; there is no second row to edit. */}
-            {!editing && (
+            {/* Chained entry is an adding idea; there is no second row to edit,
+                and a rule is not something you rattle off a run of. */}
+            {!editing && !repeat && (
               <button
                 type="button"
                 disabled={!canSave || busy}
@@ -705,7 +789,13 @@ export function AddScreen() {
               disabled={!canSave || busy}
               onClick={() => save(false)}
             >
-              {busy ? 'Saving…' : editing ? 'Save changes' : 'Save'}
+              {busy
+                ? 'Saving…'
+                : editing
+                  ? 'Save changes'
+                  : repeat
+                    ? 'Schedule it'
+                    : 'Save'}
             </Button>
           </div>
         </div>
@@ -727,6 +817,14 @@ export function AddScreen() {
           onClose={() => setDateOpen(false)}
           value={date}
           onPick={setDate}
+        />
+
+        <RepeatSheet
+          open={repeatOpen}
+          onClose={() => setRepeatOpen(false)}
+          value={repeat}
+          anchor={date}
+          onChange={setRepeat}
         />
       </div>
     </FullScreen>

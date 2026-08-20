@@ -108,13 +108,6 @@ export type Database = {
             foreignKeyName: "budget_wallets_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
-            referencedRelation: "wallet_balances"
-            referencedColumns: ["wallet_id"]
-          },
-          {
-            foreignKeyName: "budget_wallets_wallet_id_fkey"
-            columns: ["wallet_id"]
-            isOneToOne: false
             referencedRelation: "wallet_monthly_net"
             referencedColumns: ["wallet_id"]
           },
@@ -199,6 +192,117 @@ export type Database = {
         }
         Relationships: []
       }
+      schedules: {
+        Row: {
+          active: boolean
+          amount: number
+          anchor: string
+          category_id: string
+          created_at: string
+          ends_on: string | null
+          every_n: number
+          frequency: Database["public"]["Enums"]["schedule_frequency"]
+          id: string
+          materialised_through: string | null
+          name: string
+          note: string | null
+          target_wallet_id: string | null
+          user_id: string
+          wallet_id: string
+        }
+        Insert: {
+          active?: boolean
+          amount: number
+          anchor: string
+          category_id: string
+          created_at?: string
+          ends_on?: string | null
+          every_n?: number
+          frequency: Database["public"]["Enums"]["schedule_frequency"]
+          id?: string
+          materialised_through?: string | null
+          name: string
+          note?: string | null
+          target_wallet_id?: string | null
+          user_id?: string
+          wallet_id: string
+        }
+        Update: {
+          active?: boolean
+          amount?: number
+          anchor?: string
+          category_id?: string
+          created_at?: string
+          ends_on?: string | null
+          every_n?: number
+          frequency?: Database["public"]["Enums"]["schedule_frequency"]
+          id?: string
+          materialised_through?: string | null
+          name?: string
+          note?: string | null
+          target_wallet_id?: string | null
+          user_id?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedules_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedules_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "category_usage"
+            referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "schedules_target_wallet_id_fkey"
+            columns: ["target_wallet_id"]
+            isOneToOne: false
+            referencedRelation: "loan_progress"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "schedules_target_wallet_id_fkey"
+            columns: ["target_wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_monthly_net"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "schedules_target_wallet_id_fkey"
+            columns: ["target_wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedules_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "loan_progress"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "schedules_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_monthly_net"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "schedules_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tags: {
         Row: {
           id: string
@@ -242,6 +346,13 @@ export type Database = {
             foreignKeyName: "transaction_tags_transaction_id_fkey"
             columns: ["transaction_id"]
             isOneToOne: false
+            referencedRelation: "settled_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_tags_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
             referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
@@ -255,6 +366,7 @@ export type Database = {
           date: string
           id: string
           note: string | null
+          schedule_id: string | null
           transfer_id: string | null
           user_id: string
           wallet_id: string
@@ -266,6 +378,7 @@ export type Database = {
           date: string
           id?: string
           note?: string | null
+          schedule_id?: string | null
           transfer_id?: string | null
           user_id?: string
           wallet_id: string
@@ -277,6 +390,7 @@ export type Database = {
           date?: string
           id?: string
           note?: string | null
+          schedule_id?: string | null
           transfer_id?: string | null
           user_id?: string
           wallet_id?: string
@@ -297,17 +411,17 @@ export type Database = {
             referencedColumns: ["category_id"]
           },
           {
-            foreignKeyName: "transactions_wallet_id_fkey"
-            columns: ["wallet_id"]
+            foreignKeyName: "transactions_schedule_id_fkey"
+            columns: ["schedule_id"]
             isOneToOne: false
-            referencedRelation: "loan_progress"
-            referencedColumns: ["wallet_id"]
+            referencedRelation: "schedules"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "transactions_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
-            referencedRelation: "wallet_balances"
+            referencedRelation: "loan_progress"
             referencedColumns: ["wallet_id"]
           },
           {
@@ -386,13 +500,6 @@ export type Database = {
             columns: ["wallet_id"]
             isOneToOne: false
             referencedRelation: "loan_progress"
-            referencedColumns: ["wallet_id"]
-          },
-          {
-            foreignKeyName: "wallet_categories_wallet_id_fkey"
-            columns: ["wallet_id"]
-            isOneToOne: false
-            referencedRelation: "wallet_balances"
             referencedColumns: ["wallet_id"]
           },
           {
@@ -515,14 +622,87 @@ export type Database = {
           },
         ]
       }
-      wallet_balances: {
+      settled_transactions: {
         Row: {
-          balance: number | null
-          currency: string | null
+          amount: number | null
+          category_id: string | null
+          created_at: string | null
+          date: string | null
+          id: string | null
+          note: string | null
+          schedule_id: string | null
+          transfer_id: string | null
           user_id: string | null
           wallet_id: string | null
         }
-        Relationships: []
+        Insert: {
+          amount?: number | null
+          category_id?: string | null
+          created_at?: string | null
+          date?: string | null
+          id?: string | null
+          note?: string | null
+          schedule_id?: string | null
+          transfer_id?: string | null
+          user_id?: string | null
+          wallet_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          category_id?: string | null
+          created_at?: string | null
+          date?: string | null
+          id?: string | null
+          note?: string | null
+          schedule_id?: string | null
+          transfer_id?: string | null
+          user_id?: string | null
+          wallet_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "category_usage"
+            referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "transactions_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "loan_progress"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_monthly_net"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wallet_monthly_net: {
         Row: {
@@ -539,6 +719,7 @@ export type Database = {
       archive_wallet: { Args: { p_wallet_id: string }; Returns: undefined }
       balance_history: {
         Args: {
+          p_anchor?: string
           p_currency: string
           p_from: string
           p_max_points?: number
@@ -578,6 +759,7 @@ export type Database = {
           period: Database["public"]["Enums"]["budget_period"]
           period_end: string
           period_start: string
+          planned: number
           resets_on: number
           rolled_over: number
           rollover: boolean
@@ -625,8 +807,32 @@ export type Database = {
         Args: { p_category_id: string; p_reassign_to?: string }
         Returns: undefined
       }
+      delete_schedule: {
+        Args: { p_id: string; p_today?: string }
+        Returns: undefined
+      }
       delete_transfer: { Args: { p_transfer_id: string }; Returns: undefined }
+      materialise_schedules: {
+        Args: { p_horizon_days?: number; p_today?: string }
+        Returns: number
+      }
+      reschedule: { Args: { p_id: string; p_today?: string }; Returns: number }
       restore_wallet: { Args: { p_wallet_id: string }; Returns: undefined }
+      schedule_occurrences: {
+        Args: {
+          p_anchor: string
+          p_ends_on: string
+          p_every_n: number
+          p_frequency: Database["public"]["Enums"]["schedule_frequency"]
+          p_from: string
+          p_to: string
+        }
+        Returns: string[]
+      }
+      set_schedule_active: {
+        Args: { p_active: boolean; p_id: string; p_today?: string }
+        Returns: number
+      }
       spending_pace: {
         Args: {
           p_currency: string
@@ -641,10 +847,21 @@ export type Database = {
           typical: number
         }[]
       }
+      wallet_balances: {
+        Args: { p_today?: string }
+        Returns: {
+          balance: number
+          currency: string
+          planned: number
+          user_id: string
+          wallet_id: string
+        }[]
+      }
     }
     Enums: {
       budget_period: "monthly" | "weekly" | "yearly"
       category_kind: "income" | "expense" | "transfer"
+      schedule_frequency: "daily" | "weekly" | "monthly" | "yearly"
       wallet_type: "account" | "savings" | "credit_card" | "loan"
     }
     CompositeTypes: {
@@ -778,6 +995,7 @@ export const Constants = {
     Enums: {
       budget_period: ["monthly", "weekly", "yearly"],
       category_kind: ["income", "expense", "transfer"],
+      schedule_frequency: ["daily", "weekly", "monthly", "yearly"],
       wallet_type: ["account", "savings", "credit_card", "loan"],
     },
   },

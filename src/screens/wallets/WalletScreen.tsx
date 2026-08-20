@@ -1,6 +1,12 @@
 import { useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router'
-import { IconChevronLeft, IconChevronRight, IconPencil, IconPlus } from '@tabler/icons-react'
+import { Link, useNavigate, useParams } from 'react-router'
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconClock,
+  IconPencil,
+  IconPlus,
+} from '@tabler/icons-react'
 import { FullScreen } from '@/app/AppShell'
 import { DOCK_SPACER } from '@/app/TabBar'
 import { useGoBack } from '@/app/useGoBack'
@@ -72,6 +78,16 @@ export function WalletScreen() {
     () => (wallets.data ?? []).find((w) => w.id === id),
     [wallets.data, id],
   )
+
+  // What is booked against this wallet but has not charged. Its own figure
+  // rather than folded into the balance: the whole point of the split is that
+  // the number above it is money that is actually there.
+  const planned = useMemo(() => {
+    if (!wallet) return 0
+    return (
+      (balances.data ?? []).find((b) => b.wallet_id === wallet.id)?.planned ?? 0
+    )
+  }, [balances.data, wallet])
 
   const balance = useMemo(() => {
     if (!wallet) return 0
@@ -165,6 +181,22 @@ export function WalletScreen() {
               {currencySymbol(wallet.currency)}
             </span>
           </div>
+
+          {/* Reads as arithmetic waiting to happen — the sign is on the figure
+              and the sentence says where it lands — because that is exactly
+              what it is. Hidden at zero, which is every wallet with nothing
+              scheduled against it. */}
+          {planned !== 0 && (
+            <Link
+              to="/scheduled"
+              className="tnum mt-2 flex items-center gap-1.5 text-[12.5px] text-ink-muted"
+            >
+              <IconClock size={13} stroke={2} className="text-ink-dim" />
+              {formatSigned(asMinor(planned), { plus: planned > 0 })}{' '}
+              {currencySymbol(wallet.currency)} planned ·{' '}
+              {formatSigned(asMinor(balance + planned), { plus: false })} after
+            </Link>
+          )}
 
           {isCard && (
             <>

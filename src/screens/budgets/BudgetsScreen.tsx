@@ -10,6 +10,7 @@ import {
   dayOfPeriod,
   daysInPeriod,
   daysLeft,
+  committedShare,
   effectiveLimit,
   scopeMeta,
   sharedMonth,
@@ -69,6 +70,7 @@ function SplitBar({ budgets, total }: { budgets: BudgetProgress[]; total: number
 function BudgetRow({ budget }: { budget: BudgetProgress }) {
   const limit = effectiveLimit(budget)
   const share = shareOf(budget)
+  const committed = committedShare(budget)
   const over = budget.spent > limit
   const day = dayOfPeriod(budget)
   const days = daysInPeriod(budget)
@@ -124,14 +126,24 @@ function BudgetRow({ budget }: { budget: BudgetProgress }) {
           the grouping above has already moved.
         */}
         <div className="mt-[7px] grid grid-cols-[1fr_auto] items-center gap-x-2.5 gap-y-[5px]">
-          <span className="h-1 rounded-full bg-track">
+          {/* Spend, then what is already booked behind it at a third of the
+              ink. The ghost is never counted in the verdict or the percentage —
+              a subscription due in eleven days has not been spent — it just
+              stops the bar from being a surprise when it does charge. */}
+          <span className="flex h-1 gap-px overflow-hidden rounded-full bg-track">
             <span
-              className="block h-1 rounded-full"
+              className="h-1 rounded-full"
               style={{
                 width: `${Math.min(share, 1) * 100}%`,
                 background: over ? 'var(--color-expense)' : hue,
               }}
             />
+            {committed > 0 && (
+              <span
+                className="h-1 rounded-full"
+                style={{ width: `${committed * 100}%`, background: hue, opacity: 0.35 }}
+              />
+            )}
           </span>
           <span
             className="tnum text-[11.5px] font-semibold whitespace-nowrap"

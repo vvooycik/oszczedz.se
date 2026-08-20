@@ -57,10 +57,17 @@ export const formatMonthShort = (iso: string): string =>
 export const formatMonthLong = (iso: string): string =>
   monthLongFmt.format(fromISODate(iso))
 
-/** Relative label the add screen shows instead of a bare date. */
+/**
+ * Relative label the add screen shows instead of a bare date.
+ *
+ * "Tomorrow" earns its place now that a date can legitimately be in the future:
+ * without it the one nearby future day reads as a full date while both nearby
+ * past days read as words, which makes picking it feel like a mistake.
+ */
 export function relativeDayLabel(iso: string): string {
   if (iso === today()) return 'Today'
   if (iso === addDays(today(), -1)) return 'Yesterday'
+  if (iso === addDays(today(), 1)) return 'Tomorrow'
   return formatDayHeader(iso)
 }
 

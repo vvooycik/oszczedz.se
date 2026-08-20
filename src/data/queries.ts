@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { ADJUSTMENT_CATEGORY } from '@/lib/adjustments'
 import { asMinor, type Minor } from '@/lib/money'
 import { today } from '@/lib/dates'
+import { HORIZON_DAYS, upcomingHorizon } from '@/lib/schedules'
 import type {
   BudgetPeriod,
   BudgetProgress,
@@ -14,6 +15,8 @@ import type {
   MonthlyCashFlow,
   MonthlyCategoryTotal,
   PacePoint,
+  Schedule,
+  ScheduleFrequency,
   Tag,
   Transaction,
   Wallet,
@@ -73,11 +76,23 @@ export const useCategoryUsage = () =>
     },
   })
 
+/**
+ * Settled balance per wallet, plus what is still only planned.
+ *
+ * An RPC rather than a select, because `wallet_balances` had to become a
+ * function to take the day as an argument. The split between settled and
+ * planned is a calendar day (invariant 3) and `current_date` is the *server's*,
+ * in UTC — so for the hour or two after local midnight a transaction entered
+ * for today would read as planned and the balance would refuse to move. The
+ * phone says which day it is, and `today()` is in the key as well as the
+ * argument so the answer crosses midnight on its own. Same shape as
+ * `useBudgetProgress`, for the same reason.
+ */
 export const useWalletBalances = () =>
   useQuery({
-    queryKey: ['wallet_balances'],
+    queryKey: ['wallet_balances', today()],
     queryFn: async (): Promise<WalletBalance[]> =>
-      unwrap(await supabase.from('wallet_balances').select('*')),
+      unwrap(await supabase.rpc('wallet_balances', { p_today: today() })),
   })
 
 /* ------------------------------------------------------------ transactions */
@@ -90,15 +105,43 @@ export const useWalletBalances = () =>
  */
 export const useRecentTransactions = (limit = 100) =>
   useQuery({
-    queryKey: ['transactions', 'recent', limit],
+    queryKey: ['transactions', 'recent', limit, today()],
     queryFn: async (): Promise<Transaction[]> =>
       unwrap(
         await supabase
           .from('transactions')
           .select('*')
+          .lte('date', today())
           .order('date', { ascending: false })
           .order('created_at', { ascending: false })
           .limit(limit),
+      ),
+  })
+
+/**
+ * What is coming: planned rows, soonest first.
+ *
+ * Its own query rather than a slice of the feed's. Sorted the other way round,
+ * for one thing — a queue reads forwards — but mainly because a horizon of
+ * subscriptions could otherwise eat a chunk of the most recent 100 and quietly
+ * shorten the history below it.
+ *
+ * Capped at a month out. The rows exist four months ahead so the chart's
+ * forecast is never short, but a list that long stops being something you read
+ * and becomes something you scroll past.
+ */
+export const useUpcomingTransactions = () =>
+  useQuery({
+    queryKey: ['transactions', 'upcoming', today()],
+    queryFn: async (): Promise<Transaction[]> =>
+      unwrap(
+        await supabase
+          .from('transactions')
+          .select('*')
+          .gt('date', today())
+          .lte('date', upcomingHorizon())
+          .order('date', { ascending: true })
+          .order('created_at', { ascending: true }),
       ),
   })
 
@@ -189,6 +232,11 @@ export const useEarliestTransactionDate = () =>
  * makes the source negative and the target positive, so sorting the tie by
  * amount puts the destination first and a single row is the answer — no second
  * query, and no leg matching here to drift from that invariant.
+ *
+ * **Rows a schedule wrote are skipped.** The question is which wallet *you*
+ * were last working in, and materialisation runs on app open — so without this
+ * the answer after every cold start would be whichever wallet a subscription
+ * happens to charge, not the one you last touched.
  */
 export const useLastUsedWallet = () =>
   useQuery({
@@ -198,6 +246,7 @@ export const useLastUsedWallet = () =>
         await supabase
           .from('transactions')
           .select('wallet_id')
+          .is('schedule_id', null)
           .order('created_at', { ascending: false })
           .order('amount', { ascending: false })
           .limit(1),
@@ -246,15 +295,28 @@ export const useMonthlyTotals = (currency: string) =>
       ),
   })
 
-/** Running total wealth per day. Aggregated in Postgres, one row per day. */
+/**
+ * Running total wealth per day, aggregated in Postgres and thinned there.
+ *
+ * **This is the one aggregate that still counts planned rows**, and it has to:
+ * a range ending past today is what draws the forecast, and the tail is the
+ * same running total continued rather than anything projected. Its own bounds
+ * are the guard here, not a predicate on the relation.
+ *
+ * `anchor` is a day the thinning keeps whatever the step works out to. The
+ * modulus counts back from the far end, so on a long range the day the solid
+ * line stops — where the fill's sign can flip and the end dot sits — is not
+ * otherwise guaranteed to survive.
+ */
 export const useBalanceHistory = (
   currency: string,
   from: string,
   to: string,
   enabled = true,
+  anchor?: string,
 ) =>
   useQuery({
-    queryKey: ['balance_history', currency, from, to],
+    queryKey: ['balance_history', currency, from, to, anchor ?? null],
     enabled,
     queryFn: async (): Promise<{ day: string; balance: number }[]> =>
       unwrap(
@@ -262,6 +324,7 @@ export const useBalanceHistory = (
           p_currency: currency,
           p_from: from,
           p_to: to,
+          ...(anchor ? { p_anchor: anchor } : {}),
         }),
       ),
   })
@@ -381,6 +444,9 @@ const DERIVED_KEYS = [
   // A repayment is a transfer leg, so the installments left move with any
   // transaction write — including the delete that puts one back.
   ['loan_progress'],
+  // A schedule's rows are transactions, so anything that writes one can change
+  // what the scheduled list has to say about what is still coming.
+  ['schedules'],
 ]
 
 const invalidateDerived = (qc: ReturnType<typeof useQueryClient>) => {
@@ -1121,5 +1187,165 @@ export const useSetHomeOrder = () => {
       }
     },
     onSuccess: () => invalidateBudgets(qc),
+  })
+}
+
+/* ---------------------------------------------------------------- schedules */
+
+export const useSchedules = () =>
+  useQuery({
+    queryKey: ['schedules'],
+    queryFn: async (): Promise<Schedule[]> =>
+      unwrap(await supabase.from('schedules').select('*').order('created_at')),
+  })
+
+export const useSchedule = (id: string | undefined) =>
+  useQuery({
+    queryKey: ['schedules', 'one', id],
+    enabled: Boolean(id),
+    queryFn: async (): Promise<Schedule> =>
+      unwrap(await supabase.from('schedules').select('*').eq('id', id!).single()),
+  })
+
+export type ScheduleDraft = {
+  /** 'new' for a rule that does not exist yet, mirroring the budget editor. */
+  id: string
+  name: string
+  wallet_id: string
+  /** Non-null makes this a transfer schedule; the materialiser pairs the legs. */
+  target_wallet_id: string | null
+  category_id: string
+  amount: Minor
+  note: string | null
+  frequency: ScheduleFrequency
+  every_n: number
+  anchor: string
+  ends_on: string | null
+}
+
+/**
+ * Writes a schedule and brings its rows into line with it.
+ *
+ * Two statements either way, and the second is the interesting one.
+ * `materialise_schedules` fills a brand-new rule out to the horizon — including
+ * any occurrence already due, so a subscription anchored today lands today
+ * rather than tomorrow. `reschedule` is the edit: it throws away this rule's
+ * *future* rows and regenerates them, and never touches the past. Changing what
+ * Netflix costs changes what it will charge, not what it charged.
+ */
+export const useSaveSchedule = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (draft: ScheduleDraft) => {
+      const row = {
+        name: draft.name,
+        wallet_id: draft.wallet_id,
+        target_wallet_id: draft.target_wallet_id,
+        category_id: draft.category_id,
+        amount: asMinor(draft.amount),
+        note: draft.note,
+        frequency: draft.frequency,
+        every_n: draft.every_n,
+        anchor: draft.anchor,
+        ends_on: draft.ends_on,
+      }
+
+      if (draft.id === 'new') {
+        const saved = unwrap<{ id: string }>(
+          await supabase.from('schedules').insert(row).select('id').single(),
+        )
+        const { error } = await supabase.rpc('materialise_schedules', {
+          p_today: today(),
+          p_horizon_days: HORIZON_DAYS,
+        })
+        if (error) throw error
+        return saved.id
+      }
+
+      const saved = unwrap<{ id: string }>(
+        await supabase
+          .from('schedules')
+          .update(row)
+          .eq('id', draft.id)
+          .select('id')
+          .single(),
+      )
+      const { error } = await supabase.rpc('reschedule', {
+        p_id: saved.id,
+        p_today: today(),
+      })
+      if (error) throw error
+      return saved.id
+    },
+    onSuccess: () => invalidateDerived(qc),
+  })
+}
+
+/**
+ * Pausing takes the already-written future with it, which is the whole reason
+ * this is an RPC and not an `update`. A rule materialises four months ahead, so
+ * flipping a boolean and stopping there would leave a paused subscription still
+ * charging until December.
+ */
+export const useSetScheduleActive = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase.rpc('set_schedule_active', {
+        p_id: id,
+        p_active: active,
+        p_today: today(),
+      })
+      if (error) throw error
+    },
+    onSuccess: () => invalidateDerived(qc),
+  })
+}
+
+/**
+ * Cancels what is still coming and keeps what already happened — the foreign
+ * key's `on delete set null` turns those rows back into ordinary transactions.
+ * Deleting a subscription must not delete the nine months it charged.
+ */
+export const useDeleteSchedule = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc('delete_schedule', {
+        p_id: id,
+        p_today: today(),
+      })
+      if (error) throw error
+    },
+    onSuccess: () => invalidateDerived(qc),
+  })
+}
+
+/**
+ * Brings every schedule up to date, on app open.
+ *
+ * This is the whole of "it appears by itself" — there is no cron and no server,
+ * so the one moment the app is certainly running is the moment it starts.
+ * Idempotent by construction (each rule carries a high-water mark), so calling
+ * it on every launch is free, and it returns how many rows it wrote precisely
+ * so the overwhelmingly common answer — nothing was due — costs no refetch.
+ *
+ * If the app goes unopened for a month, that month's occurrences all arrive at
+ * once carrying their true dates: late to appear, never wrong about when they
+ * happened.
+ */
+export const useMaterialiseSchedules = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (): Promise<number> =>
+      unwrap(
+        await supabase.rpc('materialise_schedules', {
+          p_today: today(),
+          p_horizon_days: HORIZON_DAYS,
+        }),
+      ),
+    onSuccess: (created) => {
+      if (created > 0) invalidateDerived(qc)
+    },
   })
 }

@@ -99,6 +99,23 @@ schema.
 2. **Balances are always derived, never stored.** Balance = `starting_balance + sum(transactions.amount)`. Use the `wallet_balances` view / SQL aggregation views for charts; the phone should fetch aggregates, not all raw rows.
    **PostgREST caps every response at 1000 rows (`db-max-rows`) and enforces it by silently truncating** — no error, no thrown exception, just a short array that looks valid. A daily series over the full history is 1031 rows, so the feed's All time chart drew a right edge a month in the past while appearing perfectly well-formed. Any query whose row count can pass a thousand must aggregate, bucket or paginate; assume nothing about a result's completeness from the fact that it parsed.
 3. **Transaction `date` is `DATE`, not timestamptz.** A purchase belongs to a calendar day; no timezone math on it.
+3b. **A transaction dated after today has not happened.** Three words, kept apart
+   on purpose: **settled** is dated today or earlier, **planned** is dated later,
+   and a **schedule** is the recurrence rule that writes planned rows.
+   Balances, budgets, cash flow, category totals and installment counts count
+   settled rows only — and they say so *once*, by reading the
+   `settled_transactions` view instead of `transactions`. Eight copies of
+   `date <= current_date` scattered through eight bodies is how one of them
+   silently starts lying; adding a new aggregate is now a choice between two
+   named relations, not a predicate to remember.
+   Two things deliberately still read `transactions` directly.
+   `balance_history` **must** see planned rows — that is what draws the
+   forecast — and its own `p_from`/`p_to` are the guard there.
+   `spending_pace` is already safe: its running total at day *d* sums only rows
+   up to *d*, and `spent` is null past today.
+   A planned row is otherwise an ordinary transaction: same table, same type,
+   same detail screen, editable and deletable. It becomes settled by the
+   calendar moving, not by anything being written.
 4. **Amounts are signed:** negative = money leaves the wallet, positive = enters. Category `kind` is UX guidance only (it picks a default sign in the entry form), never the source of truth for direction.
 5. **Transfers are two transaction rows sharing `transfer_id`** (source negative, target positive). Created/deleted as a pair via `create_transfer(...)` / `delete_transfer(...)`, never as loose inserts. Transfer-linked rows are **excluded** from income/expense charts and from budgets.
 6. **A transaction has exactly one category** (many-to-one). Multi-dimension labeling is what tags are for (M2M). Split transactions (parent/child with per-child category) are a possible future migration — do not add M2M transaction↔category.
@@ -175,22 +192,73 @@ header above it.
 `show_on_home` and `home_order` are the Home rail: which budgets appear there and
 in what order.
 
+`budget_progress` also returns **`planned`** — spend booked into the rest of the
+period that has not charged. It is drawn as a ghost segment ahead of the real
+bar and is counted in **no** verdict, share or projection: a subscription due in
+eleven days has not been spent, and a budget reading "over" because of one would
+be answering a question nobody asked it.
+
+Schedules: a **recurrence rule** that writes transactions by itself. Not a
+transaction — it *makes* them, out to a rolling 120-day horizon, and they are
+planned until their day comes.
+
+`anchor` is the first occurrence and carries everything positional: day of month
+for a monthly, weekday for a weekly, month-and-day for a yearly. That is why
+there is no `resets_on` here the way budgets have one — a budget period is a
+window that has to be *found* for an arbitrary day, and an occurrence is counted
+off from a known start. It is also why the entry form asks for no extra date: the
+transaction's own date is the anchor.
+
+`target_wallet_id` non-null makes it a transfer schedule, materialised through
+`create_transfer` so the pair is written by the one statement that owns
+invariant 5, then both legs stamped with `schedule_id`. A **trigger refuses a
+cross-currency pair** at write time, because `create_transfer` takes two
+independent leg amounts and a schedule stores one — inventing a rate is what
+invariant 8 defers.
+
+`materialised_through` is the high-water mark, and it does two jobs: it makes a
+second call in the same horizon a no-op, and it makes a **deliberately deleted
+occurrence stay deleted**, since generation only fills the range beyond it.
+Deleting one planned row skips that charge and nothing else.
+
 Wallet theming: `glyph` (icon name string) + `color_scheme` (design token).
 
 ## Schema
 
 **The authoritative schema is `supabase/migrations/`** — read it there rather than
 keeping a copy in this file. Tables: `wallets`, `categories`, `tags`,
-`transactions`, `budgets`, plus join tables `wallet_categories`,
+`transactions`, `budgets`, `schedules`, plus join tables `wallet_categories`,
 `transaction_tags`, `budget_categories`, `budget_wallets`.
 
 Plus `user_settings` — one row per user holding the appearance preference.
 
 Enforced outside the DDL:
 - Transfer pairing/balancing → `create_transfer(...)`, deletion via `delete_transfer(...)`
-- `wallet_balances` view — derived balance per wallet
+- `settled_transactions` view — `transactions` dated today or earlier. The one
+  definition of "has happened"; see invariant 3b for what reads it and what does
+  not. Note `select *` is expanded at *creation*, so adding a column to
+  `transactions` means a `create or replace` here too — which is legal, since
+  the rule only permits appending to the end of a view's column list
+- `wallet_balances(today = current_date)` — settled balance per wallet, plus a
+  `planned` column for what is booked against it. **A function, not the view it
+  replaces**, for the reason `budget_progress` became one: the settled/planned
+  boundary is a calendar day (invariant 3) and `current_date` is the *server's*,
+  in UTC, so between local midnight and 02:00 a transaction entered for today
+  would read as planned and the balance would silently refuse to move
 - `monthly_category_totals` view — pre-aggregated month/category/currency totals for charts, transfer legs excluded
-- `balance_history(currency, from, to, max_points = 400)` — running total wealth per day, for the feed chart and its prior-period overlay. Thins to at most `max_points` rows by taking every Nth day, counting back from `to` so the final day always survives and keeping `from` unconditionally. Ranges shorter than `max_points` days are unaffected — the step collapses to 1.
+- `balance_history(currency, from, to, max_points = 400, anchor = null)` —
+  running total wealth per day, for the feed chart, its prior-period overlay and
+  its forecast. Thins to at most `max_points` rows by taking every Nth day,
+  counting back from `to` so the final day always survives and keeping `from`
+  unconditionally. Ranges shorter than `max_points` days are unaffected — the
+  step collapses to 1.
+  **`anchor` is a third day kept unconditionally, and the chart cannot do
+  without it.** The range now ends a month past today, so *today* — where the
+  solid line stops, the fill's sign can flip and the end dot sits — is an
+  interior point rather than the edge. Measured over the full history at 60
+  points the step is 18 days and today is simply absent from the result; being a
+  day out on the join between what happened and what is coming is the one place
+  here a sampled point will not do.
 - `budget_progress(today = current_date)` — one row per budget for the period
   containing `today`, with its bounds, its spend, its rolled-over remainder and
   its scope counts. **A function, not the view it replaces**, and the argument is
@@ -207,7 +275,12 @@ Enforced outside the DDL:
 - `budget_spend(budget, user, currency, from, to)` — one budget's spend over a
   day range, split out because the rollover needs the same answer for the period
   before and two copies of those membership rules is how a budget starts
-  disagreeing with itself
+  disagreeing with itself. **Unchanged by the settled/planned split**: the range
+  is already half-open, so clamping the caller's bounds is the whole of it —
+  settled is `[start, least(end, today + 1))` and planned is
+  `[greatest(start, today + 1), end)`. The rollover's window is the period
+  before this one and therefore entirely in the past, where nothing planned can
+  live, so it keeps its own bounds
 - `wallet_monthly_net` view — net movement per wallet per month, accumulated client-side into sparklines and deltas
 - `category_usage` view — transaction count per category, for the settings list and its delete copy
 - `loan_progress` view — per loan wallet, its `installment_count` and how many
@@ -236,6 +309,31 @@ Enforced outside the DDL:
   time, while invariant 5 makes the target the positive leg. One row is the
   answer — no second query, and no leg matching to drift from the invariant.
 - `delete_category(id, reassign_to)` — moves the category's transactions onto another category and deletes it in one statement; raises rather than orphaning rows when a target is needed and none was given
+- `schedule_occurrences(anchor, frequency, every_n, ends_on, from, to)` — the one
+  occurrence generator, used by everything that needs to know when a rule fires.
+  A `generate_series` over **ordinals**, so every date is `anchor + n·step`.
+  The far shorter `generate_series(anchor, hi, '1 month')` *walks* — it adds the
+  step to the previous value — and that was a real bug, caught by test rather
+  than by reading: it returned 31 Jan, 28 Feb, **28 Mar**, 28 Apr, so a
+  subscription on the 31st slid backwards permanently the first time it met a
+  short month, and a yearly anchored on 29 February never saw another leap day.
+  Counting from the anchor gives 31 Jan, 28 Feb, 31 Mar, and Postgres does the
+  clamping. `src/lib/schedules.ts` mirrors this rule client-side and must keep
+  agreeing with it — the list would otherwise name a date the feed does not show
+- `materialise_schedules(today = current_date, horizon_days = 120)` — writes
+  every occurrence due in `(materialised_through, today + horizon]`, advances
+  the mark, and returns how many rows it made. Called by the app **on open**;
+  there is no cron and no server, so the one moment the app is certainly running
+  is the moment it starts. Unopened for a month means that month's occurrences
+  arrive at once carrying their true dates — late to appear, never wrong about
+  when they happened
+- `reschedule(id, today)` / `set_schedule_active(id, active, today)` /
+  `delete_schedule(id, today)` — all three drop the rule's rows **after today**
+  and never touch the past. Editing a subscription changes what it will charge,
+  not what it charged; pausing has to take the already-written future with it or
+  a paused rule keeps charging for four months; deleting cancels what is coming
+  and leaves the nine months it already charged as ordinary transactions, which
+  is what `on delete set null` on `transactions.schedule_id` is for
 - `monthly_cash_flow` view — money in and money out per month per currency, kept
   apart rather than netted. Not derivable from `monthly_category_totals`, which
   sums *signed* amounts per category and so reports a refund as a smaller total
@@ -519,8 +617,10 @@ sheet, then to ~190 when the glyph set went from 111 to 256 (that 12 kB is icons
 and nothing else), then to ~194 with the whole Insight tab — four blocks for
 4.5 kB, because none of them is an ECharts instance — and then to ~202 with
 budgets: three screens, three drawers and two pickers for 8 kB, on the same
-argument. Keep an eye on this: a second charting library adds to that budget
-rather than replacing it.
+argument. Scheduled transactions took it to **~207** — two screens, a drawer and
+the planned treatment for 5 kB, and the chart chunk did not move at all, because
+the forecast is a second series on a chart that already existed. Keep an eye on
+this: a second charting library adds to that budget rather than replacing it.
 
 `__APP_VERSION__` is inlined by `vite.config.ts` from `package.json`, for the
 About row. Bump the version there, not in the component.
@@ -1125,13 +1225,92 @@ About row. Bump the version there, not in the component.
     same wallet did not move it at all. **Nothing was left behind**; the app has
     still never created a budget, so the list and the rail have only been seen in
     their empty states.
-18. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
+18. **Scheduled and planned transactions — DONE.** The future, in three
+    pieces: a transaction can be dated ahead, a **schedule** writes those rows
+    by itself, and the Home chart continues a month past today as a dotted
+    tail. `src/screens/schedules/`, `src/lib/schedules.ts`, and the two
+    migrations described above.
+
+    **A future date was always accepted and that was the problem**, not the
+    feature. `transactions.date` is a plain DATE and the date sheet has always
+    paged into next month, so rent entered for the 1st came straight off total
+    wealth, counted against a budget and landed in the Insight tab. Being
+    possible and being wrong is worse than being impossible. Invariant 3b is the
+    fix, and it is one view rather than a predicate copied into eight bodies.
+
+    **Occurrences are written ahead, not projected.** Because a planned row is
+    harmless to every aggregate by construction, materialising four months early
+    costs nothing and buys a great deal: a subscription is a real row weeks
+    before it charges, so it can be skipped by deleting it and amended by
+    editing it, the Upcoming list is tappable, and the forecast needs no
+    projection SQL at all — it is the same `balance_history` call run a month
+    further.
+
+    **Creation is the entry screen's Repeats row**, not a second form. A
+    schedule is a transaction plus a cadence, and the entry screen is where a
+    transaction gets typed — keypad, category sheet, wallet select. The sheet
+    asks only *how often*, never *which day*: the transaction's own date is the
+    anchor, and a second control saying the same thing is exactly what the
+    transfer flow avoids by making the category's kind the mode switch. The
+    Scheduled list's plus routes to `/add?repeat=1`, so there is one creation
+    path. `/scheduled/:id/edit` is editing only.
+
+    **The list is ordered by when each rule next charges**, so it reads as a
+    queue — the question anybody opens it with is "what is about to come out",
+    which is a different order from alphabetical or largest-first. Paused and
+    finished rules sink by having no next date, and are dimmed rather than
+    hidden.
+
+    Three decisions taken against the obvious:
+
+    - **The planned mark is not the dashed ring.** That means "not a purchase"
+      and is worn by transfers and adjustments; a planned expense is very much a
+      purchase, and what makes it different is *when*. So the glyph is left
+      alone, the amount drops to `ink-faint` instead of shouting income green or
+      expense red, and a small mark says why — a clock for a date chosen by
+      hand, a repeat arrow for one a schedule wrote. Worth telling apart:
+      deleting the first is the end of it, deleting the second skips one charge.
+    - **The forecast is a fixed month on every range**, so 1M draws two months
+      and 1Q four. The tail means "what is already booked", which is a quantity
+      of future rather than a fraction of whatever window is selected — a third
+      of 1Y would be four months of mostly nothing.
+    - **`useLastUsedWallet` skips rows a schedule wrote.** The question is which
+      wallet *you* were last working in, and materialisation runs on app open,
+      so without it the answer after every cold start would be whichever wallet
+      a subscription happens to charge.
+
+    **Two real bugs were caught by testing rather than by reading**, both
+    recorded above: `generate_series` with an interval walks instead of counting
+    from the anchor, which slid a monthly-on-the-31st permanently back to the
+    28th; and `balance_history`'s thinning drops *today* from the series once
+    the range runs past it, which is what `p_anchor` exists for.
+
+    **Verified against the real database, not in a browser.** Every check ran
+    inside a rolled-back transaction, some of them under `set local role
+    authenticated` with a real JWT subject so `auth.uid()` resolved and RLS was
+    the boundary it is in the browser — which is the only way to exercise
+    `create_transfer` from the materialiser at all. The strongest check was
+    free: nothing in the import is future-dated, so all eleven rewritten
+    aggregates had to come back **byte-identical**, and they did. Then a
+    future-dated row proved invisible to every one of them while `planned`
+    picked it up and the forecast stepped on exactly the right day; occurrence
+    clamping was checked across leap years and short months; the materialiser
+    was run three times for 12 / 0 / 0 rows created with a hand-deleted
+    occurrence staying deleted; a transfer schedule produced five balanced pairs
+    with both legs stamped; and `archive_wallet` and the cross-currency trigger
+    both raised their own sentences.
+
+    **Not built, deliberately.** Cross-currency schedules (one stored amount,
+    two independent legs — invariant 8 defers the rate). Tags on a schedule, for
+    the reason transfers have none. Notifications: the row is already on screen,
+    and iOS PWAs are the wrong place to start.
+19. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
     already permits exactly that case and nothing else. Tag CRUD has no design
     yet, which is why `/tags` is a list and not an editor. The **budget detail
     screen** is named by the budgets handoff and deliberately left undesigned;
     until it exists, a list row and a rail card both open the editor, which is
     the only thing there is to do with a budget.
-19. Deferred by explicit decision: split transactions, FX conversion in charts
+20. Deferred by explicit decision: split transactions, FX conversion in charts
    (`exchange_rates`), MCP/AI entry.
 
 Resolved by the redesign: icons are Lucide; both light and dark grounds ship, each
