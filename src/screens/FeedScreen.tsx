@@ -14,7 +14,6 @@ import {
   useCategories,
   useEarliestTransactionDate,
   useRecentTransactions,
-  useSchedules,
   useWalletBalances,
   useWallets,
 } from '@/data/queries'
@@ -107,7 +106,6 @@ export function FeedScreen() {
   const categories = useCategories()
   const balances = useWalletBalances()
   const transactions = useRecentTransactions()
-  const schedules = useSchedules()
   const budgets = useBudgetProgress()
   const firstDay = useEarliestTransactionDate()
 
@@ -290,23 +288,26 @@ export function FeedScreen() {
           `/scheduled` now, and this is the way in — the same shape as the "See
           all" over the budget rail, because it is the same idea.
 
-          Shown only when something is actually scheduled, which is also what
-          the budget label row does. With no rules and nothing planned the home
-          screen is exactly what it was before any of this existed, and the More
-          screen is still the way in. */}
-      {(schedules.data ?? []).length > 0 && (
-        <div className="-mb-1.5">
-          <LabelRow
-            trailing={
-              <Link to="/scheduled" className="text-[12.5px] font-semibold text-accent">
-                Scheduled transactions
-              </Link>
-            }
-          >
-            Recent
-          </LabelRow>
-        </div>
-      )}
+          **Always drawn.** It was briefly conditional on there being a
+          schedule, by analogy with the budget label row, and that was wrong for
+          the one case it most needed to be right about: a transaction dated
+          ahead **by hand** belongs to no rule, so the link to the only screen
+          that shows it was hidden by the fact that it existed on its own.
+          Conditioning on planned rows instead would just be a second query on
+          the home screen to decide whether to draw a word — and the screen
+          behind it is worth reaching anyway, since it is where a schedule gets
+          made. */}
+      <div className="-mb-1.5">
+        <LabelRow
+          trailing={
+            <Link to="/scheduled" className="text-[12.5px] font-semibold text-accent">
+              Scheduled transactions
+            </Link>
+          }
+        >
+          Recent
+        </LabelRow>
+      </div>
 
       <TransactionFeed
         transactions={transactions.data ?? []}

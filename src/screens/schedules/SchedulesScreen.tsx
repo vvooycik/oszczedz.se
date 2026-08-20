@@ -150,9 +150,11 @@ export function SchedulesScreen() {
       />
 
       <div className="no-scrollbar flex flex-1 flex-col gap-[14px] overflow-y-auto px-4 pt-2 pb-10">
-        {!schedules.data ? (
+        {!schedules.data || !upcoming.data ? (
           <p className="px-1 text-[13px] text-ink-muted">
-            {schedules.error ? 'Could not load schedules.' : 'Loading…'}
+            {schedules.error || upcoming.error
+              ? 'Could not load schedules.'
+              : 'Loading…'}
           </p>
         ) : rows.length === 0 && planned.length === 0 ? (
           <div className="px-1 pt-6 text-center">
@@ -215,12 +217,30 @@ export function SchedulesScreen() {
               </>
             )}
 
-            <p className="px-1 text-[12.5px] leading-[1.6] text-ink-muted">
-              Occurrences are written four months ahead; this list shows the next
-              six weeks. Deleting one skips that charge; editing the rule
-              rewrites what is still to come and leaves what already happened
-              alone.
-            </p>
+            {rows.length > 0 ? (
+              <p className="px-1 text-[12.5px] leading-[1.6] text-ink-muted">
+                Occurrences are written four months ahead; this list shows the
+                next six weeks. Deleting one skips that charge; editing the rule
+                rewrites what is still to come and leaves what already happened
+                alone.
+              </p>
+            ) : (
+              // Planned rows with no rule behind them: dated ahead by hand. The
+              // invitation still belongs here, since this is where a repeating
+              // one would be made.
+              <p className="px-1 text-[12.5px] leading-[1.6] text-ink-muted">
+                Dated ahead by hand, so nothing repeats it. Each counts towards
+                your balance only on the day it lands.{' '}
+                <button
+                  type="button"
+                  onClick={() => navigate('/add?repeat=1')}
+                  className="font-semibold text-accent"
+                >
+                  Add a schedule
+                </button>{' '}
+                to have one written for you.
+              </p>
+            )}
           </>
         )}
       </div>
