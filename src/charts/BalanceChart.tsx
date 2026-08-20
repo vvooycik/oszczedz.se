@@ -17,22 +17,34 @@ const MARKER_SERIES = '__marker'
 
 /**
  * Total wealth over the selected range, with the comparable prior range drawn
- * behind it as a dashed overlay.
+ * behind it as a dashed overlay, and a month of forecast past today.
  *
  * The two ranges are plotted against a shared index rather than shared dates —
  * "this month vs last month" only lines up if day 1 sits above day 1, and
  * months are different lengths.
+ *
+ * `current` runs past today: `balance_history` sees planned rows, so the tail
+ * is the same running total continued, not a projection or a trend. Everything
+ * about the split is `todayIndex`, which is where the solid line stops, the end
+ * dot sits and the dashes begin.
  */
 export function BalanceChart({
   current,
   prior,
   currency,
   compare,
+  todayIndex,
 }: {
   current: BalancePoint[]
   prior: BalancePoint[]
   currency: string
   compare: boolean
+  /**
+   * Index in `current` of the last settled day. `-1` when the series holds no
+   * forecast at all, which is what an empty schedule set and no planned rows
+   * looks like — then this behaves exactly as it did before.
+   */
+  todayIndex: number
 }) {
   // Accent and ground both change at runtime; without these in the dep list the
   // chart keeps the colours it was first painted with.
@@ -40,6 +52,18 @@ export function BalanceChart({
 
   const option = useMemo<EChartsOption>(() => {
     const last = current.length - 1
+
+    // Where "now" is. Clamped into the series so a stale render between
+    // midnight and the next refetch cannot index off the end.
+    const now = todayIndex < 0 ? last : Math.min(todayIndex, last)
+    const forecasting = now < last
+
+    // The two halves share the point at `now`, so the lines meet rather than
+    // leaving a gap the width of one sample.
+    const settled = current.map((p, i) => (i <= now ? p.balance : null))
+    const planned = forecasting
+      ? current.map((p, i) => (i >= now ? p.balance : null))
+      : []
 
     // Total wealth crosses zero — a loan can outweigh the accounts — so the line
     // carries a sign, and the sign is worth more than the accent here. These are
@@ -53,8 +77,14 @@ export function BalanceChart({
     const above = token.income()
 
     // visualMap addresses series by index, and the prior-period overlay only
-    // exists when comparing.
+    // exists when comparing. Both painted series are handed to it — the sign
+    // means the same thing on the forecast as it does on the history, and a
+    // tail that fell through to the default palette would be the one blue line
+    // on the screen.
     const balanceIndex = compare && prior.length ? 1 : 0
+    const paintedSeries = forecasting
+      ? [balanceIndex, balanceIndex + 1]
+      : [balanceIndex]
 
     // Evenly spaced label positions, both ends included. Four sits comfortably
     // at 10px across a ~360px axis; five starts to touch on the narrowest
@@ -73,6 +103,10 @@ export function BalanceChart({
         : 0
     const dayScale = spanDays <= 45
 
+    // Over the *whole* series, forecast included. The pieces below become
+    // gradient stops along the y axis, and a tail that ran past the extent of
+    // the history would fall outside every piece — which is the same crash an
+    // open-ended piece causes, arrived at from the other direction.
     const values = current.map((p) => p.balance)
     const lo = values.length ? Math.min(...values) : 0
     const hi = values.length ? Math.max(...values) : 0
@@ -98,7 +132,7 @@ export function BalanceChart({
               type: 'piecewise' as const,
               // 1 = the y value. Splitting on x would colour by date.
               dimension: 1,
-              seriesIndex: balanceIndex,
+              seriesIndex: paintedSeries,
               pieces,
               outOfRange: { color: hi < 0 ? below : above },
             },
@@ -226,7 +260,7 @@ export function BalanceChart({
         {
           name: 'Balance',
           type: 'line',
-          data: current.map((p) => p.balance),
+          data: settled,
           smooth: false,
           showSymbol: false,
           lineStyle: { width: 2.2, cap: 'round' as const, join: 'round' as const },
@@ -247,6 +281,36 @@ export function BalanceChart({
           areaStyle: { opacity: 0.16, origin: 'auto' as const },
           z: 2,
         },
+        // What is already booked but has not happened: planned rows, most of
+        // them written by a schedule. Not a projection and not a trend — it is
+        // the same running total, continued, because `balance_history` counts
+        // rows past today the same way it counts rows before it.
+        //
+        // Dashed, and that is the whole signal. The app already uses a dashed
+        // outline on a category mark to mean "not a purchase"; here it means
+        // "not yet", which is a different sentence in the same grammar, and the
+        // fill drops to half its weight so the tail reads as lighter without
+        // changing colour. Sign painting is left to the visualMap above, so a
+        // subscription that carries the balance below zero turns the forecast
+        // red at exactly the day it crosses.
+        ...(forecasting
+          ? [
+              {
+                name: 'Planned' as const,
+                type: 'line' as const,
+                data: planned,
+                smooth: false,
+                showSymbol: false,
+                // `symbol: 'none'`, not `showSymbol: false` alone — emphasis
+                // rescales a symbol from its own size, so hovering would put a
+                // dot on the forecast that competes with the one marking today.
+                symbol: 'none' as const,
+                lineStyle: { width: 2.2, type: [2, 4] as number[], cap: 'butt' as const },
+                areaStyle: { opacity: 0.08, origin: 'auto' as const },
+                z: 2,
+              },
+            ]
+          : []),
         // The end marker is its own series because visualMap overrides the
         // symbol's `color` *and* `borderColor` on any series it touches — it
         // would paint a white disc on the dark ground instead of a hollow one.
@@ -257,7 +321,11 @@ export function BalanceChart({
         {
           name: MARKER_SERIES,
           type: 'line',
-          data: current.map((p, i) => (i === last ? p.balance : null)),
+          // On *today*, not on the last point. With a forecast drawn, the right
+          // edge of the chart is a month away and marking it would say the
+          // balance ends there; the dot's job is to say where the record stops
+          // and the booking starts, which is also why nothing else has to.
+          data: current.map((p, i) => (i === now ? p.balance : null)),
           showSymbol: true,
           symbolSize: 9,
           itemStyle: {
@@ -274,7 +342,7 @@ export function BalanceChart({
     // colours come from getComputedStyle, not from these values. They are the
     // signal that those computed colours have changed.
     // oxlint-disable-next-line exhaustive-deps
-  }, [current, prior, compare, currency, prefs.accent, resolvedMode])
+  }, [current, prior, compare, currency, todayIndex, prefs.accent, resolvedMode])
 
   if (current.length === 0) {
     return (

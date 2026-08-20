@@ -12,9 +12,9 @@ export type Category = Tables<'categories'>
 export type Tag = Tables<'tags'>
 export type Transaction = Tables<'transactions'>
 export type Budget = Tables<'budgets'>
+export type Schedule = Tables<'schedules'>
 
 // Views. Derived, never stored — see the balance invariant.
-export type WalletBalance = Tables<'wallet_balances'>
 export type MonthlyCategoryTotal = Tables<'monthly_category_totals'>
 export type MonthlyCashFlow = Tables<'monthly_cash_flow'>
 export type WalletMonthlyNet = Tables<'wallet_monthly_net'>
@@ -49,6 +49,19 @@ export type PacePoint = Omit<RpcRow<'spending_pace'>, 'spent'> & {
 export type CategoryPeriodTotal = RpcRow<'category_period_totals'>
 
 /**
+ * `wallet_balances` was a view and is now a function, so its row arrives through
+ * the RPC side.
+ *
+ * The move is what lets the phone say which day it is. Settled and planned are
+ * split on a calendar day the way `transactions.date` is (invariant 3), and
+ * `current_date` is the *server's* day in UTC — so between local midnight and
+ * 02:00 a transaction entered for today would read as planned and the balance
+ * would silently refuse to move. Every column is coalesced in SQL, so the
+ * generator's non-nullable guess is right here.
+ */
+export type WalletBalance = RpcRow<'wallet_balances'>
+
+/**
  * `budget_progress` was a view and is now a function, so its row comes from the
  * RPC side. Every column is coalesced in SQL — there is no aggregate here that
  * can hand back a null — which is the rare case where the generator's
@@ -59,7 +72,9 @@ export type BudgetProgress = RpcRow<'budget_progress'>
 export type TransactionInsert = TablesInsert<'transactions'>
 export type WalletInsert = TablesInsert<'wallets'>
 export type CategoryInsert = TablesInsert<'categories'>
+export type ScheduleInsert = TablesInsert<'schedules'>
 
 export type WalletType = Enums<'wallet_type'>
 export type CategoryKind = Enums<'category_kind'>
 export type BudgetPeriod = Enums<'budget_period'>
+export type ScheduleFrequency = Enums<'schedule_frequency'>

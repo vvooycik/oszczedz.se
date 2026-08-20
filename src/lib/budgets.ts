@@ -55,6 +55,25 @@ export const shareOf = (b: BudgetProgress): number => {
   return limit > 0 ? b.spent / limit : 0
 }
 
+/**
+ * The share of the limit that is booked but has not charged — scheduled rows
+ * dated later in this period.
+ *
+ * Kept out of `shareOf` and out of every verdict, deliberately. `spent` means
+ * money that left, and a budget that read as over because of a subscription due
+ * in eleven days would be answering a question nobody asked it. This is drawn
+ * as a ghost ahead of the real bar instead: it says "and this is already
+ * committed" without claiming it happened.
+ *
+ * Clipped to whatever room is left under the limit, so the ghost can never push
+ * the bar past its own track — the same rule the list's `SplitBar` follows.
+ */
+export const committedShare = (b: BudgetProgress): number => {
+  const limit = effectiveLimit(b)
+  if (limit <= 0 || b.planned <= 0) return 0
+  return Math.max(0, Math.min(b.planned / limit, 1 - Math.min(shareOf(b), 1)))
+}
+
 /** `period_end` is exclusive, so this is the count of days the period holds. */
 export const daysInPeriod = (b: BudgetProgress): number =>
   Math.max(1, daysBetween(b.period_start, b.period_end))

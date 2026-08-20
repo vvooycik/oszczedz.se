@@ -1,11 +1,35 @@
 import { Link } from 'react-router'
+import { IconClock, IconRepeat } from '@tabler/icons-react'
 import { CategoryGlyph } from './CategoryGlyph'
 import { Card, Divider } from './ui/Card'
 import { Label } from './ui/Label'
 import { isAdjustment } from '@/lib/adjustments'
 import { asMinor, formatAmountMoney, formatSignedMoney } from '@/lib/money'
-import { formatDayHeader } from '@/lib/dates'
+import { formatDayHeader, today } from '@/lib/dates'
 import type { Category, Transaction, Wallet } from '@/lib/db'
+
+/**
+ * A row that has not happened yet.
+ *
+ * **Not the dashed ring.** That mark means "not a purchase" and is worn by
+ * transfers and balance adjustments; a planned expense is very much a purchase,
+ * and the thing that makes it different is *when*, not *what*. So the glyph is
+ * left alone and the signal goes on the amount, which stops shouting income
+ * green or expense red and drops to ink-faint — the money has not moved — with
+ * a small mark beside the name saying why.
+ *
+ * The mark separates the two ways a row gets here: a clock for a date somebody
+ * chose by hand, a repeat arrow for one a schedule wrote. Worth telling apart,
+ * because deleting the first is the end of it and deleting the second only
+ * skips one charge.
+ */
+function PlannedMark({ scheduled }: { scheduled: boolean }) {
+  return scheduled ? (
+    <IconRepeat size={13} stroke={2} className="flex-none text-ink-dim" />
+  ) : (
+    <IconClock size={13} stroke={2} className="flex-none text-ink-dim" />
+  )
+}
 
 /**
  * A transfer is two rows sharing a transfer_id. The ledger needs both; the feed
@@ -49,13 +73,17 @@ function Row({
   wallets,
   categories,
   hideWallet,
+  on,
 }: {
   entry: Entry
   wallets: Map<string, Wallet>
   categories: Map<string, Category>
   hideWallet: boolean
+  /** Today, passed in rather than read per row so one list cannot straddle midnight. */
+  on: string
 }) {
   if (entry.kind === 'transfer') {
+    const planned = entry.out.date > on
     const from = wallets.get(entry.out.wallet_id)
     const to = wallets.get(entry.in.wallet_id)
     return (
@@ -65,11 +93,14 @@ function Row({
       >
         <CategoryGlyph glyph={null} color={null} transfer />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[15px] font-medium text-ink/75">
-            {from?.name ?? '—'} → {to?.name ?? '—'}
+          <div className="flex items-center gap-1.5">
+            <span className="truncate text-[15px] font-medium text-ink/75">
+              {from?.name ?? '—'} → {to?.name ?? '—'}
+            </span>
+            {planned && <PlannedMark scheduled={entry.out.schedule_id != null} />}
           </div>
           <div className="mt-px truncate text-[12.5px] text-ink-muted">
-            Transfer · not counted as spending
+            {planned ? 'Scheduled transfer' : 'Transfer · not counted as spending'}
           </div>
         </div>
         {/* The target leg, so the target wallet's currency — a cross-currency
@@ -85,6 +116,7 @@ function Row({
   const wallet = wallets.get(tx.wallet_id)
   const category = categories.get(tx.category_id)
   const income = tx.amount > 0
+  const planned = tx.date > on
 
   // A reconciliation is real movement but not a purchase, so it reads quietly —
   // the same treatment a transfer gets, dashed ring included. The two stay apart
@@ -113,10 +145,13 @@ function Row({
         neutral={adjustment}
       />
       <div className="min-w-0 flex-1">
-        <div
-          className={`truncate text-[15px] font-medium ${adjustment ? 'text-ink/75' : ''}`}
-        >
-          {category?.name ?? 'Uncategorised'}
+        <div className="flex items-center gap-1.5">
+          <span
+            className={`truncate text-[15px] font-medium ${adjustment ? 'text-ink/75' : ''}`}
+          >
+            {category?.name ?? 'Uncategorised'}
+          </span>
+          {planned && <PlannedMark scheduled={tx.schedule_id != null} />}
         </div>
         {meta && (
           <div className="mt-px truncate text-[12.5px] text-ink-muted">{meta}</div>
@@ -125,11 +160,12 @@ function Row({
       <div
         className="tnum flex-none text-[15px] font-semibold whitespace-nowrap"
         style={{
-          color: adjustment
-            ? 'var(--color-ink-faint)'
-            : income
-              ? 'var(--color-income)'
-              : 'var(--color-expense)',
+          color:
+            adjustment || planned
+              ? 'var(--color-ink-faint)'
+              : income
+                ? 'var(--color-income)'
+                : 'var(--color-expense)',
         }}
       >
         {formatSignedMoney(asMinor(tx.amount), wallet?.currency ?? 'PLN')}
@@ -143,13 +179,23 @@ export function TransactionFeed({
   wallets,
   categories,
   hideWallet = false,
+  order = 'desc',
+  empty = 'Nothing recorded yet.',
 }: {
   transactions: Transaction[]
   wallets: Wallet[]
   categories: Category[]
   /** Drop the wallet name from each row — for a screen that is already one wallet. */
   hideWallet?: boolean
+  /**
+   * History reads backwards from today and a queue reads forwards, so the
+   * Upcoming list is the same component with its days the other way round.
+   */
+  order?: 'asc' | 'desc'
+  /** What to say with nothing to show. "Recorded" is wrong for a queue. */
+  empty?: string
 }) {
+  const on = today()
   const walletMap = new Map(wallets.map((w) => [w.id, w]))
   const categoryMap = new Map(categories.map((c) => [c.id, c]))
 
@@ -159,13 +205,12 @@ export function TransactionFeed({
     bucket.push(tx)
     byDay.set(tx.date, bucket)
   }
-  const days = [...byDay.keys()].sort().reverse()
+  const days = [...byDay.keys()].sort()
+  if (order === 'desc') days.reverse()
 
   if (days.length === 0) {
     return (
-      <p className="px-4 py-8 text-center text-[13px] text-ink-muted">
-        Nothing recorded yet.
-      </p>
+      <p className="px-4 py-8 text-center text-[13px] text-ink-muted">{empty}</p>
     )
   }
 
@@ -214,6 +259,7 @@ export function TransactionFeed({
                     wallets={walletMap}
                     categories={categoryMap}
                     hideWallet={hideWallet}
+                    on={on}
                   />
                 </div>
               ))}

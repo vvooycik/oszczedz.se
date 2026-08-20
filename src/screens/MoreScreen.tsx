@@ -8,6 +8,7 @@ import {
   IconInfoCircle,
   IconLogout,
   IconPalette,
+  IconRepeat,
   IconTag,
   IconWallet,
 } from '@tabler/icons-react'
@@ -16,7 +17,7 @@ import { Label } from '@/components/ui/Label'
 import { Tile } from '@/components/ui/Tile'
 import { Button } from '@/components/ui/Button'
 import { SegmentedTrack } from '@/components/ui/SegmentedTrack'
-import { useCategories, useTags, useWallets } from '@/data/queries'
+import { useCategories, useSchedules, useTags, useWallets } from '@/data/queries'
 import { buildTransactionsCsv, downloadCsv } from '@/lib/export'
 import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/theme/ThemeProvider'
@@ -84,6 +85,7 @@ export function MoreScreen() {
   const categories = useCategories()
   const wallets = useWallets()
   const tags = useTags()
+  const schedules = useSchedules()
 
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
@@ -130,6 +132,21 @@ export function MoreScreen() {
             hue="indigo"
             name="Tags"
             value={tags.data?.length ?? '—'}
+          />
+          <Divider inset={57} />
+          {/* Counted active-only: a paused rule writes nothing, and a row
+              reading "6" over five that actually charge would be the screen
+              disagreeing with the Upcoming list. */}
+          <NavRow
+            to="/scheduled"
+            icon={<IconRepeat size={18} stroke={2} />}
+            hue="teal"
+            name="Scheduled"
+            value={
+              schedules.data
+                ? schedules.data.filter((s) => s.active).length
+                : '—'
+            }
           />
         </Card>
       </section>

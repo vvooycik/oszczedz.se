@@ -5,6 +5,7 @@ import {
   IconArrowUp,
   IconChevronRight,
   IconClock,
+  IconRepeat,
   IconCopy,
   IconInfoCircle,
   IconPencil,
@@ -45,6 +46,7 @@ import {
   formatSignedMoney,
 } from '@/lib/money'
 import { addMonths, formatFullDate, formatMonthShort, startOfMonth, today } from '@/lib/dates'
+import { isPlanned } from '@/lib/schedules'
 import { categoryVar } from '@/theme/tokens'
 
 const CURRENCY = 'PLN'
@@ -137,6 +139,7 @@ export function TransactionScreen() {
   const wallet = wallets.data?.find((w) => w.id === row.wallet_id)
   const category = categories.data?.find((c) => c.id === row.category_id)
   const isTransfer = Boolean(row.transfer_id)
+  const planned = isPlanned(row)
   const accent = isTransfer ? 'var(--color-ink-muted)' : categoryVar(category?.color)
 
   const walletBalance =
@@ -295,6 +298,21 @@ export function TransactionScreen() {
               <div className="tnum mt-2.5 text-[13px] text-ink-muted">
                 {formatFullDate(row.date)}
               </div>
+
+              {/* A planned row is real and editable, and the screen has to say
+                  out loud that the money has not moved — otherwise the figure
+                  above reads as something that already left the account, and
+                  the balance row below would appear not to include it. */}
+              {planned && (
+                <div className="mt-2 flex items-center gap-1.5 text-[12.5px] text-ink-faint">
+                  {row.schedule_id ? (
+                    <IconRepeat size={13} stroke={2} />
+                  ) : (
+                    <IconClock size={13} stroke={2} />
+                  )}
+                  {row.schedule_id ? 'Scheduled · not charged yet' : 'Planned · not charged yet'}
+                </div>
+              )}
             </div>
           </div>
 
@@ -379,14 +397,18 @@ export function TransactionScreen() {
                   </DetailRow>
                   <Divider inset={63} />
                   {/* The wallet's balance *now*, not as of this row — a running
-                      balance at an arbitrary date would need its own query. */}
+                      balance at an arbitrary date would need its own query.
+                      For a planned row "now" would be a figure this transaction
+                      is deliberately not part of, so the label names the day it
+                      lands instead and the reading follows: what the wallet
+                      will hold once it does. */}
                   <DetailRow
                     icon={<IconScale size={17} stroke={2} />}
-                    label="Balance now"
+                    label={planned ? 'Balance once it lands' : 'Balance now'}
                   >
                     <span className="tnum">
                       {formatMoney(
-                        asMinor(walletBalance),
+                        asMinor(planned ? walletBalance + row.amount : walletBalance),
                         wallet?.currency ?? CURRENCY,
                       )}
                     </span>

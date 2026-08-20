@@ -44,8 +44,23 @@ const RANGES: { key: Range; label: string }[] = [
 ]
 
 /**
+ * Every range draws a fixed month of forecast past today, so 1M shows two
+ * months and 1Q shows four with the last one dotted.
+ *
+ * Fixed rather than proportional to the range on purpose: the tail means "what
+ * is already booked", and that is a quantity of *future*, not a fraction of
+ * whatever window happens to be selected. A month scaled to 1Y would be four
+ * months of mostly nothing; scaled to 1M it would be a week and barely visible.
+ */
+const FORECAST_MONTHS = 1
+
+/**
  * A range and the comparable window immediately before it, so "compare" always
  * means the same span rather than a fixed year.
+ *
+ * `to` is where the *record* ends and every measurement is taken; `chartTo`
+ * is where the picture ends. Keeping them apart is what stops the forecast
+ * leaking into the delta chip and into the prior-period span.
  */
 function rangeFor(range: Range, earliest: string) {
   const to = today()
@@ -65,6 +80,7 @@ function rangeFor(range: Range, earliest: string) {
   return {
     from,
     to,
+    chartTo: addMonths(to, FORECAST_MONTHS),
     priorFrom: addDays(from, -spanDays - 1),
     priorTo: addDays(from, -1),
     // Nothing precedes the first transaction, so the window before All time is
@@ -99,7 +115,19 @@ export function FeedScreen() {
 
   const window = useMemo(() => rangeFor(range, earliest), [range, earliest])
 
-  const current = useBalanceHistory(CURRENCY, window.from, window.to)
+  // Runs a month past today. `balance_history` counts planned rows the same way
+  // it counts settled ones, so the tail is the same running total continued —
+  // and `today()` is pinned as the anchor because the thinning counts back from
+  // the far end, which at a long range drops today from the series entirely.
+  // Measured: over the full history at 60 points the step is 18 days, and
+  // without the anchor today is simply not in the result.
+  const current = useBalanceHistory(
+    CURRENCY,
+    window.from,
+    window.chartTo,
+    true,
+    window.to,
+  )
   const prior = useBalanceHistory(
     CURRENCY,
     window.priorFrom,
@@ -138,8 +166,17 @@ export function FeedScreen() {
   // Named only when every budget on the rail really is in that month.
   const railMonth = sharedMonth(rail)
   const series = current.data ?? []
+
+  // Where the record stops and the booking starts. -1 means the series is all
+  // settled, which is what a phone with no schedules and no planned rows sees.
+  const todayIndex = series.findIndex((p) => p.day >= window.to)
+  const lastSettled = todayIndex < 0 ? series.length - 1 : todayIndex
+
+  // Over the settled span only. The chip says what happened; letting a
+  // subscription four weeks out move it would be the chart reporting the future
+  // as though it were the past.
   const delta =
-    series.length > 1 ? series[series.length - 1]!.balance - series[0]!.balance : 0
+    lastSettled > 0 ? series[lastSettled]!.balance - series[0]!.balance : 0
   const up = delta >= 0
   const deltaColour = up ? 'var(--color-income)' : 'var(--color-expense)'
   const comparing = compare && window.comparable
@@ -192,6 +229,7 @@ export function FeedScreen() {
               prior={prior.data ?? []}
               currency={CURRENCY}
               compare={comparing}
+              todayIndex={lastSettled}
             />
           </Suspense>
         </div>
@@ -241,6 +279,35 @@ export function FeedScreen() {
         </div>
       )}
       <BudgetRail budgets={budgets.data ?? []} />
+
+      {/* The feed is what happened, and only that.
+
+          Planned rows used to sit above it under an "Upcoming" heading, which
+          put two different tenses in one scroll: a list you read to remember
+          what you did, opening with things you have not done. They live on
+          `/scheduled` now, and this is the way in — the same shape as the "See
+          all" over the budget rail, because it is the same idea.
+
+          **Always drawn.** It was briefly conditional on there being a
+          schedule, by analogy with the budget label row, and that was wrong for
+          the one case it most needed to be right about: a transaction dated
+          ahead **by hand** belongs to no rule, so the link to the only screen
+          that shows it was hidden by the fact that it existed on its own.
+          Conditioning on planned rows instead would just be a second query on
+          the home screen to decide whether to draw a word — and the screen
+          behind it is worth reaching anyway, since it is where a schedule gets
+          made. */}
+      <div className="-mb-1.5">
+        <LabelRow
+          trailing={
+            <Link to="/scheduled" className="text-[12.5px] font-semibold text-accent">
+              Scheduled transactions
+            </Link>
+          }
+        >
+          Recent
+        </LabelRow>
+      </div>
 
       <TransactionFeed
         transactions={transactions.data ?? []}

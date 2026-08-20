@@ -1,5 +1,7 @@
+import { useEffect, useRef } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { useAuth } from '@/auth/AuthProvider'
+import { useMaterialiseSchedules } from '@/data/queries'
 import { LoginPage } from '@/auth/LoginPage'
 import { AppShell } from '@/app/AppShell'
 import { ScreenTransition } from '@/app/ScreenTransition'
@@ -17,7 +19,35 @@ import { NewWalletScreen } from '@/screens/wallets/NewWalletScreen'
 import { WalletScreen } from '@/screens/wallets/WalletScreen'
 import { EditWalletScreen } from '@/screens/wallets/EditWalletScreen'
 import { AddScreen } from '@/screens/add/AddScreen'
+import { SchedulesScreen } from '@/screens/schedules/SchedulesScreen'
+import { ScheduleEditScreen } from '@/screens/schedules/ScheduleEditScreen'
 import { TransactionScreen } from '@/screens/TransactionScreen'
+
+/**
+ * Schedules catch up on launch, and this is the entire mechanism behind "it
+ * appears by itself" — there is no cron and no server, so the one moment the
+ * app is certainly running is the moment it starts.
+ *
+ * Renders nothing and blocks nothing: the RPC is idempotent, the overwhelmingly
+ * common answer is "nothing was due", and a rule that *did* come due
+ * invalidates the derived queries when it lands rather than holding the first
+ * paint. The ref is for StrictMode's double mount in development — the server
+ * would shrug it off, but there is no reason to send it twice.
+ */
+function ScheduleCatchUp() {
+  const materialise = useMaterialiseSchedules()
+  const ran = useRef(false)
+
+  useEffect(() => {
+    if (ran.current) return
+    ran.current = true
+    materialise.mutate()
+    // Once per mount, deliberately: `materialise` is a fresh object each render.
+    // oxlint-disable-next-line exhaustive-deps
+  }, [])
+
+  return null
+}
 
 export default function App() {
   const { session, loading } = useAuth()
@@ -29,6 +59,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <ScheduleCatchUp />
       <Routes>
         <Route element={<AppShell />}>
           <Route index element={<FeedScreen />} />
@@ -87,6 +118,23 @@ export default function App() {
           element={
             <ScreenTransition>
               <TagsScreen />
+            </ScreenTransition>
+          }
+        />
+        {/* Static before dynamic, by route ranking rather than source order. */}
+        <Route
+          path="/scheduled"
+          element={
+            <ScreenTransition>
+              <SchedulesScreen />
+            </ScreenTransition>
+          }
+        />
+        <Route
+          path="/scheduled/:id/edit"
+          element={
+            <ScreenTransition>
+              <ScheduleEditScreen />
             </ScreenTransition>
           }
         />
