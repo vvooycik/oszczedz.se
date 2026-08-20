@@ -1,10 +1,12 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
+import { Link } from 'react-router'
 import { IconArrowDownRight, IconArrowUpRight, IconArrowsLeftRight } from '@tabler/icons-react'
 import { BudgetRail } from '@/components/BudgetRail'
+import { sharedMonth, sortForHome } from '@/lib/budgets'
 import { TransactionFeed } from '@/components/TransactionFeed'
 import { FirstRunSetup } from '@/components/FirstRunSetup'
 import { Card } from '@/components/ui/Card'
-import { Label } from '@/components/ui/Label'
+import { Label, LabelRow } from '@/components/ui/Label'
 import { SegmentedTrack } from '@/components/ui/SegmentedTrack'
 import {
   useBalanceHistory,
@@ -132,6 +134,9 @@ export function FeedScreen() {
     .filter((b) => b.currency === CURRENCY)
     .reduce((sum, b) => sum + (b.balance ?? 0), 0)
 
+  const rail = sortForHome(budgets.data ?? [])
+  // Named only when every budget on the rail really is in that month.
+  const railMonth = sharedMonth(rail)
   const series = current.data ?? []
   const delta =
     series.length > 1 ? series[series.length - 1]!.balance - series[0]!.balance : 0
@@ -219,6 +224,22 @@ export function FeedScreen() {
         </div>
       </Card>
 
+      {/* The label row is dropped entirely when nothing is on the rail: there
+          is no period to name and nothing to see all of, so the rail is one
+          invitation rather than a heading over an empty scroller. */}
+      {rail.length > 0 && (
+        <div className="-mb-1.5">
+          <LabelRow
+            trailing={
+              <Link to="/budgets" className="text-[12.5px] font-semibold text-accent">
+                See all
+              </Link>
+            }
+          >
+            {railMonth ? `Budgets · ${railMonth}` : 'Budgets'}
+          </LabelRow>
+        </div>
+      )}
       <BudgetRail budgets={budgets.data ?? []} />
 
       <TransactionFeed

@@ -141,7 +141,39 @@ Consequence worth remembering: **the set both filters and sorts**, so ordering a
 wallet's categories means selecting them. Wanting the order without the filter
 means selecting all of them — which is a coherent thing to do, not a workaround.
 
-Budgets: limit on expenses per period. A transaction counts against a budget iff: it is an expense AND not part of a transfer AND its category ∈ `budget_categories` (empty = any) AND its wallet ∈ `budget_wallets` (empty = any) AND its wallet's currency = budget's currency. "Reset" is not stored — it is just grouping by calendar period in queries.
+Budgets: a **named envelope** — a limit per period with its own `color` and
+`glyph`, spent against a set of categories and a set of wallets. A transaction
+counts against one iff its category is of kind `expense` AND it is not part of a
+transfer AND its category ∈ `budget_categories` (empty = any) AND its wallet ∈
+`budget_wallets` (empty = any) AND its wallet's currency = the budget's.
+
+Two things about that rule are easy to get wrong. **The sign is not filtered**:
+every row in a counted category is summed negated, so a refund (a positive
+amount under an expense category) *reduces* the spend rather than being ignored.
+And the kind filter is what makes an empty category set safe — it means "any
+expense category", never "any category including salary". **Balance adjustments
+are not excluded by name**, deliberately: the alternative is a copy of the string
+in `src/lib/adjustments.ts` living in SQL with nothing keeping the two in step,
+and it buys nothing, because the editor requires at least one category and
+nobody picks that one.
+
+"Reset" is still not stored, but it is no longer always the calendar month.
+`period` is `monthly | weekly | yearly` and `resets_on` is **one integer read
+three ways** — day of month 1–31 (clamped to short months, so a payday budget on
+the 31st runs 31 Jan → 28 Feb), weekday 0–6 with 0 = Sunday (matching both
+`extract(dow)` and `getDay()`), or an ordinal 1–365 against a fixed *non-leap*
+reference year, which is a month/day pair in disguise and is what stops an
+anniversary drifting every February. That one column is why there is no separate
+"custom" period.
+
+`rollover` adds the previous period's unspent remainder to this period's limit —
+**one period, never compounding**, and overspend never carries as a debt. The
+*effective* limit (`amount + rolled_over`) is what every ring, bar and percentage
+on screen is drawn against; the stored `amount` alone would disagree with the
+header above it.
+
+`show_on_home` and `home_order` are the Home rail: which budgets appear there and
+in what order.
 
 Wallet theming: `glyph` (icon name string) + `color_scheme` (design token).
 
@@ -159,7 +191,23 @@ Enforced outside the DDL:
 - `wallet_balances` view — derived balance per wallet
 - `monthly_category_totals` view — pre-aggregated month/category/currency totals for charts, transfer legs excluded
 - `balance_history(currency, from, to, max_points = 400)` — running total wealth per day, for the feed chart and its prior-period overlay. Thins to at most `max_points` rows by taking every Nth day, counting back from `to` so the final day always survives and keeping `from` unconditionally. Ranges shorter than `max_points` days are unaffected — the step collapses to 1.
-- `budget_progress` view — spend against each budget for the current period, applying the membership rules from the Budgets paragraph above
+- `budget_progress(today = current_date)` — one row per budget for the period
+  containing `today`, with its bounds, its spend, its rolled-over remainder and
+  its scope counts. **A function, not the view it replaces**, and the argument is
+  the point: `current_date` is the *server's* day, and a period boundary here is
+  a calendar day the way `transactions.date` is (invariant 3), so the phone says
+  which day it is. Verdict, share, projection and days-left are deliberately not
+  columns — they are arithmetic over these, they change with no write behind
+  them, and `src/lib/budgets.ts` owns them
+- `budget_period_bounds(period, resets_on, on)` / `budget_month_anchor(month, day)`
+  — the half-open range containing a day. Everything about periods is answered
+  here once, so no caller has to know that months clamp and years do not. The day
+  before a period started is by definition in the previous one, which is how
+  `budget_progress` finds the rollover's window with the same function
+- `budget_spend(budget, user, currency, from, to)` — one budget's spend over a
+  day range, split out because the rollover needs the same answer for the period
+  before and two copies of those membership rules is how a budget starts
+  disagreeing with itself
 - `wallet_monthly_net` view — net movement per wallet per month, accumulated client-side into sparklines and deltas
 - `category_usage` view — transaction count per category, for the settings list and its delete copy
 - `loan_progress` view — per loan wallet, its `installment_count` and how many
@@ -464,13 +512,15 @@ Without it Vite inlines the values as `undefined`, the guard in `src/lib/supabas
 folds to a constant, and the bundler dead-code-eliminates supabase-js and every
 chart behind it — producing a *successful* build of an app that throws on load.
 
-ECharts is code-split so it stays off the login path — **~194 kB gzipped initial,
+ECharts is code-split so it stays off the login path — **~202 kB gzipped initial,
 ~189 kB for the chart chunk**. The initial figure was ~174 kB after the visual
 refresh and grew to ~177 with the wallet add button and balance-adjustment
 sheet, then to ~190 when the glyph set went from 111 to 256 (that 12 kB is icons
 and nothing else), then to ~194 with the whole Insight tab — four blocks for
-4.5 kB, because none of them is an ECharts instance. Keep an eye on this: a
-second charting library adds to that budget rather than replacing it.
+4.5 kB, because none of them is an ECharts instance — and then to ~202 with
+budgets: three screens, three drawers and two pickers for 8 kB, on the same
+argument. Keep an eye on this: a second charting library adds to that budget
+rather than replacing it.
 
 `__APP_VERSION__` is inlined by `vite.config.ts` from `package.json`, for the
 About row. Bump the version there, not in the component.
@@ -999,12 +1049,90 @@ About row. Bump the version there, not in the component.
     margin of `--safe-top` with the same value added back as padding puts the
     opaque edge at the true top and changes nothing below it.
 
-17. **Next:** budgets CRUD (the feed rail shows only its dashed placeholder until
-    a budget can be created). Hard-deleting a transaction-free wallet is still
-    unbuilt — the FK already permits exactly that case and nothing else. Tag CRUD
-    has no design yet, which is why `/tags` is a list and not an editor.
-18. Deferred by explicit decision: split transactions, FX conversion in charts
-   (`exchange_rates`), non-monthly budget periods, MCP/AI entry.
+17. **Budgets — DONE**, against `design/design_handoff_budgets/`. Three surfaces
+    over one model: the **list** (`/budgets`, the `ti-target` tab that was a
+    placeholder), the **editor** (`/budgets/new`, `/budgets/:id/edit`) and the
+    **Home rail**, now rings. `src/screens/budgets/`, with the maths in
+    `src/lib/budgets.ts` and the schema changes described above.
+
+    **The tab bar did not change.** The tab and its route already existed; only
+    what they point at did. The FAB stays a transaction everywhere, budgets
+    included — `CREATES` gains no entry, and the plus that makes a budget is a
+    38px tile in the list's own title row.
+
+    **The list groups by verdict, not by size**, so the screen answers "what
+    needs attention" before "what did I set": over → at risk → on track, and
+    inside a group by *share of limit* descending. A 200 zł budget at 140% is
+    worth reading before a 3 000 zł one at 60%, and only the share says so.
+    Empty groups are omitted entirely, label row included.
+
+    **"At risk" is a straight line, and the copy says so.** Projection is
+    `spend / dayOfPeriod × daysInPeriod`, which cannot know that a month usually
+    spends late — so a period that always does will be called at risk and land
+    fine. Nothing is at risk **before its third day** (`RATE_SETTLES_ON_DAY`),
+    where a single big shop projects thirty of them.
+
+    Four decisions taken against the handoff's literal text:
+
+    - **`resetsOn` is a grid, not a wheel.** A wheel is an iOS picker imitated
+      in the DOM — momentum, snapping, a hit area one row tall, three of
+      thirty-one options visible. The 7-column grid shows all of them and
+      matches the calendar grid the date sheet already draws. It stops at 28
+      with a separate "Last day of the month" row rather than offering 29–31 and
+      clamping quietly: the database *does* clamp, but a budget that says "the
+      31st" and runs to the 28th is a surprise worth not building.
+    - **The group identity follows the *first* category picked**, not the
+      largest member. "Largest" means a spend query the editor otherwise does
+      not need, and the category someone reaches for first is what the budget is
+      about. Adding a second category never re-themes what is already on screen,
+      and any manual edit to the name, colour or glyph stops the following.
+    - **The Home-order screen is a route, not a sheet.** A drawer claims the
+      vertical axis twice over — its own scroll and its drag-to-dismiss — and a
+      drag reorder is a third claim, which is the fight the wallet category
+      picker records losing. It would also have to be an `absolute inset-0` child
+      of an unpositioned `<main>`, the one arrangement in this app never verified
+      on a device.
+    - **The period summary only names a month when every budget is in it.** The
+      handoff assumes one shared calendar month; a payday budget resetting on the
+      25th genuinely is a different window, and a card headed "Budgeted in
+      August" summing them would be quietly wrong. It reads "Budgeted now"
+      instead. The days-left chip is likewise the *soonest* reset.
+
+    **The rail's ring animates its dash offset, not its arc.** `stroke-dasharray`
+    is fixed at the circumference and only the offset moves, so the browser
+    interpolates one number and the arc sweeps rather than being re-laid-out. The
+    entry duration is **state, not a ref read during render** — a ref flipped
+    inside the effect changes on the very render that sets the offset, so the
+    420ms sweep would run at the 260ms tween's duration. `prefers-reduced-motion`
+    needs no code here: index.css flattens every duration, and the ring appears
+    at its final geometry.
+
+    Two other things worth knowing. The picker screens **take over the editor's
+    frame** rather than overlaying it — the editor is the same component
+    returning a different tree, so the draft they write into is never rebuilt,
+    which is exactly what `NewWalletScreen` does. And `useSetHomeOrder` sends
+    **one request per budget** rather than upserting the set: an upsert would
+    have to carry every not-null column of a row that screen does not own, and a
+    stale name or limit would silently overwrite an edit made elsewhere.
+
+    **Verified against the real database, not in a browser** — there is no
+    browser automation on this machine. Every check ran inside a rolled-back
+    transaction against the live data: the period bounds for all three periods
+    including the February clamp and a leap year, a scoped budget's spend and
+    rollover agreeing exactly with the same figures computed by hand off
+    `transactions`, and the two new counting rules — a 100 zł refund reduced the
+    spend by exactly 100 zł, and an income-category row of the same size on the
+    same wallet did not move it at all. **Nothing was left behind**; the app has
+    still never created a budget, so the list and the rail have only been seen in
+    their empty states.
+18. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
+    already permits exactly that case and nothing else. Tag CRUD has no design
+    yet, which is why `/tags` is a list and not an editor. The **budget detail
+    screen** is named by the budgets handoff and deliberately left undesigned;
+    until it exists, a list row and a rail card both open the editor, which is
+    the only thing there is to do with a budget.
+19. Deferred by explicit decision: split transactions, FX conversion in charts
+   (`exchange_rates`), MCP/AI entry.
 
 Resolved by the redesign: icons are Lucide; both light and dark grounds ship, each
 with its own resolved palette; navigation is `react-router` with five tabs (needs

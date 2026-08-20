@@ -2,7 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { ADJUSTMENT_CATEGORY } from '@/lib/adjustments'
 import { asMinor, type Minor } from '@/lib/money'
+import { today } from '@/lib/dates'
 import type {
+  BudgetPeriod,
   BudgetProgress,
   Category,
   CategoryKind,
@@ -326,11 +328,20 @@ export const useMonthlyCashFlow = (currency: string) =>
       ),
   })
 
+/**
+ * Every budget against the period it is in *today*.
+ *
+ * `budget_progress` is a function rather than a view now, and the day goes in as
+ * an argument: `current_date` is the server's, and a period boundary here is a
+ * calendar day the way `transactions.date` is (invariant 3). Putting today in
+ * the key as well as the argument is what makes the rail cross midnight — the
+ * old query would have kept yesterday's period until something else wrote.
+ */
 export const useBudgetProgress = () =>
   useQuery({
-    queryKey: ['budget_progress'],
+    queryKey: ['budget_progress', today()],
     queryFn: async (): Promise<BudgetProgress[]> =>
-      unwrap(await supabase.from('budget_progress').select('*').order('name')),
+      unwrap(await supabase.rpc('budget_progress', { p_today: today() })),
   })
 
 /**
@@ -921,3 +932,194 @@ export const useTransactionTags = (transactionId: string | undefined) =>
       return rows.map((r) => r.tag_id)
     },
   })
+
+/* ------------------------------------------------------------------ budgets */
+
+/**
+ * A budget's two membership sets, for the editor.
+ *
+ * Kept apart from `budget_progress`, which reports *counts* rather than ids —
+ * the list and the rail need "4 categories · 3 wallets" and nothing more, and
+ * fetching every membership to render a row that only counts them would be two
+ * more round trips per screen.
+ *
+ * **An empty wallet set is the handoff's `'all'`**, not an empty budget: a
+ * budget opts into wallets, and having no opinion is the common case. The
+ * category set is never empty — the editor refuses to save one — but the
+ * database would accept it and read it the same way.
+ */
+export const useBudgetScope = (budgetId: string | undefined) =>
+  useQuery({
+    queryKey: ['budget_scope', budgetId],
+    enabled: Boolean(budgetId) && budgetId !== 'new',
+    queryFn: async (): Promise<{ categoryIds: string[]; walletIds: string[] }> => {
+      const [categories, wallets] = await Promise.all([
+        supabase.from('budget_categories').select('category_id').eq('budget_id', budgetId!),
+        supabase.from('budget_wallets').select('wallet_id').eq('budget_id', budgetId!),
+      ])
+      return {
+        categoryIds: unwrap(categories).map((r) => r.category_id),
+        walletIds: unwrap(wallets).map((r) => r.wallet_id),
+      }
+    },
+  })
+
+export type BudgetDraft = {
+  /** `'new'` when creating — the database assigns the real id. */
+  id: string
+  name: string
+  amount: Minor
+  color: string
+  glyph: string
+  period: BudgetPeriod
+  resets_on: number
+  rollover: boolean
+  show_on_home: boolean
+  home_order: number
+  categoryIds: string[]
+  /** Empty means every wallet. */
+  walletIds: string[]
+}
+
+/**
+ * Replaces one side of a budget's scope.
+ *
+ * Insert first, delete second — the same order and the same reason as
+ * `useSetWalletCategories`: the join row is the only record of a membership, so
+ * a failure between the halves must leave something counted that should not be,
+ * rather than silently narrowing a scope the user set on purpose. Here the
+ * stakes are higher than a stale picker entry: dropping a category quietly
+ * shrinks every figure the budget reports.
+ *
+ * `ignoreDuplicates` because these tables are nothing *but* their primary key.
+ * An upsert would compile to `on conflict do update set` with no column worth
+ * writing; saying "the row already exists, leave it" is what is actually meant.
+ */
+async function syncScope(
+  table: 'budget_categories' | 'budget_wallets',
+  column: 'category_id' | 'wallet_id',
+  budgetId: string,
+  ids: string[],
+) {
+  if (ids.length) {
+    // Branched rather than built with a computed key: the two tables are a
+    // discriminated union in the generated types, and `{ [column]: id }` widens
+    // to an index signature that satisfies neither arm.
+    const { error } =
+      table === 'budget_categories'
+        ? await supabase.from('budget_categories').upsert(
+            ids.map((id) => ({ budget_id: budgetId, category_id: id })),
+            { ignoreDuplicates: true },
+          )
+        : await supabase.from('budget_wallets').upsert(
+            ids.map((id) => ({ budget_id: budgetId, wallet_id: id })),
+            { ignoreDuplicates: true },
+          )
+    if (error) throw error
+  }
+
+  let removals = supabase.from(table).delete().eq('budget_id', budgetId)
+  if (ids.length) {
+    // Quoted, so the filter never depends on a uuid happening to contain no
+    // comma — PostgREST splits the list on them.
+    removals = removals.not(column, 'in', `(${ids.map((id) => `"${id}"`).join(',')})`)
+  }
+  const { error } = await removals
+  if (error) throw error
+}
+
+const invalidateBudgets = (qc: ReturnType<typeof useQueryClient>) => {
+  qc.invalidateQueries({ queryKey: ['budget_progress'] })
+  qc.invalidateQueries({ queryKey: ['budget_scope'] })
+}
+
+/**
+ * Creates or updates a budget and both of its scopes.
+ *
+ * The row goes first because the joins need its id, which means a create that
+ * fails halfway leaves a budget with no categories — one that counts every
+ * expense. That is visible and fixable from the list; the alternative orderings
+ * either need an id that does not exist yet or leave orphaned join rows.
+ */
+export const useSaveBudget = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (draft: BudgetDraft): Promise<string> => {
+      const row = {
+        name: draft.name.trim(),
+        amount: asMinor(draft.amount),
+        color: draft.color,
+        glyph: draft.glyph,
+        period: draft.period,
+        resets_on: draft.resets_on,
+        rollover: draft.rollover,
+        show_on_home: draft.show_on_home,
+        home_order: draft.home_order,
+      }
+
+      const saved =
+        draft.id === 'new'
+          ? unwrap<{ id: string }>(
+              await supabase.from('budgets').insert(row).select('id').single(),
+            )
+          : unwrap<{ id: string }>(
+              await supabase
+                .from('budgets')
+                .update(row)
+                .eq('id', draft.id)
+                .select('id')
+                .single(),
+            )
+
+      await syncScope('budget_categories', 'category_id', saved.id, draft.categoryIds)
+      await syncScope('budget_wallets', 'wallet_id', saved.id, draft.walletIds)
+      return saved.id
+    },
+    onSuccess: () => invalidateBudgets(qc),
+  })
+}
+
+/**
+ * Deletes a budget. Its join rows go with it by cascade; **transactions are not
+ * touched** — a budget is a lens over spending that already happened, not a
+ * container for it.
+ */
+export const useDeleteBudget = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('budgets').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => invalidateBudgets(qc),
+  })
+}
+
+/**
+ * Persists the rail: dense `home_order` from zero, plus whichever budgets were
+ * dropped from it.
+ *
+ * One request per budget rather than an upsert of the whole set, because an
+ * upsert would have to send every not-null column of a row this screen does not
+ * own — name, limit, period — and a stale copy of any of them would quietly
+ * overwrite an edit made elsewhere.
+ */
+export const useSetHomeOrder = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (rail: { id: string; show_on_home: boolean }[]) => {
+      let position = 0
+      for (const budget of rail) {
+        const { error } = await supabase
+          .from('budgets')
+          .update({
+            show_on_home: budget.show_on_home,
+            home_order: budget.show_on_home ? position++ : 0,
+          })
+          .eq('id', budget.id)
+        if (error) throw error
+      }
+    },
+    onSuccess: () => invalidateBudgets(qc),
+  })
+}

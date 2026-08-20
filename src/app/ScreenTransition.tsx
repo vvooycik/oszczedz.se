@@ -11,7 +11,13 @@ const EASING = 'cubic-bezier(.32,.72,0,1)'
  * creation forms. A push says "deeper into what you were looking at"; a modal
  * says "a task, and you will come back here".
  */
-const MODAL = [/^\/add$/, /^\/tx\/[^/]+\/edit$/, /^\/wallets\/new$/]
+const MODAL = [
+  /^\/add$/,
+  /^\/tx\/[^/]+\/edit$/,
+  /^\/wallets\/new$/,
+  /^\/budgets\/new$/,
+  /^\/budgets\/[^/]+\/edit$/,
+]
 
 const isModal = (pathname: string) => MODAL.some((r) => r.test(pathname))
 

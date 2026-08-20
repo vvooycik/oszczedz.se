@@ -235,18 +235,3 @@ export function MoreScreen() {
     </div>
   )
 }
-
-/**
- * Placeholder for a tab the redesign names but does not specify. Better an
- * honest empty screen than a fabricated one that implies work exists.
- */
-export function ComingSoonScreen({ title, blurb }: { title: string; blurb: string }) {
-  return (
-    <div className="flex flex-col gap-3 px-4 pt-1">
-      <h1 className="px-1 text-[28px] font-semibold tracking-[-0.02em]">{title}</h1>
-      <Card className="p-[18px]">
-        <p className="text-[14px] leading-[1.6] text-ink-muted">{blurb}</p>
-      </Card>
-    </div>
-  )
-}

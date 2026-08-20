@@ -57,13 +57,6 @@ export type Database = {
             foreignKeyName: "budget_categories_budget_id_fkey"
             columns: ["budget_id"]
             isOneToOne: false
-            referencedRelation: "budget_progress"
-            referencedColumns: ["budget_id"]
-          },
-          {
-            foreignKeyName: "budget_categories_budget_id_fkey"
-            columns: ["budget_id"]
-            isOneToOne: false
             referencedRelation: "budgets"
             referencedColumns: ["id"]
           },
@@ -97,13 +90,6 @@ export type Database = {
           wallet_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "budget_wallets_budget_id_fkey"
-            columns: ["budget_id"]
-            isOneToOne: false
-            referencedRelation: "budget_progress"
-            referencedColumns: ["budget_id"]
-          },
           {
             foreignKeyName: "budget_wallets_budget_id_fkey"
             columns: ["budget_id"]
@@ -144,26 +130,44 @@ export type Database = {
       budgets: {
         Row: {
           amount: number
+          color: string
           currency: string
+          glyph: string
+          home_order: number
           id: string
           name: string
           period: Database["public"]["Enums"]["budget_period"]
+          resets_on: number
+          rollover: boolean
+          show_on_home: boolean
           user_id: string
         }
         Insert: {
           amount: number
+          color?: string
           currency?: string
+          glyph?: string
+          home_order?: number
           id?: string
           name: string
           period?: Database["public"]["Enums"]["budget_period"]
+          resets_on?: number
+          rollover?: boolean
+          show_on_home?: boolean
           user_id?: string
         }
         Update: {
           amount?: number
+          color?: string
           currency?: string
+          glyph?: string
+          home_order?: number
           id?: string
           name?: string
           period?: Database["public"]["Enums"]["budget_period"]
+          resets_on?: number
+          rollover?: boolean
+          show_on_home?: boolean
           user_id?: string
         }
         Relationships: []
@@ -457,21 +461,6 @@ export type Database = {
       }
     }
     Views: {
-      budget_progress: {
-        Row: {
-          budget_id: string | null
-          color: string | null
-          currency: string | null
-          glyph: string | null
-          limit_amount: number | null
-          name: string | null
-          period: Database["public"]["Enums"]["budget_period"] | null
-          period_start: string | null
-          spent: number | null
-          user_id: string | null
-        }
-        Relationships: []
-      }
       category_usage: {
         Row: {
           category_id: string | null
@@ -560,6 +549,53 @@ export type Database = {
           day: string
         }[]
       }
+      budget_month_anchor: {
+        Args: { p_day: number; p_month: string }
+        Returns: string
+      }
+      budget_period_bounds: {
+        Args: {
+          p_on: string
+          p_period: Database["public"]["Enums"]["budget_period"]
+          p_resets_on: number
+        }
+        Returns: {
+          period_end: string
+          period_start: string
+        }[]
+      }
+      budget_progress: {
+        Args: { p_today?: string }
+        Returns: {
+          budget_id: string
+          category_count: number
+          color: string
+          currency: string
+          glyph: string
+          home_order: number
+          limit_amount: number
+          name: string
+          period: Database["public"]["Enums"]["budget_period"]
+          period_end: string
+          period_start: string
+          resets_on: number
+          rolled_over: number
+          rollover: boolean
+          show_on_home: boolean
+          spent: number
+          wallet_count: number
+        }[]
+      }
+      budget_spend: {
+        Args: {
+          p_budget: string
+          p_currency: string
+          p_from: string
+          p_to: string
+          p_user: string
+        }
+        Returns: number
+      }
       category_period_totals: {
         Args: {
           p_currency: string
@@ -607,7 +643,7 @@ export type Database = {
       }
     }
     Enums: {
-      budget_period: "monthly"
+      budget_period: "monthly" | "weekly" | "yearly"
       category_kind: "income" | "expense" | "transfer"
       wallet_type: "account" | "savings" | "credit_card" | "loan"
     }
@@ -740,7 +776,7 @@ export const Constants = {
   },
   public: {
     Enums: {
-      budget_period: ["monthly"],
+      budget_period: ["monthly", "weekly", "yearly"],
       category_kind: ["income", "expense", "transfer"],
       wallet_type: ["account", "savings", "credit_card", "loan"],
     },

@@ -17,7 +17,6 @@ export type Budget = Tables<'budgets'>
 export type WalletBalance = Tables<'wallet_balances'>
 export type MonthlyCategoryTotal = Tables<'monthly_category_totals'>
 export type MonthlyCashFlow = Tables<'monthly_cash_flow'>
-export type BudgetProgress = Tables<'budget_progress'>
 export type WalletMonthlyNet = Tables<'wallet_monthly_net'>
 export type CategoryUsage = Tables<'category_usage'>
 export type LoanProgress = Tables<'loan_progress'>
@@ -48,6 +47,14 @@ export type PacePoint = Omit<RpcRow<'spending_pace'>, 'spent'> & {
 }
 
 export type CategoryPeriodTotal = RpcRow<'category_period_totals'>
+
+/**
+ * `budget_progress` was a view and is now a function, so its row comes from the
+ * RPC side. Every column is coalesced in SQL — there is no aggregate here that
+ * can hand back a null — which is the rare case where the generator's
+ * non-nullable guess is simply right.
+ */
+export type BudgetProgress = RpcRow<'budget_progress'>
 
 export type TransactionInsert = TablesInsert<'transactions'>
 export type WalletInsert = TablesInsert<'wallets'>

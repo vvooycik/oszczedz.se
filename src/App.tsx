@@ -5,10 +5,13 @@ import { AppShell } from '@/app/AppShell'
 import { ScreenTransition } from '@/app/ScreenTransition'
 import { FeedScreen } from '@/screens/FeedScreen'
 import { WalletsScreen } from '@/screens/WalletsScreen'
-import { ComingSoonScreen, MoreScreen } from '@/screens/MoreScreen'
+import { MoreScreen } from '@/screens/MoreScreen'
 import { AppearanceScreen } from '@/screens/AppearanceScreen'
 import { CategoriesScreen } from '@/screens/categories/CategoriesScreen'
 import { InsightsScreen } from '@/screens/insights/InsightsScreen'
+import { BudgetsScreen } from '@/screens/budgets/BudgetsScreen'
+import { BudgetEditScreen } from '@/screens/budgets/BudgetEditScreen'
+import { HomeOrderScreen } from '@/screens/budgets/HomeOrderSheet'
 import { TagsScreen } from '@/screens/TagsScreen'
 import { NewWalletScreen } from '@/screens/wallets/NewWalletScreen'
 import { WalletScreen } from '@/screens/wallets/WalletScreen'
@@ -31,15 +34,7 @@ export default function App() {
           <Route index element={<FeedScreen />} />
           <Route path="wallets" element={<WalletsScreen />} />
           <Route path="insights" element={<InsightsScreen />} />
-          <Route
-            path="budgets"
-            element={
-              <ComingSoonScreen
-                title="Budgets"
-                blurb="Creating and editing budgets. The schema and the progress view are in place, so the rings on the feed will fill in as soon as this screen can create one."
-              />
-            }
-          />
+          <Route path="budgets" element={<BudgetsScreen />} />
           <Route path="more" element={<MoreScreen />} />
         </Route>
 
@@ -95,8 +90,33 @@ export default function App() {
             </ScreenTransition>
           }
         />
-        {/* `/wallets/new` stays above the dynamic segment by route ranking, not
-            by source order — a static segment always outranks a param. */}
+        {/* `/budgets/new`, `/budgets/order` and `/wallets/new` stay above their
+            dynamic siblings by route *ranking*, not by source order — a static
+            segment always outranks a param. */}
+        <Route
+          path="/budgets/new"
+          element={
+            <ScreenTransition>
+              <BudgetEditScreen />
+            </ScreenTransition>
+          }
+        />
+        <Route
+          path="/budgets/order"
+          element={
+            <ScreenTransition>
+              <HomeOrderScreen />
+            </ScreenTransition>
+          }
+        />
+        <Route
+          path="/budgets/:id/edit"
+          element={
+            <ScreenTransition>
+              <BudgetEditScreen />
+            </ScreenTransition>
+          }
+        />
         <Route
           path="/wallets/new"
           element={
