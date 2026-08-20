@@ -14,7 +14,7 @@ import {
   useCategories,
   useEarliestTransactionDate,
   useRecentTransactions,
-  useUpcomingTransactions,
+  useSchedules,
   useWalletBalances,
   useWallets,
 } from '@/data/queries'
@@ -107,7 +107,7 @@ export function FeedScreen() {
   const categories = useCategories()
   const balances = useWalletBalances()
   const transactions = useRecentTransactions()
-  const upcoming = useUpcomingTransactions()
+  const schedules = useSchedules()
   const budgets = useBudgetProgress()
   const firstDay = useEarliestTransactionDate()
 
@@ -282,33 +282,30 @@ export function FeedScreen() {
       )}
       <BudgetRail budgets={budgets.data ?? []} />
 
-      {/* What is already booked, soonest first. Dropped entirely when there is
-          nothing coming rather than standing as an empty heading — with no
-          schedules set up this is most people's normal state, and the screen
-          should look the way it did before the feature existed. */}
-      {(upcoming.data ?? []).length > 0 && (
-        <>
-          <div className="-mb-1.5">
-            <LabelRow
-              trailing={
-                <Link
-                  to="/scheduled"
-                  className="text-[12.5px] font-semibold text-accent"
-                >
-                  Manage
-                </Link>
-              }
-            >
-              Upcoming
-            </LabelRow>
-          </div>
-          <TransactionFeed
-            transactions={upcoming.data ?? []}
-            wallets={wallets.data}
-            categories={categories.data}
-            order="asc"
-          />
-        </>
+      {/* The feed is what happened, and only that.
+
+          Planned rows used to sit above it under an "Upcoming" heading, which
+          put two different tenses in one scroll: a list you read to remember
+          what you did, opening with things you have not done. They live on
+          `/scheduled` now, and this is the way in — the same shape as the "See
+          all" over the budget rail, because it is the same idea.
+
+          Shown only when something is actually scheduled, which is also what
+          the budget label row does. With no rules and nothing planned the home
+          screen is exactly what it was before any of this existed, and the More
+          screen is still the way in. */}
+      {(schedules.data ?? []).length > 0 && (
+        <div className="-mb-1.5">
+          <LabelRow
+            trailing={
+              <Link to="/scheduled" className="text-[12.5px] font-semibold text-accent">
+                Scheduled transactions
+              </Link>
+            }
+          >
+            Recent
+          </LabelRow>
+        </div>
       )}
 
       <TransactionFeed

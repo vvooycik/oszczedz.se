@@ -5,11 +5,20 @@ import { useGoBack } from '@/app/useGoBack'
 import { ActionTile } from '@/components/ui/Button'
 import { Card, Divider } from '@/components/ui/Card'
 import { CategoryGlyph } from '@/components/CategoryGlyph'
-import { Label } from '@/components/ui/Label'
 import { ScreenHeader } from '@/components/ui/ScreenHeader'
-import { useCategories, useSchedules, useWallets } from '@/data/queries'
+import { TransactionFeed } from '@/components/TransactionFeed'
+import { LabelRow } from '@/components/ui/Label'
+import {
+  useCategories,
+  useSchedules,
+  useUpcomingTransactions,
+  useWallets,
+} from '@/data/queries'
 import { cadenceLabel, hasEnded, nextOccurrence, sortByNext } from '@/lib/schedules'
 import { asMinor, formatSignedMoney } from '@/lib/money'
+
+// One currency in v1 (invariant 8), so the Upcoming total needs no filter.
+const CURRENCY = 'PLN'
 import { relativeDayLabel } from '@/lib/dates'
 import type { Category, Schedule, Wallet } from '@/lib/db'
 
@@ -96,17 +105,36 @@ function ScheduleRow({
  * plus a cadence and the entry screen is where a transaction gets typed —
  * keypad, category sheet, wallet select and all. A second form would be that
  * one with the calculator taken out.
+ *
+ * ## Two halves, and Upcoming comes first
+ *
+ * Neither feed shows planned rows any more — a list you read to remember what
+ * you did should not open with things you have not done — so this screen is the
+ * only place they exist. That makes the Upcoming list load-bearing rather than
+ * decorative: without it a **one-off** future-dated transaction, which no rule
+ * produced and no rule will list, would be invisible everywhere in the app.
+ *
+ * It sits above the rules because that is what the link into here promises. The
+ * rules are the machinery; what is actually coming is the answer.
  */
 export function SchedulesScreen() {
   const goBack = useGoBack('/more')
   const navigate = useNavigate()
   const schedules = useSchedules()
+  const upcoming = useUpcomingTransactions()
   const wallets = useWallets()
   const categories = useCategories()
 
   const walletMap = new Map((wallets.data ?? []).map((w) => [w.id, w]))
   const categoryMap = new Map((categories.data ?? []).map((c) => [c.id, c]))
   const rows = sortByNext(schedules.data ?? [])
+  const planned = upcoming.data ?? []
+
+  // Transfers move money between own wallets and net to zero, so they are left
+  // out rather than counted twice — the same rule the feed's day totals follow.
+  const plannedNet = planned
+    .filter((t) => !t.transfer_id)
+    .reduce((sum, t) => sum + t.amount, 0)
 
   return (
     <FullScreen>
@@ -126,15 +154,16 @@ export function SchedulesScreen() {
           <p className="px-1 text-[13px] text-ink-muted">
             {schedules.error ? 'Could not load schedules.' : 'Loading…'}
           </p>
-        ) : rows.length === 0 ? (
+        ) : rows.length === 0 && planned.length === 0 ? (
           <div className="px-1 pt-6 text-center">
             <span className="mx-auto flex size-14 items-center justify-center rounded-card bg-inset text-ink-dim">
               <IconRepeat size={26} stroke={1.8} />
             </span>
             <p className="mx-auto mt-4 max-w-[19rem] text-[13.5px] leading-[1.6] text-ink-muted">
-              Nothing repeats yet. A schedule writes its transactions ahead of
-              time — they show under Upcoming and on the home chart as a dotted
-              line, and count towards your balance only on the day they charge.
+              Nothing is scheduled. A repeating entry writes its transactions
+              ahead of time — they appear here before they charge, show on the
+              home chart as a dotted line, and count towards your balance only
+              on the day they land.
             </p>
             <button
               type="button"
@@ -146,25 +175,51 @@ export function SchedulesScreen() {
           </div>
         ) : (
           <>
-            <Label className="px-1">
-              {rows.length} {rows.length === 1 ? 'schedule' : 'schedules'}
-            </Label>
-            <Card>
-              {rows.map((schedule, index) => (
-                <div key={schedule.id}>
-                  {index > 0 && <Divider inset={63} />}
-                  <ScheduleRow
-                    schedule={schedule}
-                    wallets={walletMap}
-                    categories={categoryMap}
-                  />
-                </div>
-              ))}
-            </Card>
+            {planned.length > 0 && (
+              <>
+                <LabelRow
+                  trailing={
+                    <span className="text-[12.5px] text-ink-muted">
+                      {formatSignedMoney(asMinor(plannedNet), CURRENCY)}
+                    </span>
+                  }
+                >
+                  Upcoming
+                </LabelRow>
+                <TransactionFeed
+                  transactions={planned}
+                  wallets={wallets.data ?? []}
+                  categories={categories.data ?? []}
+                  order="asc"
+                />
+              </>
+            )}
+
+            {rows.length > 0 && (
+              <>
+                <LabelRow className={planned.length > 0 ? 'pt-1' : undefined}>
+                  {rows.length} repeating
+                </LabelRow>
+                <Card>
+                  {rows.map((schedule, index) => (
+                    <div key={schedule.id}>
+                      {index > 0 && <Divider inset={63} />}
+                      <ScheduleRow
+                        schedule={schedule}
+                        wallets={walletMap}
+                        categories={categoryMap}
+                      />
+                    </div>
+                  ))}
+                </Card>
+              </>
+            )}
+
             <p className="px-1 text-[12.5px] leading-[1.6] text-ink-muted">
-              Occurrences are written four months ahead. Deleting one skips that
-              charge; editing the rule rewrites what is still to come and leaves
-              what already happened alone.
+              Occurrences are written four months ahead; this list shows the next
+              six weeks. Deleting one skips that charge; editing the rule
+              rewrites what is still to come and leaves what already happened
+              alone.
             </p>
           </>
         )}

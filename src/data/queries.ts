@@ -164,10 +164,16 @@ export const useUpcomingTransactions = () =>
  * `collapseTransfers` emits each pair at the position of the first leg it sees,
  * and this wallet's rows all come first, so the feed's ordering stays the one
  * the wallet was queried in.
+ *
+ * **Settled only**, like the home feed: a wallet's history is what happened to
+ * it. What is still coming is one line above it — the balance block's "planned"
+ * reading — and the whole of it is on `/scheduled`. The filter goes on the
+ * first query alone; a transfer's two legs always share a date, so a sibling of
+ * a settled leg is settled by construction.
  */
 export const useWalletTransactions = (walletId: string | undefined, limit = 100) =>
   useQuery({
-    queryKey: ['transactions', 'wallet', walletId, limit],
+    queryKey: ['transactions', 'wallet', walletId, limit, today()],
     enabled: Boolean(walletId),
     queryFn: async (): Promise<Transaction[]> => {
       const rows = unwrap<Transaction[]>(
@@ -175,6 +181,7 @@ export const useWalletTransactions = (walletId: string | undefined, limit = 100)
           .from('transactions')
           .select('*')
           .eq('wallet_id', walletId!)
+          .lte('date', today())
           .order('date', { ascending: false })
           .order('created_at', { ascending: false })
           .limit(limit),
