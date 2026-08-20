@@ -228,17 +228,24 @@ export function SchedulesScreen() {
               // Planned rows with no rule behind them: dated ahead by hand. The
               // invitation still belongs here, since this is where a repeating
               // one would be made.
+              //
+              // The button states its own size, and has to: index.css floors
+              // `input, select, textarea, button` at 16px to stop iOS zooming a
+              // focused field, and a button caught by that selector inside a
+              // 12.5px paragraph renders half again as large as the sentence it
+              // sits in. A utility class outranks an element selector, which is
+              // the same escape every text field in the app already uses.
               <p className="px-1 text-[12.5px] leading-[1.6] text-ink-muted">
-                Dated ahead by hand, so nothing repeats it. Each counts towards
-                your balance only on the day it lands.{' '}
+                Dated ahead by hand rather than written by a rule. Nothing here
+                counts towards your balance until the day it lands.{' '}
                 <button
                   type="button"
                   onClick={() => navigate('/add?repeat=1')}
-                  className="font-semibold text-accent"
+                  className="text-[12.5px] font-semibold text-accent"
                 >
                   Add a schedule
                 </button>{' '}
-                to have one written for you.
+                to have entries written for you.
               </p>
             )}
           </>

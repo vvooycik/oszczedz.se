@@ -958,8 +958,18 @@ About row. Bump the version there, not in the component.
     only lever. The handoff puts body text at 14.5–15px and the fields
     deliberately deviate — a pixel and a half against an app that has to be
     pinched back into place is not a trade. `index.css` carries a floor on
-    `input, select, textarea`, but it is a net and not the rule: a Tailwind
-    utility beats an element selector, so each field states its own size.
+    `input, select, textarea, button`, but it is a net and not the rule: a
+    Tailwind utility beats an element selector, so each field states its own
+    size.
+
+    **`button` is in that selector and arguably should not be** — iOS zooms a
+    focused *text field*, and a button is never one. The consequence is a trap:
+    a button that does not state a size renders at 16px wherever it sits, so an
+    inline one inside a 12.5px paragraph comes out half again as large as the
+    sentence around it. Every button in the app happens to carry its own
+    `text-[…]`, which is why this stayed invisible until one did not. Narrowing
+    the selector is the real fix and is a change to make deliberately, with the
+    whole button set re-checked, not as a drive-by.
 
     **The system keyboard and the calculator keypad are never up together.**
     Typing a note, a received amount or a category search raises iOS's keyboard
