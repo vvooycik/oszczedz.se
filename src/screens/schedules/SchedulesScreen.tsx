@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { IconPlayerPause, IconPlus, IconRepeat } from '@tabler/icons-react'
+import { IconClock, IconPlayerPause, IconPlus, IconRepeat } from '@tabler/icons-react'
 import { FullScreen } from '@/app/AppShell'
 import { useGoBack } from '@/app/useGoBack'
 import { ActionTile } from '@/components/ui/Button'
@@ -8,6 +9,7 @@ import { CategoryGlyph } from '@/components/CategoryGlyph'
 import { ScreenHeader } from '@/components/ui/ScreenHeader'
 import { TransactionFeed } from '@/components/TransactionFeed'
 import { LabelRow } from '@/components/ui/Label'
+import { SegmentedTrack } from '@/components/ui/SegmentedTrack'
 import {
   useCategories,
   useSchedules,
@@ -19,6 +21,22 @@ import { asMinor, formatSignedMoney } from '@/lib/money'
 
 // One currency in v1 (invariant 8), so the Upcoming total needs no filter.
 const CURRENCY = 'PLN'
+
+type Tab = 'upcoming' | 'repeating'
+
+/**
+ * Counts ride in the labels. A tab that says how much is behind it answers the
+ * question the tab exists for without being tapped, and both numbers are
+ * already in hand — the alternative is switching to find out there was nothing
+ * there.
+ */
+const tabs = (planned: number, repeating: number): { key: Tab; label: string }[] => [
+  { key: 'upcoming', label: planned > 0 ? `Upcoming · ${planned}` : 'Upcoming' },
+  {
+    key: 'repeating',
+    label: repeating > 0 ? `Repeating · ${repeating}` : 'Repeating',
+  },
+]
 import { relativeDayLabel } from '@/lib/dates'
 import type { Category, Schedule, Wallet } from '@/lib/db'
 
@@ -90,6 +108,53 @@ function ScheduleRow({
 }
 
 /**
+ * Either tab with nothing in it.
+ *
+ * Shared because the two say different things and must look identical saying
+ * them — an empty Upcoming under a full Repeating is not a failure state, it
+ * means nothing is due for six weeks, and it should not read as more alarming
+ * than the tab that genuinely has nothing set up.
+ *
+ * The action is optional for that reason: there is nothing to offer someone
+ * whose rules simply fire later than this list reaches.
+ */
+function Empty({
+  icon,
+  title,
+  body,
+  action,
+  onAction,
+}: {
+  /** The tab's own mark: a clock for timing, a repeat arrow for recurrence. */
+  icon: React.ReactNode
+  title: string
+  body: string
+  action?: string
+  onAction: () => void
+}) {
+  return (
+    <div className="px-1 pt-8 text-center">
+      <span className="mx-auto flex size-14 items-center justify-center rounded-card bg-inset text-ink-dim">
+        {icon}
+      </span>
+      <p className="mt-4 text-[15px] font-medium">{title}</p>
+      <p className="mx-auto mt-1.5 max-w-[19rem] text-[13.5px] leading-[1.6] text-ink-muted">
+        {body}
+      </p>
+      {action && (
+        <button
+          type="button"
+          onClick={onAction}
+          className="mt-5 rounded-field bg-inset px-5 py-3 text-[14px] font-semibold"
+        >
+          {action}
+        </button>
+      )}
+    </div>
+  )
+}
+
+/**
  * The rules that write transactions by themselves.
  *
  * **Ordered by when each one next charges**, so the list reads as a queue
@@ -106,7 +171,7 @@ function ScheduleRow({
  * keypad, category sheet, wallet select and all. A second form would be that
  * one with the calculator taken out.
  *
- * ## Two halves, and Upcoming comes first
+ * ## Two tabs, and Upcoming is the one it opens on
  *
  * Neither feed shows planned rows any more — a list you read to remember what
  * you did should not open with things you have not done — so this screen is the
@@ -114,8 +179,20 @@ function ScheduleRow({
  * decorative: without it a **one-off** future-dated transaction, which no rule
  * produced and no rule will list, would be invisible everywhere in the app.
  *
- * It sits above the rules because that is what the link into here promises. The
- * rules are the machinery; what is actually coming is the answer.
+ * The two are **transactions and the rules that write them**, which is a real
+ * difference in kind and not two groupings of one thing — one is dated rows you
+ * can open and delete, the other is machinery. Stacked in one scroll they read
+ * as one list with a heading in the middle. A track makes the choice explicit
+ * and costs nothing, since neither side is ever long.
+ *
+ * It opens on Upcoming because that is what the link into here promises, and
+ * because a rule is something you set once and a charge is something you check.
+ *
+ * The track sits **outside** the scrolling column rather than sticking to the
+ * top of it. `ScreenHeader` is already `flex-none` above a `flex-1` scroller,
+ * so a control between them is permanently visible with no sticky offsets to
+ * resolve against a scrollport — which is the arrangement the Insight tab has
+ * to work for, and does not get.
  */
 export function SchedulesScreen() {
   const goBack = useGoBack('/more')
@@ -124,6 +201,8 @@ export function SchedulesScreen() {
   const upcoming = useUpcomingTransactions()
   const wallets = useWallets()
   const categories = useCategories()
+
+  const [tab, setTab] = useState<Tab>('upcoming')
 
   const walletMap = new Map((wallets.data ?? []).map((w) => [w.id, w]))
   const categoryMap = new Map((categories.data ?? []).map((c) => [c.id, c]))
@@ -135,6 +214,10 @@ export function SchedulesScreen() {
   const plannedNet = planned
     .filter((t) => !t.transfer_id)
     .reduce((sum, t) => sum + t.amount, 0)
+
+  // Both halves, because the counts in the tab labels come from both and a tab
+  // that said "0" and then filled in would be worse than one that waited.
+  const loading = !schedules.data || !upcoming.data
 
   return (
     <FullScreen>
@@ -149,105 +232,85 @@ export function SchedulesScreen() {
         }
       />
 
-      <div className="no-scrollbar flex flex-1 flex-col gap-[14px] overflow-y-auto px-4 pt-2 pb-10">
-        {!schedules.data || !upcoming.data ? (
+      {/* Outside the scroller, so it stays put with no sticky geometry. */}
+      <div className="flex-none px-4 pt-1 pb-2">
+        <SegmentedTrack
+          options={tabs(planned.length, rows.length)}
+          value={tab}
+          onChange={setTab}
+        />
+      </div>
+
+      <div className="no-scrollbar flex flex-1 flex-col gap-[14px] overflow-y-auto px-4 pt-1 pb-10">
+        {loading ? (
           <p className="px-1 text-[13px] text-ink-muted">
             {schedules.error || upcoming.error
               ? 'Could not load schedules.'
               : 'Loading…'}
           </p>
-        ) : rows.length === 0 && planned.length === 0 ? (
-          <div className="px-1 pt-6 text-center">
-            <span className="mx-auto flex size-14 items-center justify-center rounded-card bg-inset text-ink-dim">
-              <IconRepeat size={26} stroke={1.8} />
-            </span>
-            <p className="mx-auto mt-4 max-w-[19rem] text-[13.5px] leading-[1.6] text-ink-muted">
-              Nothing is scheduled. A repeating entry writes its transactions
-              ahead of time — they appear here before they charge, show on the
-              home chart as a dotted line, and count towards your balance only
-              on the day they land.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate('/add?repeat=1')}
-              className="mt-5 rounded-field bg-inset px-5 py-3 text-[14px] font-semibold"
-            >
-              Add a schedule
-            </button>
-          </div>
+        ) : tab === 'upcoming' ? (
+          planned.length === 0 ? (
+            <Empty
+              icon={<IconClock size={26} stroke={1.8} />}
+              title="Nothing is due"
+              body={
+                rows.length > 0
+                  ? 'No charge lands in the next six weeks. Rules that fire later than that have their rows written already — they are just further out than this list reaches.'
+                  : 'Give a transaction a date in the future and it waits here until that day, counting towards your balance only when it lands.'
+              }
+              action={rows.length > 0 ? undefined : 'Add a schedule'}
+              onAction={() => navigate('/add?repeat=1')}
+            />
+          ) : (
+            <>
+              <LabelRow
+                trailing={
+                  <span className="tnum text-[12.5px] text-ink-muted">
+                    {formatSignedMoney(asMinor(plannedNet), CURRENCY)}
+                  </span>
+                }
+              >
+                Next six weeks
+              </LabelRow>
+              <TransactionFeed
+                transactions={planned}
+                wallets={wallets.data ?? []}
+                categories={categories.data ?? []}
+                order="asc"
+              />
+              <p className="px-1 text-[12.5px] leading-[1.6] text-ink-muted">
+                Each of these is a real transaction already, and counts towards
+                your balance on the day it lands. Deleting one skips that charge
+                and leaves its rule alone.
+              </p>
+            </>
+          )
+        ) : rows.length === 0 ? (
+          <Empty
+            icon={<IconRepeat size={26} stroke={1.8} />}
+            title="Nothing repeats"
+            body="A repeating entry writes its transactions ahead of time — they show under Upcoming before they charge, and on the home chart as a dotted line."
+            action="Add a schedule"
+            onAction={() => navigate('/add?repeat=1')}
+          />
         ) : (
           <>
-            {planned.length > 0 && (
-              <>
-                <LabelRow
-                  trailing={
-                    <span className="text-[12.5px] text-ink-muted">
-                      {formatSignedMoney(asMinor(plannedNet), CURRENCY)}
-                    </span>
-                  }
-                >
-                  Upcoming
-                </LabelRow>
-                <TransactionFeed
-                  transactions={planned}
-                  wallets={wallets.data ?? []}
-                  categories={categories.data ?? []}
-                  order="asc"
-                />
-              </>
-            )}
-
-            {rows.length > 0 && (
-              <>
-                <LabelRow className={planned.length > 0 ? 'pt-1' : undefined}>
-                  {rows.length} repeating
-                </LabelRow>
-                <Card>
-                  {rows.map((schedule, index) => (
-                    <div key={schedule.id}>
-                      {index > 0 && <Divider inset={63} />}
-                      <ScheduleRow
-                        schedule={schedule}
-                        wallets={walletMap}
-                        categories={categoryMap}
-                      />
-                    </div>
-                  ))}
-                </Card>
-              </>
-            )}
-
-            {rows.length > 0 ? (
-              <p className="px-1 text-[12.5px] leading-[1.6] text-ink-muted">
-                Occurrences are written four months ahead; this list shows the
-                next six weeks. Deleting one skips that charge; editing the rule
-                rewrites what is still to come and leaves what already happened
-                alone.
-              </p>
-            ) : (
-              // Planned rows with no rule behind them: dated ahead by hand. The
-              // invitation still belongs here, since this is where a repeating
-              // one would be made.
-              //
-              // The button states its own size, and has to: index.css floors
-              // `input, select, textarea, button` at 16px to stop iOS zooming a
-              // focused field, and a button caught by that selector inside a
-              // 12.5px paragraph renders half again as large as the sentence it
-              // sits in. A utility class outranks an element selector, which is
-              // the same escape every text field in the app already uses.
-              <p className="px-1 text-[12.5px] leading-[1.6] text-ink-muted">
-                Dated ahead by hand rather than written by a rule. Nothing here
-                counts towards your balance until the day it lands.{' '}
-                <button
-                  type="button"
-                  onClick={() => navigate('/add?repeat=1')}
-                  className="text-[12.5px] font-semibold text-accent"
-                >
-                  Add a schedule
-                </button>{' '}
-                to have entries written for you.
-              </p>
-            )}
+            <Card>
+              {rows.map((schedule, index) => (
+                <div key={schedule.id}>
+                  {index > 0 && <Divider inset={63} />}
+                  <ScheduleRow
+                    schedule={schedule}
+                    wallets={walletMap}
+                    categories={categoryMap}
+                  />
+                </div>
+              ))}
+            </Card>
+            <p className="px-1 text-[12.5px] leading-[1.6] text-ink-muted">
+              Occurrences are written four months ahead. Editing a rule rewrites
+              what is still to come and leaves what already happened alone.
+            </p>
           </>
         )}
       </div>
