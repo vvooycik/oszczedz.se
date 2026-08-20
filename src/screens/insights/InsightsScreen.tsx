@@ -83,30 +83,55 @@ export function InsightsScreen() {
 
   return (
     <div className="flex flex-col">
-      {/* Sticky inside AppShell's scrolling <main>.
-          
-          The pull-up is load-bearing. `<main>` carries `--safe-top` as padding,
-          and a sticky element's offsets are measured against the *scrollport* —
-          which is the padding box, above that padding. So `top: 0` alone parks
-          the header 12px down and leaves a band of bare scrollport over it,
-          through which rows visibly slide. Pulling the header up by the inset
-          and padding its content back down by the same amount puts its opaque
-          edge at the true top with nothing changed below it.
+      {/* The title scrolls away; only the period control stays.
 
-          The gradient's transparent tail is the other half: content should pass
-          under the control and fade, not stop against a hard line. */}
+          It used to be one sticky block holding both, and a heading pinned to
+          the top of a screen it names is a lot of permanent furniture for a
+          word — while the control below it is the thing every card on the page
+          is an answer to, and the thing you reach for after scrolling.
+
+          ## The band above it
+
+          `--safe-top` is `max(env(safe-area-inset-top), 12px)`, so it is 12px
+          even in a desktop browser, and `<main>` carries it as padding. A
+          sticky child's offsets resolve against the **scrollport**, and the two
+          readings of where that starts — the padding box or the content box —
+          differ by exactly that inset. The previous arrangement pulled the
+          block up by the inset with a negative margin, which fixes its resting
+          position and does nothing at all once it is stuck: `top: 0` re-parks
+          the border box against the scrollport and the margin is spent. The
+          result was a 12px strip of bare scrollport above the control with rows
+          visibly sliding through it.
+
+          A **negative `top` with the inset added back as padding** is right
+          under either reading. If the scrollport is the padding box, the
+          control's first 12px scroll out of sight and its padding keeps the
+          contents clear of the edge. If it is the content box, the box lands
+          exactly on the true top. Neither leaves a gap, which is the property
+          worth having — the difference is 12px of placement, and the bug was
+          content appearing where nothing should. */}
+      {/* The negative bottom margin gives back exactly what the control's own
+          top padding adds, so the gap under the title stays what it was at
+          rest. Unlike the pull-up this replaces, it is a claim about normal
+          flow — where a negative margin does what it says — rather than about
+          where a stuck element parks. */}
+      <h1
+        className="px-5 pt-1 pb-2.5 text-[22px] font-semibold tracking-[-0.02em]"
+        style={{ marginBottom: 'calc(var(--safe-top) * -1)' }}
+      >
+        Insight
+      </h1>
       <div
-        className="sticky top-0 z-10 px-4 pb-3"
+        className="sticky z-10 px-4 pb-3"
         style={{
-          marginTop: 'calc(var(--safe-top) * -1)',
+          top: 'calc(var(--safe-top) * -1)',
           paddingTop: 'calc(var(--safe-top) + 4px)',
+          // The transparent tail is the other half: content should pass under
+          // the control and fade, not stop against a hard line.
           background:
-            'linear-gradient(180deg, var(--color-bg) 76%, transparent 100%)',
+            'linear-gradient(180deg, var(--color-bg) 82%, transparent 100%)',
         }}
       >
-        <h1 className="px-1 pb-2.5 text-[22px] font-semibold tracking-[-0.02em]">
-          Insight
-        </h1>
         <div className="flex items-center gap-2">
           <SegmentedTrack
             className="flex-1"
