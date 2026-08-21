@@ -331,15 +331,38 @@ export const useTransferLegs = (transferId: string | null | undefined) =>
 
 /* ---------------------------------------------------------------- charting */
 
-export const useMonthlyTotals = (currency: string) =>
+/**
+ * One category's monthly totals over a closed range — the six-month history on
+ * the transaction detail screen.
+ *
+ * **Scoped rather than fetched whole, and that was not tidiness.** The screen
+ * used to pull `monthly_category_totals` for the entire currency and filter it
+ * in the browser: 59 categories × 35 months, which measured **979 rows against
+ * PostgREST's 1000-row cap** — twenty-one rows of headroom, on a table that
+ * grows by roughly sixty every month. Truncation there is silent (invariant 2),
+ * and because the rows come back ordered by month it would have dropped the
+ * *newest* ones first: the chart would have quietly started drawing empty bars
+ * for recent months while looking perfectly well-formed. Scoped to one category
+ * and six months, the answer is six rows.
+ */
+export const useCategoryMonthlyTotals = (
+  categoryId: string | undefined,
+  from: string,
+  to: string,
+  currency: string,
+) =>
   useQuery({
-    queryKey: ['monthly_category_totals', currency],
+    queryKey: ['monthly_category_totals', currency, categoryId, from, to],
+    enabled: Boolean(categoryId),
     queryFn: async (): Promise<MonthlyCategoryTotal[]> =>
       unwrap(
         await supabase
           .from('monthly_category_totals')
           .select('*')
           .eq('currency', currency)
+          .eq('category_id', categoryId!)
+          .gte('month', from)
+          .lte('month', to)
           .order('month'),
       ),
   })

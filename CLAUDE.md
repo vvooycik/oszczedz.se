@@ -636,7 +636,8 @@ About row. Bump the version there, not in the component.
    rail, total wealth, balance chart with prior-period compare, day-grouped list),
    wallets (grouped with subtotals, sparklines, credit-card utilisation), quick-add
    (full screen, auto-opening category sheet, date sheet, keypad), transaction detail
-   (budget context, six-month history, transfer variant), and Appearance (mode,
+   (six-month history, transfer variant — see item 20 for the budget block that
+   used to sit there), and Appearance (mode,
    accent, tint) persisted cache-aside — localStorage first, `user_settings` as the
    durable copy read only on a cold cache.
    The feed's ranges were 7D / 1M / 1Y / All time (see item 14 for what they are
@@ -1377,13 +1378,82 @@ About row. Bump the version there, not in the component.
     **224 rows**, so a month would have to be four times heavier than anything
     ever recorded to reach PostgREST's silent 1000-row truncation (invariant 2).
 
-20. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
+20. **The transaction detail screen's lower half — DONE.**
+
+    **"Against the budget" is gone, because it was lying.** The block picked the
+    budget with `budgets.find((b) => b.currency === CURRENCY)` — the *first* one
+    in the currency — while its own comment claimed it found the budgets "this
+    transaction could count against". It read neither `budget_categories` nor
+    `budget_wallets`, so an mBank transaction was shown against a Credit Card
+    Spending budget it can never touch, complete with a bar and "This one is
+    405,90 zł of it." Every figure on it was real; the pairing was invented.
+
+    Rebuilding it honestly would mean re-implementing the membership rule from
+    the domain model (expense kind, no `transfer_id`, category ∈ scope, wallet ∈
+    scope, currency match) in the browser, where it would be a second copy of
+    what `budget_spend` owns in SQL — the exact drift invariant the budgets work
+    avoided by having one definition. It is removed rather than patched; a row's
+    budget context belongs on the budget detail screen that is still undesigned
+    (item 21), reading the same relation the rest of the app does.
+
+    **The category history says what it means.** The six-month block at
+    the foot of the transaction detail screen was a row of bars, a peak figure
+    and nothing else; it is now quoted per bar and carries one sentence saying
+    whether the month being shown was a normal one.
+
+    **Every bar carries its own figure** — whole units, no sign, but the unit
+    named. Grosze and a leading minus would double the width of every quote to
+    repeat what the category and the sentence below already say; the currency
+    would not, and a bare number in a money app is the one thing worth spelling
+    out. It rides at 9px in a dimmer ink so the figure reads first. The size is
+    decided by the widest month in the real import — Salary at 34 046 zł, about
+    41px of a 47px column at 10px — which is also why the columns dropped from
+    `gap-2.5` to `gap-2`. What the card used to say instead
+    was "peak 738,00 zł", which had a bug in it: the peak was taken over *every*
+    month the category had ever seen while the bars drew six, so the number
+    routinely named a height no bar on screen had. It is gone rather than fixed
+    — the tallest bar is the one thing a bar chart never needed help saying.
+
+    **The window ends at the row's own month, not at today's.** A transaction
+    from 2024 was being shown beside the last six months of *now*, which contain
+    neither it nor anything near it: the block claimed to be context and was
+    about a different year. It is capped at the current month, because
+    `monthly_category_totals` is settled-only and a planned row's month has
+    nothing in it yet — so the sentence **names its month out loud**, and the cap
+    can never be read as the row's own month.
+
+    **A month still running is stated, never judged.** Comparing 21 days against
+    five whole months would report nearly everything as under — the partial
+    period trap `spending_pace` already documents — so the current month gets its
+    figure and the typical one beside it and no verdict, while a finished month
+    gets the full comparison. `medianOf`, `verdict` and the ±10% `LEVEL_BAND`
+    come from `src/lib/insights.ts` rather than being recomputed, so this card
+    and the Insight tab's Categories block cannot disagree about what counts as
+    normal. Fewer than two recorded prior months says so instead of comparing; a
+    typical of zero says "most months before it had none", which is the honest
+    reading for an occasional category rather than a division by nothing.
+
+    **A month the records do not reach shows an em dash, not a zero** — the same
+    distinction `bucketFlow` draws, and the reason `useEarliestTransactionDate`
+    now has a third caller. A recorded month with no spend in this category is a
+    real zero and keeps its 3px stub.
+
+    **`useMonthlyTotals` became `useCategoryMonthlyTotals(category, from, to)`,
+    and that was a latent bug, not tidying.** The screen pulled every category's
+    monthly totals for the currency and filtered in the browser: measured at
+    **979 rows against PostgREST's 1000-row cap**, twenty-one rows of headroom
+    on a table growing by about sixty a month. Truncation is silent (invariant
+    2) and the rows arrive ordered by month, so it would have dropped the
+    *newest* ones — the chart would have started drawing empty bars for recent
+    months while looking perfectly well-formed. Scoped, the answer is six rows.
+
+21. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
     already permits exactly that case and nothing else. Tag CRUD has no design
     yet, which is why `/tags` is a list and not an editor. The **budget detail
     screen** is named by the budgets handoff and deliberately left undesigned;
     until it exists, a list row and a rail card both open the editor, which is
     the only thing there is to do with a budget.
-21. Deferred by explicit decision: split transactions, FX conversion in charts
+22. Deferred by explicit decision: split transactions, FX conversion in charts
    (`exchange_rates`), MCP/AI entry.
 
 Resolved by the redesign: icons are Lucide; both light and dark grounds ship, each

@@ -25,10 +25,10 @@ import { iconFor } from '@/lib/icons'
 import { isAdjustment } from '@/lib/adjustments'
 import {
   useAddTransaction,
-  useBudgetProgress,
   useCategories,
+  useCategoryMonthlyTotals,
   useDeleteTransaction,
-  useMonthlyTotals,
+  useEarliestTransactionDate,
   useTags,
   useTransaction,
   useTransactionTags,
@@ -42,39 +42,94 @@ import {
   formatAmount,
   formatAmountMoney,
   formatMoney,
+  formatMoneyShort,
   formatSigned,
   formatSignedMoney,
 } from '@/lib/money'
-import { addMonths, formatFullDate, formatMonthShort, startOfMonth, today } from '@/lib/dates'
+import {
+  addMonths,
+  formatFullDate,
+  formatMonthLong,
+  formatMonthShort,
+  startOfMonth,
+  today,
+} from '@/lib/dates'
+import { medianOf, verdict, type Tone } from '@/lib/insights'
 import { isPlanned } from '@/lib/schedules'
 import { categoryVar } from '@/theme/tokens'
 
 const CURRENCY = 'PLN'
 
-/** Six-month history for the category, current month highlighted. */
+/** Earlier of two 'YYYY-MM-DD' days — they sort lexically, so no parsing. */
+const minDay = (a: string, b: string): string => (a < b ? a : b)
+
+/**
+ * Six months of one category, the last of them highlighted.
+ *
+ * **Every bar is quoted**, not just the tallest. The card used to carry a
+ * single "peak 738,00 zł" in its header and leave the other five to be
+ * estimated off a bar's height, which is precisely the reading a bar chart is
+ * bad at — you can see that June was the big one without being told, and what
+ * you cannot see is what any of them were worth.
+ *
+ * **Whole units and no sign, but the unit is named.** Grosze and a leading
+ * minus would double the width of every quote to say what the category and the
+ * sentence below already say; the currency would not, and a bare number in a
+ * money app is the one thing worth spelling out. It rides at 9px in a dimmer
+ * ink so the figure still reads first, and the whole quote is 10px rather than
+ * the label's 11 — measured against the widest month in the real import
+ * (Salary at 34 046 zł), which needs about 41px of a 47px column. That is the
+ * case that decides the size, and it is why the columns are on `gap-2` rather
+ * than the 2.5 the bars had to themselves.
+ *
+ * **A month the records do not reach gets an em dash, not a zero.** Before the
+ * first transaction ever recorded there is no "nothing spent" to report, and
+ * printing 0 would claim one — the same distinction `bucketFlow` draws on the
+ * Insight tab. A recorded month with no spend in this category is a real zero
+ * and keeps its 3px stub.
+ */
 function CategoryHistory({
-  totals,
+  months,
+  values,
+  recorded,
   color,
+  currency,
 }: {
-  totals: { month: string | null; total: number | null }[]
+  /** Six 'YYYY-MM-01' days, oldest first. */
+  months: string[]
+  /** Magnitudes in minor units, aligned to `months`. */
+  values: number[]
+  /** Whether the record covers that month at all. */
+  recorded: boolean[]
   color: string
+  currency: string
 }) {
-  const months = Array.from({ length: 6 }, (_, i) =>
-    startOfMonth(addMonths(today(), -(5 - i))),
-  )
-  const values = months.map((m) => {
-    const row = totals.find((t) => t.month === m)
-    return Math.abs(row?.total ?? 0)
-  })
   const max = Math.max(...values, 1)
   const current = months.length - 1
+  const unit = currencySymbol(currency)
 
   return (
     // Columns must stretch to the container's height, not shrink to their
     // content — a percentage height needs a definite parent to resolve against.
-    <div className="flex h-[110px] gap-2.5">
+    <div className="flex h-[128px] gap-2">
       {values.map((v, i) => (
-        <div key={months[i]} className="flex flex-1 flex-col items-center gap-2">
+        <div key={months[i]} className="flex flex-1 flex-col items-center gap-1.5">
+          <span
+            className={`tnum text-[10px] whitespace-nowrap ${
+              i === current ? 'font-semibold text-ink' : 'font-medium text-ink-dim'
+            }`}
+          >
+            {recorded[i] ? (
+              <>
+                {formatMoneyShort(asMinor(v))}
+                <span className="ml-[2px] text-[9px] font-medium text-ink-dim">
+                  {unit}
+                </span>
+              </>
+            ) : (
+              '—'
+            )}
+          </span>
           <div className="flex w-full flex-1 items-end">
             {/* Filled rather than outlined now: the bars sit on a card, not on
                 the ground, so an outline reads as a hole in it. The current
@@ -106,6 +161,97 @@ function CategoryHistory({
   )
 }
 
+const toneColour: Record<Tone, string> = {
+  over: 'var(--color-expense)',
+  under: 'var(--color-income)',
+  level: 'var(--color-ink-muted)',
+}
+
+/**
+ * What the six bars add up to saying, in one sentence.
+ *
+ * The block was a chart with no claim attached: a row of bars, a peak, and the
+ * reader left to work out whether the month they were looking at was a normal
+ * one. This says it.
+ *
+ * **The named month is always the last bar**, never "this transaction's month",
+ * because for a planned row those differ — the window stops at the current
+ * month, since nothing later is settled and every bar past it would be empty.
+ * Naming the month out loud is what keeps that honest in every case.
+ *
+ * **A month still running is stated, never judged.** Comparing 21 days against
+ * five whole months would report almost everything as under, which is the
+ * partial-period trap `spending_pace` documents; so the current month gets its
+ * figure and the typical one beside it, and no verdict. A month that is over
+ * gets the full comparison.
+ *
+ * `medianOf` and `verdict` come from the Insight tab rather than being
+ * recomputed here, so this card and the Categories block cannot disagree about
+ * what counts as normal — including the ±10% band inside which nothing is
+ * coloured at all.
+ */
+function CategoryVerdict({
+  values,
+  recorded,
+  months,
+  partial,
+  currency,
+}: {
+  values: number[]
+  recorded: boolean[]
+  months: string[]
+  /** The last month has not finished yet. */
+  partial: boolean
+  currency: string
+}) {
+  const last = values.length - 1
+  const shown = values[last] ?? 0
+  const priors = values.filter((_, i) => i !== last && recorded[i])
+  const typical = medianOf(priors)
+  const call = verdict(shown, typical)
+
+  const amount = formatAmountMoney(asMinor(shown), currency)
+  const usual = formatAmountMoney(asMinor(typical), currency)
+  const month = formatMonthLong(months[last]!)
+
+  return (
+    <p className="mt-3 text-[12.5px] leading-[1.5] text-ink-muted">
+      {/* Plain, like the rest of the sentence. It was ink and semibold, which
+          made the sentence open on a second hero after the 42px one at the top
+          of the screen — and set the leading figure above the one it is being
+          compared against, when the whole point is that they are two readings
+          of the same kind. Only the verdict is emphasised now. */}
+      <span className="tnum">{amount}</span>
+      {partial ? ` so far in ${month}` : ` in ${month}`}
+      {priors.length < 2 ? (
+        <>. Not enough history yet to say what is usual.</>
+      ) : typical === 0 ? (
+        <>. Most months before it had none.</>
+      ) : partial ? (
+        <>
+          {' — a usual month runs '}
+          <span className="tnum">{usual}</span>.
+        </>
+      ) : call && call.tone !== 'level' ? (
+        <>
+          {' — '}
+          <span className="font-semibold" style={{ color: toneColour[call.tone] }}>
+            {Math.round(Math.abs(call.pct) * 100)}%{' '}
+            {call.tone === 'over' ? 'more' : 'less'}
+          </span>
+          {' than the usual '}
+          <span className="tnum">{usual}</span>.
+        </>
+      ) : (
+        <>
+          {' — about the usual '}
+          <span className="tnum">{usual}</span>.
+        </>
+      )}
+    </p>
+  )
+}
+
 export function TransactionScreen() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -119,9 +265,29 @@ export function TransactionScreen() {
   const balances = useWalletBalances()
   const allTags = useTags()
   const txTags = useTransactionTags(id)
-  const budgets = useBudgetProgress()
   const legs = useTransferLegs(tx.data?.transfer_id)
-  const monthly = useMonthlyTotals(CURRENCY)
+  const firstDay = useEarliestTransactionDate()
+
+  // The six months the history is drawn over, ending at this row's own month
+  // rather than always at today's. A transaction from 2024 used to be shown
+  // beside the last six months of *now*, which contain neither it nor anything
+  // near it — the block claimed to be context and was about a different year.
+  //
+  // Capped at the current month, because `monthly_category_totals` is settled
+  // only: a planned row's month has nothing in it yet, and six bars ending
+  // three months in the future would be three empty ones. The sentence under
+  // the bars names its month out loud, so the cap can never be mistaken for the
+  // row's own month.
+  const lastMonth = minDay(
+    startOfMonth(tx.data?.date ?? today()),
+    startOfMonth(today()),
+  )
+  const monthly = useCategoryMonthlyTotals(
+    tx.data?.category_id,
+    addMonths(lastMonth, -5),
+    lastMonth,
+    CURRENCY,
+  )
   const remove = useDeleteTransaction()
   const duplicate = useAddTransaction()
 
@@ -149,13 +315,6 @@ export function TransactionScreen() {
     .filter((t) => (txTags.data ?? []).includes(t.id))
     .map((t) => t.name)
 
-  // Budgets this transaction could count against: same currency, and either
-  // unfiltered or naming this category.
-  const budget = (budgets.data ?? []).find((b) => b.currency === CURRENCY)
-
-  const categoryTotals = (monthly.data ?? []).filter(
-    (m) => m.category_id === row.category_id,
-  )
 
   const outLeg = legs.data?.find((l) => l.amount < 0)
   const inLeg = legs.data?.find((l) => l.amount > 0)
@@ -173,12 +332,20 @@ export function TransactionScreen() {
         ? 'var(--color-income)'
         : 'var(--color-expense)'
 
-  // The tallest bar in the six-month history, so the card can say what the
-  // scale actually is instead of leaving it to be guessed.
-  const categoryPeak = categoryTotals.reduce(
-    (max, m) => Math.max(max, Math.abs(m.total ?? 0)),
-    0,
+  // The six columns, resolved once and handed to both the bars and the sentence
+  // so they cannot describe different numbers.
+  const historyMonths = Array.from({ length: 6 }, (_, i) =>
+    addMonths(lastMonth, -(5 - i)),
   )
+  const historyValues = historyMonths.map((m) =>
+    Math.abs((monthly.data ?? []).find((t) => t.month === m)?.total ?? 0),
+  )
+  // A month is "recorded" once the history reaches it. Before the first
+  // transaction ever there is no zero to report, only an absence.
+  const historyRecorded = historyMonths.map((m) =>
+    firstDay.data ? m >= startOfMonth(firstDay.data) : false,
+  )
+  const historyPartial = lastMonth === startOfMonth(today())
 
   const onDelete = async () => {
     await remove.mutateAsync(row)
@@ -415,58 +582,33 @@ export function TransactionScreen() {
                   </DetailRow>
                 </Card>
 
-                {budget && (budget.limit_amount ?? 0) > 0 && (
-                  <section className="flex flex-col gap-2">
-                    <Label className="px-1">Against the budget</Label>
-                    <Card className="p-[18px]">
-                      <div className="flex items-baseline justify-between">
-                        <span className="text-[15px] font-medium">{budget.name}</span>
-                        <span className="tnum text-[13px] text-ink-muted">
-                          {formatAmount(asMinor(budget.spent ?? 0))} /{' '}
-                          {formatAmountMoney(
-                            asMinor(budget.limit_amount ?? 0),
-                            budget.currency ?? CURRENCY,
-                          )}
-                        </span>
-                      </div>
-                      {/* This transaction's slice sits at the end of the spent
-                          portion, so its share of the month is legible at a
-                          glance. */}
-                      <div className="mt-3 flex h-1.5 overflow-hidden rounded-full bg-track">
-                        <div
-                          style={{
-                            width: `${Math.min(100, (((budget.spent ?? 0) - Math.abs(row.amount)) / (budget.limit_amount || 1)) * 100)}%`,
-                            background: 'var(--color-ink-dim)',
-                          }}
-                        />
-                        <div
-                          style={{
-                            width: `${Math.min(100, (Math.abs(row.amount) / (budget.limit_amount || 1)) * 100)}%`,
-                            background: accent,
-                          }}
-                        />
-                      </div>
-                      <p className="mt-2.5 text-[12.5px] text-ink-muted">
-                        This one is{' '}
-                        {formatAmountMoney(
-                          asMinor(Math.abs(row.amount)),
-                          budget.currency ?? CURRENCY,
-                        )}{' '}
-                        of it.
-                      </p>
-                    </Card>
-                  </section>
-                )}
-
+                {/* The peak that used to sit on the right of this row is gone:
+                    every bar carries its own figure now, and the tallest one is
+                    the one thing a bar chart never needed help saying. The
+                    label says which six months these are, since they end at the
+                    row's month rather than always at this one. */}
                 <section className="flex flex-col gap-2">
-                  <div className="flex items-baseline justify-between px-1">
-                    <Label>{category?.name ?? 'Category'} · six months</Label>
-                    <span className="tnum text-[12px] text-ink-muted">
-                      peak {formatAmountMoney(asMinor(categoryPeak), CURRENCY)}
-                    </span>
-                  </div>
+                  <Label className="px-1">
+                    {category?.name ?? 'Category'} ·{' '}
+                    {historyPartial
+                      ? 'last six months'
+                      : `six months to ${formatMonthLong(lastMonth)}`}
+                  </Label>
                   <Card className="p-[18px]">
-                    <CategoryHistory totals={categoryTotals} color={accent} />
+                    <CategoryHistory
+                      months={historyMonths}
+                      values={historyValues}
+                      recorded={historyRecorded}
+                      color={accent}
+                      currency={wallet?.currency ?? CURRENCY}
+                    />
+                    <CategoryVerdict
+                      months={historyMonths}
+                      values={historyValues}
+                      recorded={historyRecorded}
+                      partial={historyPartial}
+                      currency={wallet?.currency ?? CURRENCY}
+                    />
                   </Card>
                 </section>
               </>
