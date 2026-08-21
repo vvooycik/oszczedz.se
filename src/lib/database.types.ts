@@ -859,7 +859,7 @@ export type Database = {
       }
     }
     Enums: {
-      budget_period: "monthly" | "weekly" | "yearly"
+      budget_period: "monthly" | "weekly" | "yearly" | "daily"
       category_kind: "income" | "expense" | "transfer"
       schedule_frequency: "daily" | "weekly" | "monthly" | "yearly"
       wallet_type: "account" | "savings" | "credit_card" | "loan"
@@ -993,7 +993,7 @@ export const Constants = {
   },
   public: {
     Enums: {
-      budget_period: ["monthly", "weekly", "yearly"],
+      budget_period: ["monthly", "weekly", "yearly", "daily"],
       category_kind: ["income", "expense", "transfer"],
       schedule_frequency: ["daily", "weekly", "monthly", "yearly"],
       wallet_type: ["account", "savings", "credit_card", "loan"],

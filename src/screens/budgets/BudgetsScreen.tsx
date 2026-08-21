@@ -35,8 +35,12 @@ const CURRENCY = 'PLN'
 
 const GROUPS: Verdict[] = ['over', 'at-risk', 'on-track']
 
+// The soonest reset, as a phrase. Zero used to read "Last day", which is true
+// of a month on its 31st and permanently true once a daily budget joins the
+// list — where it sounds like an alarm about something that happens every
+// morning. "Resets today" is the same fact without the urgency.
 const daysChip = (days: number): string =>
-  days === 0 ? 'Last day' : `${days} day${days === 1 ? '' : 's'}`
+  days === 0 ? 'Resets today' : `${days} day${days === 1 ? '' : 's'}`
 
 /**
  * One segment per budget, sized by its share of the *total* limit, with the
@@ -155,19 +159,29 @@ function BudgetRow({ budget }: { budget: BudgetProgress }) {
           {/* Thinner and ink-dim throughout: time is the reference the spend is
               read against, never the subject, and it takes no verdict colour of
               its own — the period passes at the same rate whatever the budget
-              is doing. */}
-          <span className="h-[3px] rounded-full bg-track">
-            <span
-              className="block h-[3px] rounded-full"
-              style={{
-                width: `${(day / days) * 100}%`,
-                background: 'var(--color-ink-dim)',
-              }}
-            />
-          </span>
-          <span className="tnum text-kicker whitespace-nowrap text-ink-faint">
-            day {day} of {days}
-          </span>
+              is doing.
+
+              Absent on a daily budget, both cells together so the grid keeps its
+              pairs. "day 1 of 1" under a permanently full bar would read as a
+              period that has run out, when what it means is that the app has no
+              finer grain than a day (invariant 3) and so nothing to measure the
+              elapsed fraction of one with. */}
+          {budget.period !== 'daily' && (
+            <>
+              <span className="h-[3px] rounded-full bg-track">
+                <span
+                  className="block h-[3px] rounded-full"
+                  style={{
+                    width: `${(day / days) * 100}%`,
+                    background: 'var(--color-ink-dim)',
+                  }}
+                />
+              </span>
+              <span className="tnum text-kicker whitespace-nowrap text-ink-faint">
+                day {day} of {days}
+              </span>
+            </>
+          )}
         </div>
 
         <div className="mt-[3px] truncate text-meta-sm text-ink-faint">

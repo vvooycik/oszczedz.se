@@ -183,13 +183,35 @@ and it buys nothing, because the editor requires at least one category and
 nobody picks that one.
 
 "Reset" is still not stored, but it is no longer always the calendar month.
-`period` is `monthly | weekly | yearly` and `resets_on` is **one integer read
-three ways** — day of month 1–31 (clamped to short months, so a payday budget on
-the 31st runs 31 Jan → 28 Feb), weekday 0–6 with 0 = Sunday (matching both
-`extract(dow)` and `getDay()`), or an ordinal 1–365 against a fixed *non-leap*
-reference year, which is a month/day pair in disguise and is what stops an
-anniversary drifting every February. That one column is why there is no separate
-"custom" period.
+`period` is `daily | weekly | monthly | yearly` and `resets_on` is **one integer
+read three ways** — day of month 1–31 (clamped to short months, so a payday
+budget on the 31st runs 31 Jan → 28 Feb), weekday 0–6 with 0 = Sunday (matching
+both `extract(dow)` and `getDay()`), or an ordinal 1–365 against a fixed
+*non-leap* reference year, which is a month/day pair in disguise and is what
+stops an anniversary drifting every February. That one column is why there is no
+separate "custom" period.
+
+**Four periods, three readings**: `daily` does not read `resets_on` at all,
+because a day has no start to choose. The column is not-null and shared by all
+four, so the CHECK **pins it to 1** there rather than leaving it loose — the old
+`case` had no `else`, and an unlisted period evaluated to NULL, which a CHECK
+*passes*, so a daily budget would have silently carried whatever value the
+period it was switched from had left behind. `hasResetChoice` in
+`src/lib/budgets.ts` is the client's one copy of the same fact, and it is why
+the editor's "Resets on" row is absent rather than present with one option.
+
+A one-day period changes no arithmetic upstream, which is worth stating because
+it was checked rather than assumed. Rollover still works and is the reason to
+want this — the rollover window is the bounds of `period_start - 1`, so an
+unspent day adds its remainder to today. A daily budget can never read **at
+risk**, and loses nothing by it: over one day the projection *is* the spend, so
+anything it could flag `over` has already caught. And `budget_spend`'s
+settled/planned clamp gives the whole day to settled and nothing to planned,
+which is right — there is no "later this period" inside a day. On screen that
+means the list row drops its `day n of n` track (a permanently full bar under
+"day 1 of 1" reads as a period that has run out, when what it means is that the
+app has no grain finer than a day) and the rail card reads `today` instead of
+counting down to a reset that is always tonight.
 
 `rollover` adds the previous period's unspent remainder to this period's limit —
 **one period, never compounding**, and overspend never carries as a debt. The
@@ -1567,13 +1589,40 @@ About row. Bump the version there, not in the component.
     all 41 `text-*` references, 27 as utilities and 14 as `var()`, resolve
     against the built stylesheet, and no literal remains in the source.
 
-23. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
+23. **Daily budgets — DONE.** A fourth `budget_period`, described in the domain
+    model above. Two migrations, because Postgres refuses to *use* an enum value
+    added in the same transaction — the same reason `weekly` and `yearly` needed
+    their own two-line file.
+
+    **The period track is now ordered shortest to longest** — Daily, Weekly,
+    Monthly, Yearly — rather than keeping Monthly first because it was there
+    first. Four segments fit: measured against the existing four-option range
+    track, the widest label ("Monthly", ~50px at `text-meta`/600) sits inside
+    the ~58px each segment has at 390px.
+
+    **The summary chip's zero changed from "Last day" to "Resets today."** It
+    names the *soonest* reset across every budget, so once one of them is daily
+    it read "Last day" every day of the year — an alarm about something that
+    happens every morning. Same fact, no urgency, and still correct for a month
+    on its 31st.
+
+    **Verified against the real database, not in a browser** — the Chrome
+    extension was not connected this session, so this fell back to the project's
+    usual method. Inside a rolled-back transaction: the bounds for a daily
+    budget on an ordinary day, on 28 February of a leap year and on 31 December
+    (and the other three periods unmoved by the rewrite); a real daily budget
+    with `rollover` on, which returned today as its window, 12 zł spent, 30 zł
+    rolled over from yesterday's unspent 50, and `planned` at 0 with a
+    future-dated row sitting one day past the period; and the CHECK refusing
+    `resets_on = 25` on a daily row.
+
+24. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
     already permits exactly that case and nothing else. Tag CRUD has no design
     yet, which is why `/tags` is a list and not an editor. The **budget detail
     screen** is named by the budgets handoff and deliberately left undesigned;
     until it exists, a list row and a rail card both open the editor, which is
     the only thing there is to do with a budget.
-24. Deferred by explicit decision: split transactions, FX conversion in charts
+25. Deferred by explicit decision: split transactions, FX conversion in charts
    (`exchange_rates`), MCP/AI entry.
 
 Resolved by the redesign: icons are Lucide; both light and dark grounds ship, each

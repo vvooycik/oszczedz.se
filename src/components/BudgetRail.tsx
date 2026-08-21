@@ -156,6 +156,10 @@ function BudgetCard({ budget }: { budget: BudgetProgress }) {
   const colour = over ? 'var(--color-expense)' : categoryVar(budget.color)
   const Icon = iconFor(budget.glyph)
   const left = daysLeft(budget)
+  // A daily budget is always on its last day, so counting them down says
+  // nothing. It reads "today" instead — which is the whole of what its window
+  // is, and the one word that fits the ~46px this line shares with the ring.
+  const daily = budget.period === 'daily'
 
   return (
     <Link to={`/budgets/${budget.budget_id}/edit`} className={ITEM}>
@@ -172,7 +176,13 @@ function BudgetCard({ budget }: { budget: BudgetProgress }) {
           </Ring>
           <span
             className="flex flex-col items-end"
-            title={left === 0 ? 'Last day of the period' : `${left} days left`}
+            title={
+              daily
+                ? 'Today — a daily budget starts again every morning'
+                : left === 0
+                  ? 'Last day of the period'
+                  : `${left} days left`
+            }
           >
             <span
               className="tnum text-meta font-semibold"
@@ -184,7 +194,7 @@ function BudgetCard({ budget }: { budget: BudgetProgress }) {
                 "30 days left" is ~62px against ~46px of usable room at the
                 narrowest card. The `title` carries the full phrase. */}
             <span className="tnum mt-0.5 text-micro whitespace-nowrap text-ink-faint">
-              {left === 0 ? 'last' : `${left}d`}
+              {daily ? 'today' : left === 0 ? 'last' : `${left}d`}
             </span>
           </span>
         </div>

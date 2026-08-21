@@ -30,6 +30,7 @@ import {
 } from '@/data/queries'
 import {
   defaultResetsOn,
+  hasResetChoice,
   nextPeriodNoun,
   perPeriod,
   PERIOD_OPTIONS,
@@ -591,25 +592,32 @@ export function BudgetEditScreen() {
                   onChange={(period: BudgetPeriod) =>
                     // `resets_on` cannot ride across: the CHECK constraint reads
                     // it against the period, so the 25th is illegal the instant
-                    // this becomes weekly.
+                    // this becomes weekly — and illegal on a daily budget, which
+                    // pins the column to 1 because it never reads it.
                     patch({ period, resets_on: defaultResetsOn(period) })
                   }
                 />
               </div>
 
-              <Divider inset={0} />
-              <button
-                type="button"
-                onMouseDown={keepFocus}
-                onClick={() => setResetsOpen(true)}
-                className="flex w-full items-center gap-3 px-4 py-[13px] text-left active:bg-press"
-              >
-                <span className="flex-1 text-row font-medium">Resets on</span>
-                <span className="flex items-center gap-1.5 text-value text-ink-muted">
-                  {resetsOnLabel(draft.period, draft.resets_on)}
-                  <IconSelector size={17} stroke={2} className="text-ink-dim" />
-                </span>
-              </button>
+              {/* A day has no start to choose, so the row is absent rather than
+                  present with one option in it. */}
+              {hasResetChoice(draft.period) && (
+                <>
+                  <Divider inset={0} />
+                  <button
+                    type="button"
+                    onMouseDown={keepFocus}
+                    onClick={() => setResetsOpen(true)}
+                    className="flex w-full items-center gap-3 px-4 py-[13px] text-left active:bg-press"
+                  >
+                    <span className="flex-1 text-row font-medium">Resets on</span>
+                    <span className="flex items-center gap-1.5 text-value text-ink-muted">
+                      {resetsOnLabel(draft.period, draft.resets_on)}
+                      <IconSelector size={17} stroke={2} className="text-ink-dim" />
+                    </span>
+                  </button>
+                </>
+              )}
 
               <Divider inset={0} />
               <div className="flex items-center gap-3 px-4 py-[13px]">

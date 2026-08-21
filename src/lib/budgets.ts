@@ -37,6 +37,10 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
  * A daily rate over one or two days says nothing — a single big shop on day one
  * projects to thirty of them. Below this, every budget reads as on track and the
  * projection sentence is withheld rather than guessed.
+ *
+ * A daily budget is therefore never "at risk", and loses nothing by it: over a
+ * one-day period the projection *is* the spend, so anything it could flag,
+ * `over` has already caught.
  */
 const RATE_SETTLES_ON_DAY = 3
 
@@ -114,18 +118,37 @@ export function verdictOf(b: BudgetProgress, on: string = today()): Verdict {
 /* ------------------------------------------------------------------ periods */
 
 export const PERIOD_OPTIONS: { key: BudgetPeriod; label: string }[] = [
-  { key: 'monthly', label: 'Monthly' },
+  { key: 'daily', label: 'Daily' },
   { key: 'weekly', label: 'Weekly' },
+  { key: 'monthly', label: 'Monthly' },
   { key: 'yearly', label: 'Yearly' },
 ]
 
+/** The noun for one period, singular: "day", "week", "month", "year". */
+export const periodNoun = (period: BudgetPeriod): string =>
+  period === 'daily'
+    ? 'day'
+    : period === 'weekly'
+      ? 'week'
+      : period === 'yearly'
+        ? 'year'
+        : 'month'
+
 /** The sub-line under the limit figure: "per month". */
-export const perPeriod = (period: BudgetPeriod): string =>
-  period === 'weekly' ? 'per week' : period === 'yearly' ? 'per year' : 'per month'
+export const perPeriod = (period: BudgetPeriod): string => `per ${periodNoun(period)}`
 
 /** "Adds unspent zł to next month" — the rollover row's meta. */
-export const nextPeriodNoun = (period: BudgetPeriod): string =>
-  period === 'weekly' ? 'week' : period === 'yearly' ? 'year' : 'month'
+export const nextPeriodNoun = periodNoun
+
+/**
+ * Whether the period has a start to *choose*.
+ *
+ * Three of the four do — a day of the month, a weekday, an anniversary — and
+ * `resets_on` is that one integer read three ways. A day has none: it begins
+ * when it begins. So the editor's "Resets on" row is not a row with one option,
+ * it is a row that is not there, and this is the one place that says so.
+ */
+export const hasResetChoice = (period: BudgetPeriod): boolean => period !== 'daily'
 
 /** Sunday-first, because `resets_on` for a weekly budget is `getDay()`. */
 export const WEEKDAYS = [
@@ -145,14 +168,16 @@ const ordinal = (n: number): string => {
 }
 
 /**
- * `resets_on` is one integer read three ways, and this is the only place that
- * knows which — see the migration for why it is one column.
+ * `resets_on` is one integer read three ways — four periods, but a daily one
+ * does not read it at all — and this is the only place that knows which. See
+ * the migration for why it is one column.
  *
  * The yearly case decodes an ordinal against 2001, a non-leap year, which is
  * exactly how the database encodes it: the anniversary is a month and a day, and
  * a plain day-of-year would walk it forward every February.
  */
 export function resetsOnLabel(period: BudgetPeriod, resetsOn: number): string {
+  if (period === 'daily') return 'Every day'
   if (period === 'weekly') return WEEKDAYS[resetsOn % 7] ?? 'Sunday'
   if (period === 'yearly') {
     const { month, day } = yearlyDate(resetsOn)
@@ -200,6 +225,10 @@ export const daysInMonth = (month: number): number =>
  *
  * Monday rather than Sunday even though the encoding is Sunday-first, because
  * the app's calendar grid is Monday-first everywhere else.
+ *
+ * 1 is also the only value a daily budget may hold — the column is unread
+ * there, and the CHECK pins it rather than letting a switched-from period leave
+ * its own answer behind.
  */
 export const defaultResetsOn = (_period: BudgetPeriod): number => 1
 
