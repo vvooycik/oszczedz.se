@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { ADJUSTMENT_CATEGORY } from '@/lib/adjustments'
 import { asMinor, type Minor } from '@/lib/money'
-import { today } from '@/lib/dates'
+import { endOfMonth, startOfMonth, today } from '@/lib/dates'
 import { HORIZON_DAYS, upcomingHorizon } from '@/lib/schedules'
 import type {
   BudgetPeriod,
@@ -29,6 +29,9 @@ const unwrap = <T>({ data, error }: { data: T | null; error: unknown }): T => {
   if (error) throw error
   return data as T
 }
+
+/** Earlier of two 'YYYY-MM-DD' days — they sort lexically, so no parsing. */
+const min = (a: string, b: string): string => (a < b ? a : b)
 
 /* --------------------------------------------------------------- reference */
 
@@ -98,33 +101,57 @@ export const useWalletBalances = () =>
 /* ------------------------------------------------------------ transactions */
 
 /**
- * Recent rows for the feed. Reference data (wallets, categories) is joined
- * client-side from its own cached query rather than embedded here — there are a
- * handful of each, so re-sending their names on every page of transactions
- * would cost more than it saves.
+ * One calendar month of settled rows, for the feed.
+ *
+ * **A month, not the most recent 100.** The feed used to be a rolling window of
+ * whatever happened last, which made "what did I spend in March" a scroll with
+ * no end in sight and no way to know when you had arrived. A month is the unit
+ * the reader already thinks in, and it is what makes the stepper above the list
+ * possible at all — a fixed count has no previous page to step to.
+ *
+ * `to` is clamped to today, so the current month stops at the record and the
+ * planned rows sitting further down it stay on `/scheduled` (invariant 3b).
+ * A month entirely in the future is answered without a round trip.
+ *
+ * **Bounded by the calendar, which is the only reason there is no paging here**
+ * — see invariant 2 on the silent 1000-row truncation. Measured over the real
+ * import, the busiest month is 224 rows; a month would have to be four times
+ * heavier than anything ever recorded to reach the cap.
+ *
+ * Reference data (wallets, categories) is joined client-side from its own
+ * cached query rather than embedded here — there are a handful of each, so
+ * re-sending their names on every row would cost more than it saves.
  */
-export const useRecentTransactions = (limit = 100) =>
-  useQuery({
-    queryKey: ['transactions', 'recent', limit, today()],
-    queryFn: async (): Promise<Transaction[]> =>
-      unwrap(
+export const useMonthTransactions = (month: string) => {
+  const from = startOfMonth(month)
+  // `today()` is in the key as well as the bound, so the current month picks up
+  // a row the moment the calendar rolls onto its day.
+  const to = min(endOfMonth(month), today())
+
+  return useQuery({
+    queryKey: ['transactions', 'month', from, to],
+    queryFn: async (): Promise<Transaction[]> => {
+      if (to < from) return []
+      return unwrap(
         await supabase
           .from('transactions')
           .select('*')
-          .lte('date', today())
+          .gte('date', from)
+          .lte('date', to)
           .order('date', { ascending: false })
-          .order('created_at', { ascending: false })
-          .limit(limit),
-      ),
+          .order('created_at', { ascending: false }),
+      )
+    },
   })
+}
 
 /**
  * What is coming: planned rows, soonest first.
  *
  * Its own query rather than a slice of the feed's. Sorted the other way round,
- * for one thing — a queue reads forwards — but mainly because a horizon of
- * subscriptions could otherwise eat a chunk of the most recent 100 and quietly
- * shorten the history below it.
+ * for one thing — a queue reads forwards — but mainly because the two answer
+ * different questions: the feed is one calendar month of what happened, and
+ * what is coming runs four months past the end of it.
  *
  * Capped at a month out. The rows exist four months ahead so the chart's
  * forecast is never short, but a list that long stops being something you read
@@ -146,7 +173,7 @@ export const useUpcomingTransactions = () =>
   })
 
 /**
- * One wallet's recent rows, for its detail screen.
+ * One wallet's rows for one calendar month, for its detail screen.
  *
  * **Both legs of every transfer come back, not just this wallet's.** The feed
  * collapses a pair into one "source → target" line, and it can only do that with
@@ -170,21 +197,34 @@ export const useUpcomingTransactions = () =>
  * reading — and the whole of it is on `/scheduled`. The filter goes on the
  * first query alone; a transfer's two legs always share a date, so a sibling of
  * a settled leg is settled by construction.
+ *
+ * **A month, like the home feed**, and for the same reason: the screen carries
+ * a stepper, and a rolling hundred rows has no previous page to step to. The
+ * sibling query stays unbounded by date — it is looked up by `transfer_id`, and
+ * a pair shares a day anyway.
  */
-export const useWalletTransactions = (walletId: string | undefined, limit = 100) =>
-  useQuery({
-    queryKey: ['transactions', 'wallet', walletId, limit, today()],
+export const useWalletTransactions = (
+  walletId: string | undefined,
+  month: string,
+) => {
+  const from = startOfMonth(month)
+  const to = min(endOfMonth(month), today())
+
+  return useQuery({
+    queryKey: ['transactions', 'wallet', walletId, from, to],
     enabled: Boolean(walletId),
     queryFn: async (): Promise<Transaction[]> => {
+      if (to < from) return []
+
       const rows = unwrap<Transaction[]>(
         await supabase
           .from('transactions')
           .select('*')
           .eq('wallet_id', walletId!)
-          .lte('date', today())
+          .gte('date', from)
+          .lte('date', to)
           .order('date', { ascending: false })
-          .order('created_at', { ascending: false })
-          .limit(limit),
+          .order('created_at', { ascending: false }),
       )
 
       const transferIds = [
@@ -204,13 +244,15 @@ export const useWalletTransactions = (walletId: string | undefined, limit = 100)
       return [...rows, ...siblings]
     },
   })
+}
 
 /**
- * The first day with any activity — the left edge of the All time range.
+ * The first day with any activity — the left edge of the All time range, and
+ * the month the feed's back chevron stops at.
  *
- * Its own query rather than a `min()` over the feed's rows: that list is the
- * most recent 100, so the earliest date in it is a couple of months back, not
- * the start of the history.
+ * Its own query rather than a `min()` over the feed's rows: that list is one
+ * month, so the earliest date in it is the 1st of whatever month is on screen,
+ * not the start of the history.
  */
 export const useEarliestTransactionDate = () =>
   useQuery({

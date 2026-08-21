@@ -33,6 +33,12 @@ export function addMonths(iso: string, months: number): string {
 
 export const startOfMonth = (iso: string): string => `${iso.slice(0, 7)}-01`
 
+/** Last calendar day of the month `iso` falls in — day 0 of the next month. */
+export function endOfMonth(iso: string): string {
+  const d = fromISODate(iso)
+  return toISODate(new Date(d.getFullYear(), d.getMonth() + 1, 0))
+}
+
 const fmt = (opts: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat('en-GB', opts)
 
@@ -40,6 +46,7 @@ const dayHeaderFmt = fmt({ weekday: 'long', day: 'numeric', month: 'long' })
 const fullDateFmt = fmt({ weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 const monthShortFmt = fmt({ month: 'short', year: '2-digit' })
 const monthLongFmt = fmt({ month: 'long' })
+const monthYearFmt = fmt({ month: 'long', year: 'numeric' })
 
 /** "Friday 7 August" — the feed's day separator. */
 export const formatDayHeader = (iso: string): string =>
@@ -56,6 +63,19 @@ export const formatMonthShort = (iso: string): string =>
 /** "August" — budget period labels. */
 export const formatMonthLong = (iso: string): string =>
   monthLongFmt.format(fromISODate(iso))
+
+/**
+ * "August" this year, "August 2025" in any other — the feed's month stepper.
+ *
+ * The year is dropped for the current one because that is where the reader
+ * almost always is, and a heading that says the obvious out loud makes the two
+ * or three characters that actually matter harder to find. Stepping back past
+ * January brings it in, which is exactly when it starts carrying information.
+ */
+export const formatMonthLabel = (iso: string): string =>
+  iso.slice(0, 4) === today().slice(0, 4)
+    ? formatMonthLong(iso)
+    : monthYearFmt.format(fromISODate(iso))
 
 /**
  * Relative label the add screen shows instead of a bare date.

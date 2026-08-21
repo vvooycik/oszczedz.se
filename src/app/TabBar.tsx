@@ -40,7 +40,14 @@ const DEFAULT_CREATE = { label: 'Add transaction', to: '/add' }
 export const DOCK_SPACER = 96
 
 /**
- * A floating pill of five tabs with the add button as a square beside it.
+ * A floating pill of five tabs with the add button as a circle beside it.
+ *
+ * **Both are radius 999.** The handoff draws the button as a 60×60 squircle at
+ * radius 22, and a rounded square hard up against a pill of the same height
+ * left the two corners visibly arguing at the one point where they are 10px
+ * apart. Matching the dock is the whole of the fix; what it costs is that the
+ * button no longer says "different kind of object" through its shape alone, and
+ * carries that on its colour and its lane instead.
  *
  * Both are `position: absolute` inside a spacer at the foot of the scrolling
  * column, not a flex child of the frame. That is what makes the bar float clear
@@ -117,7 +124,7 @@ export function TabBar() {
       <button
         aria-label={create.label}
         onClick={() => navigate(create.to)}
-        className="pointer-events-auto absolute flex size-[60px] items-center justify-center rounded-card bg-accent text-accent-fg shadow-fab transition-transform duration-[90ms] active:scale-[.98]"
+        className="pointer-events-auto absolute flex size-[60px] items-center justify-center rounded-full bg-accent text-accent-fg shadow-fab transition-transform duration-[90ms] active:scale-[.98]"
         style={{ right: 16, bottom: 26 }}
       >
         <IconPlus size={26} stroke={2} />

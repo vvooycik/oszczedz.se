@@ -1037,6 +1037,14 @@ About row. Bump the version there, not in the component.
     - **The wallet colour row offers all ten slots**, not the handoff's seven.
       A wallet drawn from a narrower set would be the only place in the app
       where a colour is unavailable for no stated reason.
+    - **The add button is a circle, not the handoff's 60×60 at radius 22.** A
+      rounded square sitting 10px from a pill of the same height put two
+      different corner radii side by side at the only place they touch, and it
+      read as a mismatch rather than as a contrast. Both are radius 999 now. The
+      cost is that the button no longer distinguishes itself from the bar by
+      shape and leans on its colour and its own lane to do it — which is also
+      why the wallet detail screen's copy of it (painted in the wallet's colour)
+      had to change in the same breath. Two buttons, one shape, always.
 
     Built beyond a restyle, because they were cheap and the prototypes show
     them: a **wallet icon picker** (which is why `wallets.glyph` is nullable now
@@ -1314,13 +1322,68 @@ About row. Bump the version there, not in the component.
     two independent legs — invariant 8 defers the rate). Tags on a schedule, for
     the reason transfers have none. Notifications: the row is already on screen,
     and iOS PWAs are the wrong place to start.
-19. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
+19. **Feeds are one month at a time — DONE.** Both transaction lists stopped
+    being a rolling hundred rows and became a calendar month with a `‹ August ›`
+    stepper over them: the Home list, where the stepper sits where the "Recent"
+    label used to, directly under the budget rail; and the wallet detail feed,
+    where it sits between the Adjust balance / Categories card and the list.
+
+    **The stepper is independent of the chart's range, by decision.** The chart
+    reads a *balance*, which is a trailing window that has to end at today (and
+    a month past it, for the forecast); the list reads what happened, which is a
+    page you turn. Tying them together would mean either a chart that can no
+    longer end at now or a list you cannot leave August without also rewriting
+    the picture above it. Two controls, two questions.
+
+    **The month name is the heading, not a label above one.** "Recent" was true
+    of a rolling window and is a lie the moment the reader steps back to March,
+    so the row is the control and the heading at once — 15px ink rather than the
+    uppercase `Label`. On Home the `/scheduled` link keeps its place on the
+    right of that row and shortened to "Scheduled" to fit beside it, so the
+    stepper is a compact cluster on the left with a minimum-width label — which
+    is what stops the right chevron walking sideways between "May" and
+    "September". The wallet screen has nothing else on that line and takes the
+    component's `spread`: chevrons at the two edges, month centred between them.
+    Same bounds, same labels, one component.
+
+    **`src/components/MonthStepper.tsx` owns both bounds**, rather than each
+    screen computing its own — two callers with two copies of "where does the
+    history end" is how they start disagreeing. Forward stops at the current
+    month, because these lists are settled rows only and every month past this
+    one is empty by construction (invariant 3b). Back stops at the month of the
+    first activity *the caller knows about*, which is deliberately a different
+    fact on each screen: the whole history on Home (from
+    `useEarliestTransactionDate`, which is why that query now has two callers),
+    and this wallet's own first month on the detail screen. `earliest={null}`
+    means not yet known and disables the chevron for a beat rather than offering
+    a step whose destination has not arrived.
+
+    **The wallet's floor costs no query.** `wallet_monthly_net` is already
+    loaded there for the sparkline and holds one row per month the wallet saw
+    movement in, so the earliest of them *is* the first month there is anything
+    to show. Reaching for the global first-transaction date instead would let a
+    wallet opened last year page back through 2023 to find nothing.
+
+    `useMonthTransactions(month)` replaces `useRecentTransactions`, and
+    `useWalletTransactions` took a `month` in place of its `limit`. Both clamp
+    the upper bound to **`today()`**, the phone's day, so the current month
+    stops at the record and the planned rows further down it stay on
+    `/scheduled`; a month entirely in the future is answered without a round
+    trip. The wallet's *sibling* query stays unbounded by date — it is looked up
+    by `transfer_id`, and a pair shares a day anyway.
+
+    **There is no paging and none is needed** — the calendar is the bound.
+    Measured over the real import, the busiest month across every wallet is
+    **224 rows**, so a month would have to be four times heavier than anything
+    ever recorded to reach PostgREST's silent 1000-row truncation (invariant 2).
+
+20. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
     already permits exactly that case and nothing else. Tag CRUD has no design
     yet, which is why `/tags` is a list and not an editor. The **budget detail
     screen** is named by the budgets handoff and deliberately left undesigned;
     until it exists, a list row and a rail card both open the editor, which is
     the only thing there is to do with a budget.
-20. Deferred by explicit decision: split transactions, FX conversion in charts
+21. Deferred by explicit decision: split transactions, FX conversion in charts
    (`exchange_rates`), MCP/AI entry.
 
 Resolved by the redesign: icons are Lucide; both light and dark grounds ship, each

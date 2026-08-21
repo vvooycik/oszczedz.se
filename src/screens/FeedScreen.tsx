@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { IconArrowDownRight, IconArrowUpRight, IconArrowsLeftRight } from '@tabler/icons-react'
 import { BudgetRail } from '@/components/BudgetRail'
+import { MonthStepper } from '@/components/MonthStepper'
 import { sharedMonth, sortForHome } from '@/lib/budgets'
 import { TransactionFeed } from '@/components/TransactionFeed'
 import { FirstRunSetup } from '@/components/FirstRunSetup'
@@ -13,12 +14,12 @@ import {
   useBudgetProgress,
   useCategories,
   useEarliestTransactionDate,
-  useRecentTransactions,
+  useMonthTransactions,
   useWalletBalances,
   useWallets,
 } from '@/data/queries'
 import { asMinor, currencySymbol, formatAmountMoney, formatSigned } from '@/lib/money'
-import { addDays, addMonths, today } from '@/lib/dates'
+import { addDays, addMonths, formatMonthLabel, startOfMonth, today } from '@/lib/dates'
 
 // Charts are per-currency in v1 — no FX conversion.
 const CURRENCY = 'PLN'
@@ -102,10 +103,17 @@ export function FeedScreen() {
   const [range, setRange] = useState<Range>('1Q')
   const [compare, setCompare] = useState(true)
 
+  // The list's month, and deliberately not the chart's range. The chart above
+  // reads a *balance*, which is a trailing window ending now; the list reads
+  // what happened, which is a page you turn. Tying them together would mean
+  // either a chart that can no longer end at today or a list you cannot leave
+  // the current month without also rewriting the picture above it.
+  const [month, setMonth] = useState(() => startOfMonth(today()))
+
   const wallets = useWallets()
   const categories = useCategories()
   const balances = useWalletBalances()
-  const transactions = useRecentTransactions()
+  const transactions = useMonthTransactions(month)
   const budgets = useBudgetProgress()
   const firstDay = useEarliestTransactionDate()
 
@@ -296,23 +304,24 @@ export function FeedScreen() {
           Conditioning on planned rows instead would just be a second query on
           the home screen to decide whether to draw a word — and the screen
           behind it is worth reaching anyway, since it is where a schedule gets
-          made. */}
-      <div className="-mb-1.5">
-        <LabelRow
-          trailing={
-            <Link to="/scheduled" className="text-[12.5px] font-semibold text-accent">
-              Scheduled transactions
-            </Link>
-          }
-        >
-          Recent
-        </LabelRow>
+          made.
+
+          The word shortened from "Scheduled transactions" to "Scheduled" when
+          the stepper took the left of this row: two controls on one 358px line
+          is exactly enough, and the month name beside it already establishes
+          that the row is about *when*. */}
+      <div className="-mb-1.5 flex items-center justify-between px-1">
+        <MonthStepper month={month} onChange={setMonth} earliest={firstDay.data ?? null} />
+        <Link to="/scheduled" className="text-[12.5px] font-semibold text-accent">
+          Scheduled
+        </Link>
       </div>
 
       <TransactionFeed
         transactions={transactions.data ?? []}
         wallets={wallets.data}
         categories={categories.data}
+        empty={`Nothing recorded in ${formatMonthLabel(month)}.`}
       />
     </div>
   )

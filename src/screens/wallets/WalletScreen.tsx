@@ -11,6 +11,7 @@ import { FullScreen } from '@/app/AppShell'
 import { DOCK_SPACER } from '@/app/TabBar'
 import { useGoBack } from '@/app/useGoBack'
 import { useTheme } from '@/theme/ThemeProvider'
+import { MonthStepper } from '@/components/MonthStepper'
 import { Sparkline } from '@/components/Sparkline'
 import { TransactionFeed } from '@/components/TransactionFeed'
 import { Card, CardRow, Divider } from '@/components/ui/Card'
@@ -33,6 +34,7 @@ import {
   formatAmountMoney,
   formatSigned,
 } from '@/lib/money'
+import { formatMonthLabel, startOfMonth, today } from '@/lib/dates'
 import { balanceHistory, isArchived, loanStanding, walletGlyph } from '@/lib/wallets'
 import { categoryVar } from '@/theme/tokens'
 import { AdjustBalanceSheet } from './AdjustBalanceSheet'
@@ -67,8 +69,13 @@ export function WalletScreen() {
   const nets = useWalletMonthlyNet()
   const loans = useLoanProgress()
   const categories = useCategories()
-  const transactions = useWalletTransactions(id)
   const categoryIds = useWalletCategoryIds(id)
+
+  // Which month the feed at the foot of this screen is showing. Everything
+  // above it — the balance, the bar, the sparkline — is the wallet as it stands
+  // now and stays put; the list is the part you page through.
+  const [month, setMonth] = useState(() => startOfMonth(today()))
+  const transactions = useWalletTransactions(id, month)
 
   const [catOpen, setCatOpen] = useState(false)
   const [adjustOpen, setAdjustOpen] = useState(false)
@@ -111,6 +118,19 @@ export function WalletScreen() {
   const isCard = wallet.type === 'credit_card' && wallet.credit_limit !== null
   const chosen = categoryIds.data?.length ?? 0
   const trend = balanceHistory(wallet, nets.data ?? [])
+
+  // The stepper's floor, taken from the monthly nets this screen already loads
+  // for the sparkline rather than from a query of its own: that view has one
+  // row per month this wallet saw movement in, so the earliest of them *is* the
+  // first month there is anything to show. Using the global first-transaction
+  // date instead would let a wallet opened last year page back through 2023 to
+  // find nothing.
+  const firstMonth = (nets.data ?? [])
+    .filter((n) => n.wallet_id === wallet.id && n.month)
+    .reduce<string | null>(
+      (min, n) => (min == null || n.month! < min ? n.month! : min),
+      null,
+    )
 
   return (
     <FullScreen style={colourFieldStyle(wallet.color_scheme, resolvedMode)}>
@@ -278,6 +298,18 @@ export function WalletScreen() {
             </CardRow>
           </Card>
 
+          {/* `spread`, unlike Home's: nothing shares this line — there is no
+              `/scheduled` link on a wallet — so the chevrons take the two edges
+              and the month centres between them. */}
+          <div className="-mb-1.5 px-1">
+            <MonthStepper
+              month={month}
+              onChange={setMonth}
+              earliest={firstMonth}
+              spread
+            />
+          </div>
+
           {transactions.data ? (
             <TransactionFeed
               transactions={transactions.data}
@@ -286,6 +318,7 @@ export function WalletScreen() {
               // Every row is this wallet, so naming it on each one is noise. The
               // note keeps its place on the same line.
               hideWallet
+              empty={`Nothing moved through this wallet in ${formatMonthLabel(month)}.`}
             />
           ) : (
             <p className="py-8 text-center text-[13px] text-ink-muted">
@@ -306,7 +339,7 @@ export function WalletScreen() {
         <button
           aria-label={`Add transaction to ${wallet.name}`}
           onClick={() => navigate(`/add?wallet=${wallet.id}`)}
-          className="absolute flex size-[60px] items-center justify-center rounded-card text-accent-fg shadow-fab transition-transform duration-[90ms] active:scale-[.98]"
+          className="absolute flex size-[60px] items-center justify-center rounded-full text-accent-fg shadow-fab transition-transform duration-[90ms] active:scale-[.98]"
           style={{
             right: 16,
             bottom: 'calc(26px + env(safe-area-inset-bottom, 0px))',
