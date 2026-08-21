@@ -91,7 +91,7 @@ function Chip({
   const Icon = iconFor(glyph)
   return (
     <span
-      className="flex min-w-0 items-center gap-1.5 rounded-full py-[5px] pr-2.5 pl-[7px] text-[12.5px]"
+      className="flex min-w-0 items-center gap-1.5 rounded-full py-[5px] pr-2.5 pl-[7px] text-meta"
       style={{ background: 'var(--color-tile)' }}
     >
       <Icon size={14} stroke={2} style={{ color: colour, flex: 'none' }} />
@@ -129,8 +129,8 @@ function ScopeRow({
           {icon}
         </Tile>
         <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-medium">{title}</span>
-          <span className="mt-px block truncate text-[12.5px] text-ink-muted">
+          <span className="block text-row font-medium">{title}</span>
+          <span className="mt-px block truncate text-meta text-ink-muted">
             {meta}
           </span>
         </span>
@@ -151,7 +151,7 @@ function ScopeRow({
           ))}
           {hidden > 0 && (
             <span
-              className="tnum flex items-center rounded-full px-2.5 py-[5px] text-[12.5px] text-ink-muted"
+              className="tnum flex items-center rounded-full px-2.5 py-[5px] text-meta text-ink-muted"
               style={{ background: 'var(--color-tile)' }}
             >
               +{hidden}
@@ -263,7 +263,7 @@ export function BudgetEditScreen() {
     return (
       <FullScreen>
         <ScreenHeader title={editing ? 'Edit budget' : 'New budget'} onClose={goBack} />
-        <p className="px-4 pt-6 text-[13px] text-ink-muted">Loading…</p>
+        <p className="px-4 pt-6 text-value text-ink-muted">Loading…</p>
       </FullScreen>
     )
   }
@@ -375,7 +375,7 @@ export function BudgetEditScreen() {
         <ScreenHeader title={editing ? 'Edit budget' : 'New budget'} onClose={goBack} />
 
         <div className="no-scrollbar flex flex-1 flex-col gap-[14px] overflow-y-auto px-4 pt-2 pb-6">
-          {failure && <p className="px-1 text-[12.5px] text-expense">{failure}</p>}
+          {failure && <p className="px-1 text-meta text-expense">{failure}</p>}
 
           {/* ------------------------------------------------------ identity */}
           <Card className="flex flex-col items-center gap-3.5 p-[18px]">
@@ -401,7 +401,7 @@ export function BudgetEditScreen() {
               }}
               placeholder="Budget name"
               aria-label="Budget name"
-              className="w-full rounded-field bg-inset px-3.5 py-3 text-[16px] font-medium caret-accent outline-none placeholder:text-ink-faint"
+              className="w-full rounded-field bg-inset px-3.5 py-3 text-field font-medium caret-accent outline-none placeholder:text-ink-faint"
             />
 
             <button
@@ -413,7 +413,7 @@ export function BudgetEditScreen() {
               <span
                 className="tnum block"
                 style={{
-                  fontSize: 38,
+                  fontSize: 'var(--text-sheet)',
                   fontWeight: 600,
                   lineHeight: 1.1,
                   letterSpacing: '-.035em',
@@ -425,13 +425,13 @@ export function BudgetEditScreen() {
                 {formatAmount(asMinor(draft.amount))}
                 <span
                   className="text-ink-faint"
-                  style={{ fontSize: 19, fontWeight: 500, letterSpacing: 0 }}
+                  style={{ fontSize: 'var(--text-sheet-unit)', fontWeight: 500, letterSpacing: 0 }}
                 >
                   {' '}
                   {currencySymbol(CURRENCY)}
                 </span>
               </span>
-              <span className="mt-0.5 block text-[12.5px] text-ink-muted">
+              <span className="mt-0.5 block text-meta text-ink-muted">
                 {perPeriod(draft.period)}
               </span>
             </button>
@@ -479,7 +479,7 @@ export function BudgetEditScreen() {
                 type="button"
                 onMouseDown={keepFocus}
                 onClick={() => setShowAllGlyphs((s) => !s)}
-                className="text-[12.5px] font-semibold text-accent"
+                className="text-meta font-semibold text-accent"
               >
                 {showAllGlyphs ? 'Show fewer' : `Search all ${GLYPH_CHOICES.length}`}
               </button>
@@ -496,7 +496,7 @@ export function BudgetEditScreen() {
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}
-                  className="w-full bg-transparent text-[16px] outline-none placeholder:text-ink-faint"
+                  className="w-full bg-transparent text-field outline-none placeholder:text-ink-faint"
                 />
               </label>
             )}
@@ -536,7 +536,7 @@ export function BudgetEditScreen() {
                 })}
               </div>
               {glyphs.length === 0 && (
-                <p className="text-center text-[12.5px] text-ink-muted">
+                <p className="text-center text-meta text-ink-muted">
                   No icons match “{glyphQuery}”.
                 </p>
               )}
@@ -573,7 +573,7 @@ export function BudgetEditScreen() {
                 onOpen={() => setPane('wallets')}
               />
             </Card>
-            <p className="px-1 text-[12px] leading-[1.5] text-ink-faint">
+            <p className="px-1 text-meta-sm leading-[1.5] text-ink-faint">
               Only spend in these categories, made from these wallets, counts
               against the limit. Transfers never do, and a refund gives the limit
               its room back.
@@ -604,8 +604,8 @@ export function BudgetEditScreen() {
                 onClick={() => setResetsOpen(true)}
                 className="flex w-full items-center gap-3 px-4 py-[13px] text-left active:bg-press"
               >
-                <span className="flex-1 text-[15px] font-medium">Resets on</span>
-                <span className="flex items-center gap-1.5 text-[13px] text-ink-muted">
+                <span className="flex-1 text-row font-medium">Resets on</span>
+                <span className="flex items-center gap-1.5 text-value text-ink-muted">
                   {resetsOnLabel(draft.period, draft.resets_on)}
                   <IconSelector size={17} stroke={2} className="text-ink-dim" />
                 </span>
@@ -614,10 +614,10 @@ export function BudgetEditScreen() {
               <Divider inset={0} />
               <div className="flex items-center gap-3 px-4 py-[13px]">
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-medium">
+                  <span className="block text-row font-medium">
                     Roll over what’s left
                   </span>
-                  <span className="mt-px block text-[12.5px] text-ink-muted">
+                  <span className="mt-px block text-meta text-ink-muted">
                     Adds unspent {currencySymbol(CURRENCY)} to next{' '}
                     {nextPeriodNoun(draft.period)} — one {nextPeriodNoun(draft.period)}
                     , never compounding
@@ -639,8 +639,8 @@ export function BudgetEditScreen() {
                 <IconHome size={18} stroke={2} />
               </Tile>
               <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-medium">Show on Home</span>
-                <span className="mt-px block text-[12.5px] text-ink-muted">
+                <span className="block text-row font-medium">Show on Home</span>
+                <span className="mt-px block text-meta text-ink-muted">
                   {railCount === 0
                     ? 'Nothing in the rail yet'
                     : `${railCount} budget${railCount === 1 ? '' : 's'} in the rail now`}
@@ -665,7 +665,7 @@ export function BudgetEditScreen() {
                   <IconTrash size={18} stroke={2} style={{ color: 'var(--color-expense)' }} />
                 </Tile>
                 <span
-                  className="flex-1 text-[15px] font-medium"
+                  className="flex-1 text-row font-medium"
                   style={{ color: 'var(--color-expense)' }}
                 >
                   Delete budget
@@ -717,7 +717,7 @@ export function BudgetEditScreen() {
         >
           <div className="flex flex-1 flex-col px-4 pb-[max(env(safe-area-inset-bottom,0px),16px)]">
             <Label>Delete {draft.name}</Label>
-            <p className="flex-1 pt-3 text-[14px] leading-[1.55] text-ink-muted">
+            <p className="flex-1 pt-3 text-link leading-[1.55] text-ink-muted">
               The limit and its scope go. <strong className="font-semibold text-ink">
                 No transactions are touched
               </strong>{' '}

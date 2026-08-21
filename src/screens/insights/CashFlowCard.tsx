@@ -69,7 +69,7 @@ export function CashFlowCard({
     <section className="flex flex-col gap-2">
       <LabelRow
         trailing={
-          <span className="flex items-center gap-3 text-[11.5px] text-ink-muted">
+          <span className="flex items-center gap-3 text-micro text-ink-muted">
             <Key colour="var(--color-income)" label="In" />
             <Key colour="var(--color-expense)" label="Out" />
           </span>
@@ -84,7 +84,7 @@ export function CashFlowCard({
             <div
               className="tnum"
               style={{
-                fontSize: 30,
+                fontSize: 'var(--text-stat-sm)',
                 fontWeight: 600,
                 lineHeight: 1,
                 letterSpacing: '-.03em',
@@ -94,23 +94,23 @@ export function CashFlowCard({
               {formatSigned(asMinor(net))}
               <span
                 className="text-ink-faint"
-                style={{ fontSize: 16, fontWeight: 500, letterSpacing: 0 }}
+                style={{ fontSize: 'var(--text-stat-sm-unit)', fontWeight: 500, letterSpacing: 0 }}
               >
                 {' '}
                 {currencySymbol(currency)}
               </span>
             </div>
-            <div className="mt-1.5 text-[13px] text-ink-muted">
+            <div className="mt-1.5 text-value text-ink-muted">
               net in {current?.label ?? '—'}
               {current?.partial ? ', so far' : ''}
             </div>
           </div>
 
           <div className="text-right">
-            <div className="tnum text-[14px] font-semibold text-ink-muted">
+            <div className="tnum text-link font-semibold text-ink-muted">
               {formatSigned(asMinor(average))} {currencySymbol(currency)}
             </div>
-            <div className="mt-0.5 text-[11.5px] text-ink-muted">
+            <div className="mt-0.5 text-micro text-ink-muted">
               {settled.length}-period average
             </div>
           </div>
@@ -186,7 +186,7 @@ export function CashFlowCard({
           {buckets.map((b) => (
             <div key={b.start} className="text-center">
               <div
-                className="text-[11px]"
+                className="text-kicker"
                 style={{
                   color: b.selected ? 'var(--color-ink)' : 'var(--color-ink-muted)',
                   fontWeight: b.selected ? 600 : 400,
@@ -198,7 +198,7 @@ export function CashFlowCard({
               {/* An em dash, not a zero: the app has no records for this period
                   and printing "+0" would claim it broke even. */}
               <div
-                className="mt-[3px] text-[11.5px] font-semibold"
+                className="mt-[3px] text-micro font-semibold"
                 style={{
                   color: b.unrecorded
                     ? 'var(--color-ink-dim)'
@@ -214,7 +214,7 @@ export function CashFlowCard({
         </div>
 
         {current && (
-          <div className="mt-3 flex justify-between text-[12px] text-ink-muted">
+          <div className="mt-3 flex justify-between text-meta-sm text-ink-muted">
             <span className="tnum">
               In {formatAmountMoney(asMinor(current.inflow), currency)}
             </span>

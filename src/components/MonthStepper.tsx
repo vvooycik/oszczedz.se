@@ -25,7 +25,7 @@ function StepButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full bg-inset text-[13px] text-ink-muted active:bg-press disabled:opacity-35"
+      className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full bg-inset text-value text-ink-muted active:bg-press disabled:opacity-35"
     >
       {children}
     </button>
@@ -96,7 +96,7 @@ export function MonthStepper({
         <IconChevronLeft size={17} stroke={2} aria-hidden />
       </StepButton>
       <span
-        className={`text-center text-[15px] font-semibold ${
+        className={`text-center text-row font-semibold ${
           spread ? 'flex-1' : 'min-w-[92px]'
         }`}
       >

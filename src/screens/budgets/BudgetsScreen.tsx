@@ -93,7 +93,7 @@ function BudgetRow({ budget }: { budget: BudgetProgress }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
           <span className="flex min-w-0 items-center gap-1.5">
-            <span className="truncate text-[15px] font-medium">{budget.name}</span>
+            <span className="truncate text-row font-medium">{budget.name}</span>
             {budget.show_on_home && (
               <IconHome
                 size={13}
@@ -104,7 +104,7 @@ function BudgetRow({ budget }: { budget: BudgetProgress }) {
             )}
           </span>
           <span
-            className="tnum ml-auto flex-none text-[15px] font-semibold whitespace-nowrap"
+            className="tnum ml-auto flex-none text-row font-semibold whitespace-nowrap"
             style={{ color: ink }}
           >
             {formatAmountMoney(asMinor(budget.spent), budget.currency)}
@@ -146,7 +146,7 @@ function BudgetRow({ budget }: { budget: BudgetProgress }) {
             )}
           </span>
           <span
-            className="tnum text-[11.5px] font-semibold whitespace-nowrap"
+            className="tnum text-micro font-semibold whitespace-nowrap"
             style={{ color: ink ?? 'var(--color-ink-muted)' }}
           >
             {Math.round(share * 100)}% of {formatMoneyShort(asMinor(limit))}
@@ -165,12 +165,12 @@ function BudgetRow({ budget }: { budget: BudgetProgress }) {
               }}
             />
           </span>
-          <span className="tnum text-[11px] whitespace-nowrap text-ink-faint">
+          <span className="tnum text-kicker whitespace-nowrap text-ink-faint">
             day {day} of {days}
           </span>
         </div>
 
-        <div className="mt-[3px] truncate text-[12px] text-ink-faint">
+        <div className="mt-[3px] truncate text-meta-sm text-ink-faint">
           {scopeMeta(budget)}
         </div>
       </div>
@@ -216,7 +216,7 @@ export function BudgetsScreen() {
 
   const header = (
     <div className="flex items-center gap-2 px-1">
-      <h1 className="flex-1 text-[28px] font-semibold tracking-[-.02em]">Budgets</h1>
+      <h1 className="flex-1 text-title-sm font-semibold tracking-[-.02em]">Budgets</h1>
       {budgets.length > 0 && (
         <ActionTile label="Home rail order" onClick={() => navigate('/budgets/order')}>
           <IconArrowsSort size={20} stroke={2} />
@@ -232,7 +232,7 @@ export function BudgetsScreen() {
     return (
       <div className="flex flex-col gap-[14px] px-4 pt-2.5">
         {header}
-        <p className="px-1 text-[13px] text-expense">
+        <p className="px-1 text-value text-expense">
           {error instanceof Error ? error.message : 'Something went wrong'}
         </p>
       </div>
@@ -251,8 +251,8 @@ export function BudgetsScreen() {
           style={{ border: '1.5px dashed var(--color-hint)' }}
         >
           <IconPlus size={22} stroke={2} />
-          <span className="text-[13px]">Add a budget</span>
-          <span className="max-w-[260px] px-4 text-center text-[12px] leading-[1.5]">
+          <span className="text-value">Add a budget</span>
+          <span className="max-w-[260px] px-4 text-center text-meta-sm leading-[1.5]">
             A limit per period, over the categories and wallets you point it at.
           </span>
         </button>
@@ -267,7 +267,7 @@ export function BudgetsScreen() {
                   : 'Budgeted now'}
               </Label>
               <span
-                className="flex flex-none items-center gap-[5px] rounded-full px-[9px] py-1 text-[12.5px] font-semibold text-ink-muted"
+                className="flex flex-none items-center gap-[5px] rounded-full px-[9px] py-1 text-meta font-semibold text-ink-muted"
                 style={{ background: 'var(--color-tile)' }}
               >
                 <IconClock size={13} stroke={2} />
@@ -277,18 +277,18 @@ export function BudgetsScreen() {
 
             <div
               className="tnum mt-2"
-              style={{ fontSize: 30, fontWeight: 600, lineHeight: 1.05, letterSpacing: '-.03em' }}
+              style={{ fontSize: 'var(--text-stat-sm)', fontWeight: 600, lineHeight: 1, letterSpacing: '-.035em' }}
             >
               {formatAmount(asMinor(totalSpent))}
               <span
                 className="text-ink-faint"
-                style={{ fontSize: 17, fontWeight: 500, letterSpacing: 0 }}
+                style={{ fontSize: 'var(--text-stat-sm-unit)', fontWeight: 500, letterSpacing: 0 }}
               >
                 {' '}
                 {currencySymbol(CURRENCY)}
               </span>
             </div>
-            <div className="mt-1 text-[12.5px] text-ink-muted">
+            <div className="mt-1 text-meta text-ink-muted">
               of {formatAmountMoney(asMinor(totalLimit), CURRENCY)} across{' '}
               {budgets.length} budget{budgets.length === 1 ? '' : 's'}
             </div>
@@ -296,7 +296,7 @@ export function BudgetsScreen() {
             <SplitBar budgets={ordered} total={totalLimit} />
 
             <div
-              className="mt-2 flex items-baseline justify-between text-[12.5px]"
+              className="mt-2 flex items-baseline justify-between text-meta"
               style={{ color: totalOver ? 'var(--color-expense)' : 'var(--color-ink-muted)' }}
             >
               <span className="tnum">{used}% used</span>
@@ -321,7 +321,7 @@ export function BudgetsScreen() {
                     {VERDICT_LABEL[verdict]}
                   </Label>
                   <span
-                    className="text-[12.5px]"
+                    className="text-meta"
                     style={{
                       color:
                         verdict === 'over'
@@ -352,7 +352,7 @@ export function BudgetsScreen() {
             )
           })}
 
-          <p className="px-1 text-[12.5px] leading-[1.5] text-ink-muted">
+          <p className="px-1 text-meta leading-[1.5] text-ink-muted">
             “At risk” is today’s daily rate carried to the end of the period — a
             straight line, so a period that always spends late will say it and be
             wrong. Nothing is at risk before its third day, where a single big

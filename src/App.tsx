@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { lazy, Suspense, useEffect, useRef } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { useAuth } from '@/auth/AuthProvider'
 import { useMaterialiseSchedules } from '@/data/queries'
@@ -22,6 +22,20 @@ import { AddScreen } from '@/screens/add/AddScreen'
 import { SchedulesScreen } from '@/screens/schedules/SchedulesScreen'
 import { ScheduleEditScreen } from '@/screens/schedules/ScheduleEditScreen'
 import { TransactionScreen } from '@/screens/TransactionScreen'
+
+/**
+ * The design-system reference, at `/dev/design-system`.
+ *
+ * **Lazy, and that is load-bearing.** The page imports every component in the
+ * system so it can show them, which is exactly the import graph the initial
+ * chunk must not grow — the app ships ~208 kB gzipped and the figure is tracked
+ * commit by commit. Behind a `lazy()` it costs nothing until it is asked for.
+ *
+ * Deliberately unreachable from the UI: no tab, no link, no row in More. It is
+ * a document for whoever is building the app, and a route the user can stumble
+ * into is a screen that has to be designed and explained.
+ */
+const DesignSystemScreen = lazy(() => import('@/screens/dev/DesignSystemScreen'))
 
 /**
  * Schedules catch up on launch, and this is the entire mechanism behind "it
@@ -49,13 +63,45 @@ function ScheduleCatchUp() {
   return null
 }
 
+/**
+ * The design system is readable without a session, deliberately.
+ *
+ * It has to be reachable on a desktop browser that has never signed in, which
+ * is exactly where a desktop layout gets designed, and there is nothing to
+ * protect: the page reads CSS custom properties and renders components with
+ * hardcoded specimen values. No query runs, no wallet, category or transaction
+ * is named, and supabase-js is not even in its chunk.
+ *
+ * It sits above the gate rather than inside the router because the gate returns
+ * `<LoginPage />` *before* `<BrowserRouter />` exists — so a route could not
+ * have caught this path however it was ordered. Its own router, matching one
+ * address and nothing else, is the whole of it.
+ */
+function PublicRoutes() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/dev/design-system/:section?"
+          element={
+            <Suspense fallback={null}>
+              <DesignSystemScreen />
+            </Suspense>
+          }
+        />
+        <Route path="*" element={<LoginPage />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}
+
 export default function App() {
   const { session, loading } = useAuth()
 
   // Blank rather than a flash of the login screen: on a cold PWA start the
   // stored session takes a tick to come back out of localStorage.
   if (loading) return null
-  if (!session) return <LoginPage />
+  if (!session) return <PublicRoutes />
 
   return (
     <BrowserRouter>
@@ -187,6 +233,20 @@ export default function App() {
             <ScreenTransition>
               <EditWalletScreen />
             </ScreenTransition>
+          }
+        />
+
+        {/* Not in the tab bar and not linked from anywhere — typed in. The
+            optional segment is what makes `/dev/design-system/tokens` a real
+            address rather than an anchor. Declared twice, here and in
+            `PublicRoutes`, because a signed-in reader must reach it too and the
+            two routers never both exist. */}
+        <Route
+          path="/dev/design-system/:section?"
+          element={
+            <Suspense fallback={null}>
+              <DesignSystemScreen />
+            </Suspense>
           }
         />
 

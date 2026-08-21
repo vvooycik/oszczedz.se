@@ -41,7 +41,7 @@ function Preview({ accent }: { accent: AccentName }) {
       <div className="flex items-center justify-between">
         <Label>Total wealth</Label>
         <span
-          className="flex items-center gap-[5px] rounded-full px-[9px] py-1 text-[12px] font-semibold"
+          className="flex items-center gap-[5px] rounded-full px-[9px] py-1 text-meta-sm font-semibold"
           style={{
             color: 'var(--color-income)',
             background: 'color-mix(in oklab, var(--color-income) 20%, transparent)',
@@ -54,12 +54,12 @@ function Preview({ accent }: { accent: AccentName }) {
 
       <div
         className="tnum mt-2"
-        style={{ fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '-0.035em' }}
+        style={{ fontSize: 'var(--text-stat-sm)', fontWeight: 600, lineHeight: 1, letterSpacing: '-0.035em' }}
       >
         {formatSigned(asMinor(95843), { plus: false })}
         <span
           className="text-ink-faint"
-          style={{ fontSize: 15, fontWeight: 500, letterSpacing: 0 }}
+          style={{ fontSize: 'var(--text-stat-sm-unit)', fontWeight: 500, letterSpacing: 0 }}
         >
           {' '}
           zł
@@ -113,10 +113,10 @@ export function AppearanceScreen() {
                     className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left active:bg-press"
                   >
                     <span
-                      className="size-[34px] flex-none rounded-xl"
+                      className="size-[34px] flex-none rounded-tile-sm"
                       style={{ background: swatch }}
                     />
-                    <span className="flex-1 text-[15px] font-medium">
+                    <span className="flex-1 text-row font-medium">
                       {ACCENT_LABELS[name]}
                     </span>
                     {active && (
@@ -144,10 +144,10 @@ export function AppearanceScreen() {
             <Divider inset={0} />
             <div className="flex items-center gap-3 px-4 py-[13px]">
               <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-medium">
+                <span className="block text-row font-medium">
                   Tint surfaces with accent
                 </span>
-                <span className="mt-px block text-[12.5px] leading-[1.4] text-ink-muted">
+                <span className="mt-px block text-meta leading-[1.4] text-ink-muted">
                   Mixes a little of the accent into cards and the dock. Off keeps
                   every surface neutral.
                 </span>
@@ -161,7 +161,7 @@ export function AppearanceScreen() {
           </Card>
         </section>
 
-        <p className="px-1 text-[12.5px] leading-[1.5] text-ink-muted">
+        <p className="px-1 text-meta leading-[1.5] text-ink-muted">
           Expense red and income green never follow the accent. They are separated
           by lightness as well as hue, so the direction of money survives for the
           ~8% of men who cannot take the hue difference.

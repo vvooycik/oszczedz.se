@@ -405,7 +405,7 @@ export function AddScreen() {
   if (editing && !hydrated) {
     return (
       <FullScreen>
-        <p className="px-4 py-10 text-[13px] text-ink-muted">
+        <p className="px-4 py-10 text-value text-ink-muted">
           {existing.error ? 'Could not load this transaction.' : 'Loading…'}
         </p>
       </FullScreen>
@@ -419,7 +419,7 @@ export function AddScreen() {
     return (
       <FullScreen>
         <div className="px-4 py-10">
-          <p className="text-[14px] leading-[1.55] text-ink-muted">
+          <p className="text-link leading-[1.55] text-ink-muted">
             Transfers are edited as a pair, and that flow does not exist yet.
             Delete this one and enter it again.
           </p>
@@ -481,7 +481,7 @@ export function AddScreen() {
             <button
               type="button"
               onClick={() => setCatOpen(true)}
-              className="mt-3 flex items-center gap-1 text-[15px] font-semibold"
+              className="mt-3 flex items-center gap-1 text-row font-semibold"
               style={{ color: category ? 'var(--field-ink)' : 'var(--color-ink-dim)' }}
             >
               {category?.name ?? 'Choose a category'}
@@ -492,14 +492,14 @@ export function AddScreen() {
                 empty, so starting a sum does not shove the amount down the
                 screen, and it is clipped rather than wrapped — an unusually long
                 tape loses its left end, which is the part already folded in. */}
-            <div className="tnum mt-4 h-4 w-full overflow-hidden text-center text-[12.5px] whitespace-nowrap text-ink-muted">
+            <div className="tnum mt-4 h-4 w-full overflow-hidden text-center text-meta whitespace-nowrap text-ink-muted">
               {tape}
             </div>
 
             <div
               className="tnum mt-1 flex items-end justify-center"
               style={{
-                fontSize: 52,
+                fontSize: 'var(--text-entry)',
                 fontWeight: 600,
                 lineHeight: 1,
                 letterSpacing: '-.04em',
@@ -509,7 +509,7 @@ export function AddScreen() {
               {figure ?? '0,00'}
               <span
                 className="text-ink-faint"
-                style={{ fontSize: 22, fontWeight: 500, letterSpacing: 0 }}
+                style={{ fontSize: 'var(--text-entry-unit)', fontWeight: 500, letterSpacing: 0 }}
               >
                 &nbsp;{currencySymbol(sourceWallet?.currency ?? 'PLN')}
               </span>
@@ -518,7 +518,7 @@ export function AddScreen() {
             {/* A transfer has no sign to choose: direction is which wallet is
                 which, and `create_transfer` applies the signs itself. */}
             {isTransfer ? (
-              <span className="mt-3 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-medium"
+              <span className="mt-3 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-meta font-medium"
                 style={{ background: 'var(--field-scrim)', color: 'var(--field-ink)' }}
               >
                 <IconArrowsLeftRight size={14} stroke={2} />
@@ -529,7 +529,7 @@ export function AddScreen() {
                 type="button"
                 onClick={() => setNegative((s) => !s)}
                 aria-label={negative ? 'Switch to income' : 'Switch to expense'}
-                className="mt-3 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-semibold"
+                className="mt-3 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-meta font-semibold"
                 style={{
                   background: `color-mix(in oklab, ${signColor} 18%, transparent)`,
                   color: signColor,
@@ -546,11 +546,11 @@ export function AddScreen() {
             style={{ background: 'var(--field-block)' }}
           >
             <FieldRow icon={<IconWallet size={18} stroke={2} />}>
-              {isTransfer && <span className="text-[12px] text-ink-muted">From</span>}
+              {isTransfer && <span className="text-meta-sm text-ink-muted">From</span>}
               <select
                 value={walletId}
                 onChange={(e) => pickSource(e.target.value)}
-                className="flex-1 appearance-none bg-transparent text-[15px] outline-none"
+                className="flex-1 appearance-none bg-transparent text-field outline-none"
                 style={{ color: 'var(--field-ink)' }}
               >
                 {selectable.map((w) => (
@@ -566,11 +566,11 @@ export function AddScreen() {
               <>
                 <FieldDivider />
                 <FieldRow icon={<IconArrowBarToDown size={18} stroke={2} />}>
-                  <span className="text-[12px] text-ink-muted">To</span>
+                  <span className="text-meta-sm text-ink-muted">To</span>
                   <select
                     value={targetWalletId}
                     onChange={(e) => pickTarget(e.target.value)}
-                    className="flex-1 appearance-none bg-transparent text-[15px] outline-none"
+                    className="flex-1 appearance-none bg-transparent text-field outline-none"
                     style={{ color: 'var(--field-ink)' }}
                   >
                     {selectable.map((w) => (
@@ -601,9 +601,9 @@ export function AddScreen() {
               <>
                 <FieldDivider />
                 <FieldRow icon={null}>
-                  <span className="flex-1 text-[13.5px]">
+                  <span className="flex-1 text-prose">
                     Amount received
-                    <span className="block pt-0.5 text-[11.5px] leading-[1.4] text-ink-muted">
+                    <span className="block pt-0.5 text-micro leading-[1.4] text-ink-muted">
                       {sourceWallet!.currency} → {targetWallet!.currency}, so each
                       leg carries its own figure
                     </span>
@@ -614,12 +614,12 @@ export function AddScreen() {
                     inputMode="decimal"
                     placeholder="0,00"
                     aria-label="Amount received"
-                    className="tnum w-24 bg-transparent text-right text-[16px] font-semibold outline-none placeholder:text-ink-faint"
+                    className="tnum w-24 bg-transparent text-right text-field font-semibold outline-none placeholder:text-ink-faint"
                     style={{
                       color: targetAmountBad ? 'var(--color-expense)' : 'var(--field-ink)',
                     }}
                   />
-                  <span className="text-[12.5px] text-ink-faint">
+                  <span className="text-meta text-ink-faint">
                     {currencySymbol(targetWallet!.currency)}
                   </span>
                 </FieldRow>
@@ -631,7 +631,7 @@ export function AddScreen() {
               <button
                 type="button"
                 onClick={() => setDateOpen(true)}
-                className="flex-1 text-left text-[15px]"
+                className="flex-1 text-left text-row"
                 style={{ color: 'var(--field-ink)' }}
               >
                 {relativeDayLabel(date)}
@@ -639,7 +639,7 @@ export function AddScreen() {
               <button
                 type="button"
                 onClick={() => setDate(addDays(today(), -1))}
-                className="flex-none rounded-full px-3 py-1.5 text-[12px]"
+                className="flex-none rounded-full px-3 py-1.5 text-meta-sm"
                 style={{ background: 'var(--field-scrim)', color: 'var(--field-ink)' }}
               >
                 Yesterday
@@ -658,7 +658,7 @@ export function AddScreen() {
                   <button
                     type="button"
                     onClick={() => setRepeatOpen(true)}
-                    className="flex-1 text-left text-[15px]"
+                    className="flex-1 text-left text-row"
                     style={{
                       color: repeat ? 'var(--field-ink)' : 'var(--color-ink-dim)',
                     }}
@@ -671,7 +671,7 @@ export function AddScreen() {
                     <button
                       type="button"
                       onClick={() => setRepeat(null)}
-                      className="flex-none rounded-full px-3 py-1.5 text-[12px]"
+                      className="flex-none rounded-full px-3 py-1.5 text-meta-sm"
                       style={{
                         background: 'var(--field-scrim)',
                         color: 'var(--field-ink)',
@@ -690,7 +690,7 @@ export function AddScreen() {
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Write a note"
-                className="flex-1 bg-transparent text-[16px] outline-none placeholder:text-ink-faint"
+                className="flex-1 bg-transparent text-field outline-none placeholder:text-ink-faint"
                 style={{ color: 'var(--field-ink)' }}
               />
             </FieldRow>
@@ -716,7 +716,7 @@ export function AddScreen() {
                                 : [...ids, tag.id],
                             )
                           }
-                          className="flex-none rounded-full px-3 py-1.5 text-[12px]"
+                          className="flex-none rounded-full px-3 py-1.5 text-meta-sm"
                           style={
                             on
                               ? {
@@ -739,9 +739,9 @@ export function AddScreen() {
             )}
           </div>
 
-          {error && <p className="pt-3 text-[12.5px] text-expense">{error}</p>}
+          {error && <p className="pt-3 text-meta text-expense">{error}</p>}
           {savedCount > 0 && !error && (
-            <p className="pt-3 text-[12.5px] text-ink-muted">
+            <p className="pt-3 text-meta text-ink-muted">
               Saved {savedCount} — wallet and date kept
             </p>
           )}
@@ -774,7 +774,7 @@ export function AddScreen() {
                 type="button"
                 disabled={!canSave || busy}
                 onClick={() => save(true)}
-                className="flex-1 rounded-field py-[15px] text-[14.5px] font-semibold transition-transform duration-[90ms] active:scale-[.98] disabled:opacity-40"
+                className="flex-1 rounded-field py-[15px] text-action font-semibold transition-transform duration-[90ms] active:scale-[.98] disabled:opacity-40"
                 style={{ background: 'var(--field-key)', color: 'var(--field-ink)' }}
               >
                 Save &amp; add another

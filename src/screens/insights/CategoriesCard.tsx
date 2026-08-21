@@ -112,7 +112,7 @@ export function CategoriesCard({
     <section className="flex flex-col gap-2">
       <LabelRow
         trailing={
-          <span className="text-[12px] text-ink-muted">
+          <span className="text-meta-sm text-ink-muted">
             vs typical {periodNoun(period, offset)}
           </span>
         }
@@ -122,9 +122,9 @@ export function CategoriesCard({
 
       <Card className="py-1.5">
         {loading ? (
-          <p className="px-4 py-8 text-center text-[13px] text-ink-muted">Loading…</p>
+          <p className="px-4 py-8 text-center text-value text-ink-muted">Loading…</p>
         ) : rows.length === 0 ? (
-          <p className="px-4 py-8 text-center text-[13px] text-ink-muted">
+          <p className="px-4 py-8 text-center text-value text-ink-muted">
             Nothing spent in this period.
           </p>
         ) : (
@@ -143,7 +143,7 @@ export function CategoriesCard({
         <button
           type="button"
           onClick={() => setExpanded((s) => !s)}
-          className="flex items-center justify-center gap-1.5 py-0.5 text-[12.5px] font-semibold text-accent"
+          className="flex items-center justify-center gap-1.5 py-0.5 text-meta font-semibold text-accent"
         >
           {expanded ? 'Show fewer' : `All ${rows.length} categories`}
           {expanded ? (
@@ -169,8 +169,8 @@ function CategoryRow({ row, currency }: { row: Row; currency: string }) {
 
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex items-baseline justify-between gap-2.5">
-          <span className="truncate text-[14.5px] font-medium">{row.name}</span>
-          <span className="tnum flex-none text-[14.5px] font-semibold">
+          <span className="truncate text-action font-medium">{row.name}</span>
+          <span className="tnum flex-none text-action font-semibold">
             {formatAmountMoney(asMinor(row.spent), currency)}
           </span>
         </div>
@@ -182,7 +182,7 @@ function CategoryRow({ row, currency }: { row: Row; currency: string }) {
             />
           </span>
           <span
-            className="tnum flex-none text-[11.5px] font-semibold whitespace-nowrap"
+            className="tnum flex-none text-micro font-semibold whitespace-nowrap"
             style={{ color: row.call ? toneColour[row.call.tone] : 'var(--color-ink-dim)' }}
           >
             {!row.call

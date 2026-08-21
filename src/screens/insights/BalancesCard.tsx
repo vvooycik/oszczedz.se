@@ -102,7 +102,7 @@ export function BalancesCard({
     <section className="flex flex-col gap-2">
       <LabelRow
         trailing={
-          <span className="tnum text-[12px] text-ink-muted">
+          <span className="tnum text-meta-sm text-ink-muted">
             {open.length} wallet{open.length === 1 ? '' : 's'}
           </span>
         }
@@ -115,7 +115,7 @@ export function BalancesCard({
           <div
             className="tnum"
             style={{
-              fontSize: 30,
+              fontSize: 'var(--text-stat-sm)',
               fontWeight: 600,
               lineHeight: 1,
               letterSpacing: '-.03em',
@@ -125,13 +125,13 @@ export function BalancesCard({
             {formatSigned(asMinor(total), { plus: false })}
             <span
               className="text-ink-faint"
-              style={{ fontSize: 16, fontWeight: 500, letterSpacing: 0 }}
+              style={{ fontSize: 'var(--text-stat-sm-unit)', fontWeight: 500, letterSpacing: 0 }}
             >
               {' '}
               {currencySymbol(currency)}
             </span>
           </div>
-          <div className="mt-1.5 flex items-center gap-[7px] text-[12.5px]">
+          <div className="mt-1.5 flex items-center gap-[7px] text-meta">
             <span
               className="tnum font-semibold"
               style={{
@@ -178,14 +178,14 @@ export function BalancesCard({
                   <Tile color={categoryVar(row.wallet.color_scheme)} size={34}>
                     <Glyph size={18} stroke={2} />
                   </Tile>
-                  <span className="min-w-0 flex-1 truncate text-[14.5px] font-medium">
+                  <span className="min-w-0 flex-1 truncate text-action font-medium">
                     {row.wallet.name}
                   </span>
                   <Sparkline values={row.trend} width={56} height={20} span={span} />
                   {/* A fixed column so the figures form a right-aligned stack
                       rather than each one ending wherever its digits do. */}
                   <span
-                    className="tnum flex-none text-right text-[14.5px] font-semibold"
+                    className="tnum flex-none text-right text-action font-semibold"
                     style={{ minWidth: 92 }}
                   >
                     {formatSigned(asMinor(row.balance), { plus: false })}

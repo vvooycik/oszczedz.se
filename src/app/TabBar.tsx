@@ -98,7 +98,7 @@ export function TabBar() {
             {({ isActive }) =>
               isActive ? (
                 <span
-                  className="flex h-11 items-center gap-2 rounded-full px-3.5 text-[14.5px] font-semibold whitespace-nowrap"
+                  className="flex h-11 items-center gap-2 rounded-full px-3.5 text-action font-semibold whitespace-nowrap"
                   style={{
                     // A wash of the accent rather than the accent itself: the
                     // glyph and the word are what should read as selected, and

@@ -175,7 +175,7 @@ function BudgetCard({ budget }: { budget: BudgetProgress }) {
             title={left === 0 ? 'Last day of the period' : `${left} days left`}
           >
             <span
-              className="tnum text-[12.5px] font-semibold"
+              className="tnum text-meta font-semibold"
               style={{ color: over ? 'var(--color-expense)' : 'var(--color-ink-muted)' }}
             >
               {Math.round(share * 100)}%
@@ -183,16 +183,16 @@ function BudgetCard({ budget }: { budget: BudgetProgress }) {
             {/* Abbreviated because it now shares a line's width with the ring:
                 "30 days left" is ~62px against ~46px of usable room at the
                 narrowest card. The `title` carries the full phrase. */}
-            <span className="tnum mt-0.5 text-[11.5px] whitespace-nowrap text-ink-faint">
+            <span className="tnum mt-0.5 text-micro whitespace-nowrap text-ink-faint">
               {left === 0 ? 'last' : `${left}d`}
             </span>
           </span>
         </div>
 
         <div className="min-w-0">
-          <div className="truncate text-[13.5px] font-medium">{budget.name}</div>
+          <div className="truncate text-prose font-medium">{budget.name}</div>
           <div
-            className="tnum mt-0.5 truncate text-[12px]"
+            className="tnum mt-0.5 truncate text-meta-sm"
             style={{
               color: over ? 'var(--color-expense)' : 'var(--color-ink-muted)',
               fontWeight: over ? 500 : 400,
@@ -232,7 +232,7 @@ export function BudgetRail({ budgets }: { budgets: BudgetProgress[] }) {
         style={{ border: '1.5px dashed var(--color-hint)' }}
       >
         <IconPlus size={20} stroke={2} />
-        <span className="text-[12.5px]">Add a budget</span>
+        <span className="text-meta">Add a budget</span>
       </Link>
     )
   }
@@ -250,7 +250,7 @@ export function BudgetRail({ budgets }: { budgets: BudgetProgress[] }) {
           style={{ border: '1.5px dashed var(--color-hint)' }}
         >
           <IconPlus size={18} stroke={2} />
-          <span className="text-[11.5px]">Budget</span>
+          <span className="text-micro">Budget</span>
         </Link>
       )}
     </div>

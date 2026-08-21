@@ -25,7 +25,7 @@ function Cell({
       aria-pressed={active}
       onMouseDown={keepFocus}
       onClick={onClick}
-      className="tnum flex h-11 w-full items-center justify-center rounded-tile text-[14.5px]"
+      className="tnum flex h-11 w-full items-center justify-center rounded-tile text-action"
       style={{
         fontWeight: active ? 600 : 500,
         background: active ? 'var(--color-accent)' : 'var(--color-inset)',
@@ -104,7 +104,7 @@ export function RepeatSheet({
 
             {/* The anchor is the form's date, so this line changes when that
                 does — which is the point of not asking for it twice. */}
-            <p className="mt-6 rounded-card bg-inset px-4 py-3 text-[13.5px] leading-[1.5] text-ink-muted">
+            <p className="mt-6 rounded-card bg-inset px-4 py-3 text-prose leading-[1.5] text-ink-muted">
               <span className="font-medium text-ink">
                 {cadenceLabel(frequency, everyN, anchor)}
               </span>
@@ -121,7 +121,7 @@ export function RepeatSheet({
           type="button"
           onMouseDown={keepFocus}
           onClick={onClose}
-          className="w-full rounded-field bg-inset py-3.5 text-[15px] font-semibold"
+          className="w-full rounded-field bg-inset py-3.5 text-row font-semibold"
         >
           Done
         </button>

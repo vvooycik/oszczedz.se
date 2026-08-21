@@ -102,7 +102,7 @@ function HomeOrder({
               )
             }
             disabled={save.isPending || !hydrated}
-            className="px-1 text-[14px] font-semibold text-accent disabled:opacity-40"
+            className="px-1 text-link font-semibold text-accent disabled:opacity-40"
           >
             {save.isPending ? 'Saving…' : 'Done'}
           </button>
@@ -110,7 +110,7 @@ function HomeOrder({
       />
 
       {save.error instanceof Error && (
-        <p className="flex-none px-4 pt-2 text-center text-[12.5px] text-expense">
+        <p className="flex-none px-4 pt-2 text-center text-meta text-expense">
           {save.error.message}
         </p>
       )}
@@ -119,7 +119,7 @@ function HomeOrder({
         ref={scroller}
         className="no-scrollbar flex flex-1 flex-col gap-[14px] overflow-y-auto px-4 pt-2 pb-10"
       >
-        <p className="px-1 text-[12.5px] leading-[1.5] text-ink-muted">
+        <p className="px-1 text-meta leading-[1.5] text-ink-muted">
           {shown === 0
             ? 'Nothing on Home. The rail collapses to a single “Add a budget” tile until something is switched on.'
             : `${shown} on Home, in this order. Drag the handle to move one; the switch takes it off the rail without deleting it.`}
@@ -155,7 +155,7 @@ function HomeOrder({
                   <Tile color={categoryVar(entry.color)} size={36}>
                     <Icon size={18} stroke={2} />
                   </Tile>
-                  <span className="min-w-0 flex-1 truncate text-[15px] font-medium">
+                  <span className="min-w-0 flex-1 truncate text-row font-medium">
                     {entry.name}
                   </span>
                   <Toggle
@@ -173,7 +173,7 @@ function HomeOrder({
           })}
         </Card>
 
-        <p className="px-1 text-[12.5px] leading-[1.5] text-ink-muted">
+        <p className="px-1 text-meta leading-[1.5] text-ink-muted">
           Order is saved on Done, not on every crossing — the intermediate
           positions never reach the database.
         </p>

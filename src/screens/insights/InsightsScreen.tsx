@@ -75,7 +75,7 @@ export function InsightsScreen() {
   const failed = [wallets, categories, balances, pace, cats, flow].find((q) => q.error)
   if (failed?.error) {
     return (
-      <p className="px-4 py-10 text-[13px] text-expense">
+      <p className="px-4 py-10 text-value text-expense">
         {failed.error instanceof Error ? failed.error.message : 'Something went wrong'}
       </p>
     )
@@ -116,7 +116,7 @@ export function InsightsScreen() {
           flow — where a negative margin does what it says — rather than about
           where a stuck element parks. */}
       <h1
-        className="px-5 pt-1 pb-2.5 text-[28px] font-semibold tracking-[-0.02em]"
+        className="px-5 pt-1 pb-2.5 text-title-sm font-semibold tracking-[-0.02em]"
         style={{ marginBottom: 'calc(var(--safe-top) * -1)' }}
       >
         Insight
@@ -152,7 +152,7 @@ export function InsightsScreen() {
             >
               <IconChevronLeft size={16} stroke={2} />
             </Step>
-            <span className="px-1 text-[12.5px] font-semibold whitespace-nowrap">
+            <span className="px-1 text-meta font-semibold whitespace-nowrap">
               {periodLabel(period, offset)}
             </span>
             {/* Dead at the present: there is nothing after now to look at. */}

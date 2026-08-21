@@ -79,6 +79,14 @@ nvm (`.nvmrc` pins 24); in non-interactive shells prefix commands with:
 export PATH="$HOME/.nvm/versions/node/v24.19.0/bin:$PATH"
 ```
 
+**Typecheck with `npx tsc -b`, never `npx tsc --noEmit`.** The root tsconfig is
+a solution file — nothing but `references` to `tsconfig.app.json` and
+`tsconfig.node.json` — so `--noEmit` type-checks *zero files* and exits 0 on a
+codebase that does not compile. Measured: a `ReferenceError`-grade missing
+import passed `--noEmit` clean and was caught by `tsc -b` (and by `npm run
+build`, which runs `tsc -b && vite build`). A green `--noEmit` means nothing at
+all here.
+
 Supabase project ref `abjvwdqutznmoeosnjnz` (Postgres 17, eu-north-1). The project
 is linked, so `npx supabase db push` applies migrations over the network — **Docker
 is only needed for the local stack** (`db reset` / `db start`), not for deploying
@@ -1447,13 +1455,125 @@ About row. Bump the version there, not in the component.
     *newest* ones — the chart would have started drawing empty bars for recent
     months while looking perfectly well-formed. Scoped, the answer is six rows.
 
-21. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
+21. **Design-system reference — DONE.** `/dev/design-system`, with
+    `/tokens`, `/components`, `/layout` and `/audit` as real addresses rather
+    than anchors. `src/screens/dev/`.
+
+    **Not reachable from the UI**, by request and by decision: no tab, no link,
+    no row in More. It is a document for whoever is building the app, and a
+    route a user can stumble into is a screen that has to be designed,
+    explained and kept out of the way. It is still **behind the auth gate**,
+    since `App` returns `<LoginPage />` before the router exists — nothing on
+    the page touches data, so lifting it above that gate is a decision
+    available later, not a rewrite.
+
+    **Lazy, and that is load-bearing.** The page imports every component in the
+    system so it can show them, which is precisely the import graph the initial
+    chunk must not grow. Behind a `lazy()` it is its own **14 kB gzipped**
+    chunk and the initial figure is unmoved at ~208. What it does cost everyone
+    is **~0.4 kB of CSS**: Tailwind emits one stylesheet, so the grid,
+    breakpoint and mono utilities this page introduces ship to the phone too.
+    That is the honest price of keeping it in the app rather than in a separate
+    build, and it buys a reference that cannot go stale.
+
+    **Verified in a browser**, which is new for this project — the page was
+    opened at `localhost`, all four panels read in both modes, and one bug
+    caught that way: the header's accent swatches reached for `--color-gold`
+    and `--color-copper`, which are not tokens (accents are literals in
+    `ACCENTS`, and only the selected one is ever on `<html>`), so the two
+    swatches whose names are not also category slots painted as nothing.
+
+    **It reads the live tokens rather than restating them.** Every colour comes
+    back out of `getComputedStyle` through `readToken` (newly exported from
+    `theme/tokens.ts` for exactly this), so the page re-themes with Appearance
+    and cannot drift from index.css the way a hand-written table would. Each
+    swatch shows the declaration *and* the resolved sRGB, which is the fastest
+    way to catch a colour defined in only one mode. The page carries its own
+    mode/accent/tint switcher for that reason.
+
+    **The one thing it restates is the type scale — because there is nothing to
+    read.** That is the audit's first finding, not a shortcut.
+
+    **It is the only screen not capped at `max-w-lg`.** A reference read on a
+    desktop while building a desktop layout should not be squeezed into the
+    phone frame it documents, and it is the only place in the app where a
+    `sm:` breakpoint appears at all.
+
+22. **The type scale, and the audit it came from — DONE.** The design-system
+    reference (item 21) turned up eight findings; the six that stood between
+    this design and a second form factor are fixed.
+
+    **Type had no names, and that was the blocker.** It was set two ways —
+    `text-[12.5px]` utilities (17 distinct values, ~300 uses) and inline
+    `fontSize: 42` (14 more) — so there was nothing to *change*: a tablet
+    wanting body text a point larger meant editing several hundred call sites.
+    Every size now resolves through a token in `index.css` and nowhere else,
+    **348 class literals and every inline size** rewritten.
+
+    **The mechanism is the point.** Tailwind compiles `text-row` to
+    `font-size: var(--text-row)`, so a second form factor re-sizes the app from
+    one media query rather than a search-and-replace. Verified in the built
+    stylesheet, not assumed.
+
+    **`--text-label` would have collided with `--color-label`** — both compile
+    to `.text-label` and one silently wins. The 11px step is `--text-kicker`,
+    the name the app used before the refresh. Any future size token has to be
+    checked against the colour namespace the same way.
+
+    **Every inline `fontSize` was half of an "amount block"** — a figure and its
+    unit — copied between nine screens with slightly different numbers. They are
+    paired tokens now (`--text-figure` / `--text-figure-unit`, seven steps) so
+    the two cannot scale apart. **Extracting the shared `<Amount>` component is
+    deliberately not done**: tokenising buys the whole form-factor win, and a
+    nine-screen extraction is a refactor with real regression risk that earns
+    only DRY.
+
+    **Near-duplicates were deliberately not collapsed.** 13.5 and 14 are still
+    two names. Naming first is the right order — merging two named steps is now
+    one line in index.css, where merging two literals would mean finding all 348
+    sites again. Only two 1px unit sizes moved, on the 30px step, where Budgets
+    used 17 and Appearance 15 against the other two's 16; a step cannot mean
+    three things.
+
+    **`max-w-lg` was written literally in three places** and is now
+    `max-w-frame` against `--container-frame`.
+
+    Two real bugs, both from the audit. **Two `<select>`s sat below the 16px iOS
+    floor** (`AddScreen`) — the element-selector floor in index.css cannot catch
+    a Tailwind utility, so focusing either zoomed the viewport with no way back;
+    both take `--text-field`, which is named for that rule. And **`Tile`'s solid
+    variant knocked its glyph out in `#fff`** — fine at light mode's ~50%
+    lightness, about **2.2:1** at dark mode's ~70% — now `--color-accent-fg`,
+    the token `Button` already uses for the same pairing, at about **6.4:1**.
+
+    Three pieces of drift closed: `Button`'s `scrim` variant (used nowhere, and
+    hardcoding the dark values of tokens that exist) is deleted; `LoginPage`'s
+    `h-dvh` is `h-svh`, matching the frame's own fallback; the appearance
+    swatch's `rounded-xl` is `rounded-tile-sm`.
+
+    **Left open, on the page and on purpose.** Three radii are still outside the
+    set (`rounded-lg` on the history bars, `borderRadius: 12` on the two
+    drag-lifts) — they want names, and naming a radius is a design decision
+    about what those things are. And there is still no breakpoint anywhere,
+    which is correct until there is a second form factor to serve; what changed
+    is that there is now something for one to *do*.
+
+    **Verified in a browser**, on the real database at localhost: Home, the
+    entry screen and its category sheet, a transaction detail, Insight, Wallets
+    and the reference page itself, in dark mode. Every step lands where it
+    should, including the three that only appear at one size — the 52/22 entry
+    figure, the 44/20 hero and the 26px wallets total. Checked statically as
+    well, since a rename that silently emits nothing is the failure mode here:
+    all 41 `text-*` references, 27 as utilities and 14 as `var()`, resolve
+    against the built stylesheet, and no literal remains in the source.
+
+23. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
     already permits exactly that case and nothing else. Tag CRUD has no design
     yet, which is why `/tags` is a list and not an editor. The **budget detail
     screen** is named by the budgets handoff and deliberately left undesigned;
     until it exists, a list row and a rail card both open the editor, which is
     the only thing there is to do with a budget.
-22. Deferred by explicit decision: split transactions, FX conversion in charts
+24. Deferred by explicit decision: split transactions, FX conversion in charts
    (`exchange_rates`), MCP/AI entry.
 
 Resolved by the redesign: icons are Lucide; both light and dark grounds ship, each

@@ -79,7 +79,7 @@ export function SegmentedTrack<T extends string | number | boolean>({
             onClick={() => onChange(option.key)}
             // Above the sliding pill, and with its own colour rather than a
             // background, so the label crosses the pill instead of blinking.
-            className="relative z-10 min-h-[34px] flex-1 rounded-full px-3 text-[12.5px] whitespace-nowrap"
+            className="relative z-10 min-h-[34px] flex-1 rounded-full px-3 text-meta whitespace-nowrap"
             style={{
               fontWeight: active ? 600 : 500,
               color: active ? 'var(--color-accent-fg)' : 'var(--color-ink-muted)',

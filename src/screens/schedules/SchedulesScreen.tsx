@@ -78,8 +78,8 @@ function ScheduleRow({
         transfer={Boolean(target)}
       />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[15px] font-medium">{schedule.name}</div>
-        <div className="mt-px truncate text-[12.5px] text-ink-muted">
+        <div className="truncate text-row font-medium">{schedule.name}</div>
+        <div className="mt-px truncate text-meta text-ink-muted">
           {cadenceLabel(schedule.frequency, schedule.every_n, schedule.anchor)}
           {' · '}
           {target ? `${wallet?.name ?? '—'} → ${target.name}` : (wallet?.name ?? '—')}
@@ -87,7 +87,7 @@ function ScheduleRow({
       </div>
       <div className="flex-none text-right">
         <div
-          className="tnum text-[15px] font-semibold whitespace-nowrap"
+          className="tnum text-row font-semibold whitespace-nowrap"
           style={{
             color: target
               ? 'var(--color-ink-faint)'
@@ -98,7 +98,7 @@ function ScheduleRow({
         >
           {formatSignedMoney(asMinor(schedule.amount), wallet?.currency ?? 'PLN')}
         </div>
-        <div className="mt-px flex items-center justify-end gap-1 text-[12px] text-ink-faint">
+        <div className="mt-px flex items-center justify-end gap-1 text-meta-sm text-ink-faint">
           {!schedule.active && <IconPlayerPause size={11} stroke={2} />}
           {when}
         </div>
@@ -137,15 +137,15 @@ function Empty({
       <span className="mx-auto flex size-14 items-center justify-center rounded-card bg-inset text-ink-dim">
         {icon}
       </span>
-      <p className="mt-4 text-[15px] font-medium">{title}</p>
-      <p className="mx-auto mt-1.5 max-w-[19rem] text-[13.5px] leading-[1.6] text-ink-muted">
+      <p className="mt-4 text-row font-medium">{title}</p>
+      <p className="mx-auto mt-1.5 max-w-[19rem] text-prose leading-[1.6] text-ink-muted">
         {body}
       </p>
       {action && (
         <button
           type="button"
           onClick={onAction}
-          className="mt-5 rounded-field bg-inset px-5 py-3 text-[14px] font-semibold"
+          className="mt-5 rounded-field bg-inset px-5 py-3 text-link font-semibold"
         >
           {action}
         </button>
@@ -243,7 +243,7 @@ export function SchedulesScreen() {
 
       <div className="no-scrollbar flex flex-1 flex-col gap-[14px] overflow-y-auto px-4 pt-1 pb-10">
         {loading ? (
-          <p className="px-1 text-[13px] text-ink-muted">
+          <p className="px-1 text-value text-ink-muted">
             {schedules.error || upcoming.error
               ? 'Could not load schedules.'
               : 'Loading…'}
@@ -265,7 +265,7 @@ export function SchedulesScreen() {
             <>
               <LabelRow
                 trailing={
-                  <span className="tnum text-[12.5px] text-ink-muted">
+                  <span className="tnum text-meta text-ink-muted">
                     {formatSignedMoney(asMinor(plannedNet), CURRENCY)}
                   </span>
                 }
@@ -278,7 +278,7 @@ export function SchedulesScreen() {
                 categories={categories.data ?? []}
                 order="asc"
               />
-              <p className="px-1 text-[12.5px] leading-[1.6] text-ink-muted">
+              <p className="px-1 text-meta leading-[1.6] text-ink-muted">
                 Each of these is a real transaction already, and counts towards
                 your balance on the day it lands. Deleting one skips that charge
                 and leaves its rule alone.
@@ -307,7 +307,7 @@ export function SchedulesScreen() {
                 </div>
               ))}
             </Card>
-            <p className="px-1 text-[12.5px] leading-[1.6] text-ink-muted">
+            <p className="px-1 text-meta leading-[1.6] text-ink-muted">
               Occurrences are written four months ahead. Editing a rule rewrites
               what is still to come and leaves what already happened alone.
             </p>

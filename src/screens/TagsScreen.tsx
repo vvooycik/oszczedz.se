@@ -25,11 +25,11 @@ export function TagsScreen() {
 
       <div className="no-scrollbar flex flex-1 flex-col gap-[14px] overflow-y-auto px-4 pt-2 pb-10">
         {!tags.data ? (
-          <p className="px-1 text-[13px] text-ink-muted">
+          <p className="px-1 text-value text-ink-muted">
             {tags.error ? 'Could not load tags.' : 'Loading…'}
           </p>
         ) : tags.data.length === 0 ? (
-          <p className="px-1 text-[13px] leading-[1.6] text-ink-muted">
+          <p className="px-1 text-value leading-[1.6] text-ink-muted">
             No tags yet. They are a second way to label a transaction, alongside
             its one category — useful for things that cut across categories, like
             a trip or a project.
@@ -44,14 +44,14 @@ export function TagsScreen() {
                     <Tile size={36} variant="neutral">
                       <IconTag size={18} stroke={2} />
                     </Tile>
-                    <span className="flex-1 truncate text-[15px] font-medium">
+                    <span className="flex-1 truncate text-row font-medium">
                       {tag.name}
                     </span>
                   </div>
                 </div>
               ))}
             </Card>
-            <p className="px-1 text-[12.5px] leading-[1.5] text-ink-muted">
+            <p className="px-1 text-meta leading-[1.5] text-ink-muted">
               Attached to transactions from the entry screen. A transaction has
               exactly one category but any number of tags.
             </p>

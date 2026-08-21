@@ -105,7 +105,7 @@ export function WalletScreen() {
   if (!wallet) {
     return (
       <FullScreen>
-        <p className="px-4 py-10 text-[13px] text-ink-muted">
+        <p className="px-4 py-10 text-value text-ink-muted">
           {wallets.data ? 'That wallet no longer exists.' : 'Loading…'}
         </p>
       </FullScreen>
@@ -147,7 +147,7 @@ export function WalletScreen() {
               <IconChevronLeft size={20} stroke={2} />
             </ActionTile>
             <h1
-              className="min-w-0 flex-1 truncate text-[19px] font-semibold tracking-[-0.01em]"
+              className="min-w-0 flex-1 truncate text-heading font-semibold tracking-[-0.01em]"
               style={{ color: 'var(--field-ink)' }}
             >
               {wallet.name}
@@ -171,7 +171,7 @@ export function WalletScreen() {
             <Label>{isCard ? 'Owed' : 'Balance'}</Label>
             {isArchived(wallet) && (
               <span
-                className="rounded-full px-2 py-px text-[10.5px] font-semibold tracking-[0.06em] uppercase"
+                className="rounded-full px-2 py-px text-badge font-semibold tracking-[0.06em] uppercase"
                 style={{
                   border: '1px dashed var(--color-dash)',
                   color: 'var(--color-ink-muted)',
@@ -185,7 +185,7 @@ export function WalletScreen() {
           <div
             className="tnum mt-2.5"
             style={{
-              fontSize: 42,
+              fontSize: 'var(--text-figure)',
               fontWeight: 600,
               lineHeight: 1,
               letterSpacing: '-0.035em',
@@ -195,7 +195,7 @@ export function WalletScreen() {
             {formatSigned(asMinor(balance), { plus: false })}
             <span
               className="text-ink-faint"
-              style={{ fontSize: 19, fontWeight: 500, letterSpacing: 0 }}
+              style={{ fontSize: 'var(--text-figure-unit)', fontWeight: 500, letterSpacing: 0 }}
             >
               {' '}
               {currencySymbol(wallet.currency)}
@@ -209,7 +209,7 @@ export function WalletScreen() {
           {planned !== 0 && (
             <Link
               to="/scheduled"
-              className="tnum mt-2 flex items-center gap-1.5 text-[12.5px] text-ink-muted"
+              className="tnum mt-2 flex items-center gap-1.5 text-meta text-ink-muted"
             >
               <IconClock size={13} stroke={2} className="text-ink-dim" />
               {formatSigned(asMinor(planned), { plus: planned > 0 })}{' '}
@@ -224,7 +224,7 @@ export function WalletScreen() {
                 fraction={Math.abs(Math.min(balance, 0)) / wallet.credit_limit!}
                 colour="var(--color-expense)"
               />
-              <div className="tnum mt-2 flex justify-between text-[12.5px] text-ink-muted">
+              <div className="tnum mt-2 flex justify-between text-meta text-ink-muted">
                 <span>
                   {formatAmountMoney(
                     asMinor(wallet.credit_limit! + balance),
@@ -242,7 +242,7 @@ export function WalletScreen() {
           {progress !== null && (
             <>
               <FieldBar fraction={progress} colour="var(--color-income)" />
-              <div className="tnum mt-2 text-[12.5px] text-ink-muted">
+              <div className="tnum mt-2 text-meta text-ink-muted">
                 {total !== null ? (
                   left === 0 ? (
                     <>All {total} settlements paid</>
@@ -276,8 +276,8 @@ export function WalletScreen() {
                 correct it belongs here rather than three taps away inside Edit
                 wallet — and it is an *event*, not an attribute of the wallet. */}
             <CardRow onClick={() => setAdjustOpen(true)} className="cursor-pointer">
-              <span className="flex-1 text-[15px] font-medium">Adjust balance</span>
-              <span className="text-[13px] text-ink-muted">
+              <span className="flex-1 text-row font-medium">Adjust balance</span>
+              <span className="text-value text-ink-muted">
                 {isCard ? 'Owed or remaining' : 'Set what it really holds'}
               </span>
               <IconChevronRight size={18} stroke={2} className="text-ink-dim" />
@@ -286,8 +286,8 @@ export function WalletScreen() {
             <Divider inset={16} />
 
             <CardRow onClick={() => setCatOpen(true)} className="cursor-pointer">
-              <span className="flex-1 text-[15px] font-medium">Categories</span>
-              <span className="text-[13px] text-ink-muted">
+              <span className="flex-1 text-row font-medium">Categories</span>
+              <span className="text-value text-ink-muted">
                 {categoryIds.isPending
                   ? '—'
                   : chosen === 0
@@ -321,7 +321,7 @@ export function WalletScreen() {
               empty={`Nothing moved through this wallet in ${formatMonthLabel(month)}.`}
             />
           ) : (
-            <p className="py-8 text-center text-[13px] text-ink-muted">
+            <p className="py-8 text-center text-value text-ink-muted">
               {transactions.error ? 'Could not load transactions.' : 'Loading…'}
             </p>
           )}

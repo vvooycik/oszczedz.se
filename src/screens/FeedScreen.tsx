@@ -148,14 +148,14 @@ export function FeedScreen() {
   )
   if (failed?.error) {
     return (
-      <p className="px-4 py-10 text-[13px] text-expense">
+      <p className="px-4 py-10 text-value text-expense">
         {failed.error instanceof Error ? failed.error.message : 'Something went wrong'}
       </p>
     )
   }
 
   if (!wallets.data || !categories.data) {
-    return <p className="px-4 py-10 text-[13px] text-ink-muted">Loading…</p>
+    return <p className="px-4 py-10 text-value text-ink-muted">Loading…</p>
   }
 
   if (wallets.data.length === 0 || categories.data.length === 0) {
@@ -198,7 +198,7 @@ export function FeedScreen() {
             {/* The delta rides on a 20% wash of its own colour rather than on a
                 neutral chip: the sign is the whole content of the number. */}
             <span
-              className="flex items-center gap-[5px] rounded-full px-[9px] py-1 text-[12.5px] font-semibold"
+              className="flex items-center gap-[5px] rounded-full px-[9px] py-1 text-meta font-semibold"
               style={{
                 color: deltaColour,
                 background: `color-mix(in oklab, ${deltaColour} 20%, transparent)`,
@@ -214,18 +214,18 @@ export function FeedScreen() {
           </div>
           <div
             className="tnum mt-2.5"
-            style={{ fontSize: 42, fontWeight: 600, lineHeight: 1, letterSpacing: '-.035em' }}
+            style={{ fontSize: 'var(--text-figure)', fontWeight: 600, lineHeight: 1, letterSpacing: '-.035em' }}
           >
             {formatSigned(asMinor(wealth), { plus: false })}
             <span
               className="text-ink-faint"
-              style={{ fontSize: 19, fontWeight: 500, letterSpacing: 0 }}
+              style={{ fontSize: 'var(--text-figure-unit)', fontWeight: 500, letterSpacing: 0 }}
             >
               {' '}
               {currencySymbol(CURRENCY)}
             </span>
           </div>
-          <div className="mt-1.5 text-[12.5px] text-ink-muted">{window.label}</div>
+          <div className="mt-1.5 text-meta text-ink-muted">{window.label}</div>
         </div>
 
         {/* Flush to the card's edges — the chart is the card's own bottom, not
@@ -255,7 +255,7 @@ export function FeedScreen() {
             type="button"
             onClick={() => setCompare((c) => !c)}
             disabled={!window.comparable}
-            className="flex min-h-[34px] flex-none items-center gap-1.5 rounded-full px-3 text-[12.5px] font-medium"
+            className="flex min-h-[34px] flex-none items-center gap-1.5 rounded-full px-3 text-meta font-medium"
             style={{
               color: comparing ? 'var(--color-accent)' : 'var(--color-ink-muted)',
               background: comparing
@@ -277,7 +277,7 @@ export function FeedScreen() {
         <div className="-mb-1.5">
           <LabelRow
             trailing={
-              <Link to="/budgets" className="text-[12.5px] font-semibold text-accent">
+              <Link to="/budgets" className="text-meta font-semibold text-accent">
                 See all
               </Link>
             }
@@ -312,7 +312,7 @@ export function FeedScreen() {
           that the row is about *when*. */}
       <div className="-mb-1.5 flex items-center justify-between px-1">
         <MonthStepper month={month} onChange={setMonth} earliest={firstDay.data ?? null} />
-        <Link to="/scheduled" className="text-[12.5px] font-semibold text-accent">
+        <Link to="/scheduled" className="text-meta font-semibold text-accent">
           Scheduled
         </Link>
       </div>

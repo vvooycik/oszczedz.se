@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { ADJUSTMENT_CATEGORY } from '@/lib/adjustments'
 import { asMinor, type Minor } from '@/lib/money'
-import { endOfMonth, startOfMonth, today } from '@/lib/dates'
+import { endOfMonth, minDay, startOfMonth, today } from '@/lib/dates'
 import { HORIZON_DAYS, upcomingHorizon } from '@/lib/schedules'
 import type {
   BudgetPeriod,
@@ -29,9 +29,6 @@ const unwrap = <T>({ data, error }: { data: T | null; error: unknown }): T => {
   if (error) throw error
   return data as T
 }
-
-/** Earlier of two 'YYYY-MM-DD' days — they sort lexically, so no parsing. */
-const min = (a: string, b: string): string => (a < b ? a : b)
 
 /* --------------------------------------------------------------- reference */
 
@@ -126,7 +123,7 @@ export const useMonthTransactions = (month: string) => {
   const from = startOfMonth(month)
   // `today()` is in the key as well as the bound, so the current month picks up
   // a row the moment the calendar rolls onto its day.
-  const to = min(endOfMonth(month), today())
+  const to = minDay(endOfMonth(month), today())
 
   return useQuery({
     queryKey: ['transactions', 'month', from, to],
@@ -208,7 +205,7 @@ export const useWalletTransactions = (
   month: string,
 ) => {
   const from = startOfMonth(month)
-  const to = min(endOfMonth(month), today())
+  const to = minDay(endOfMonth(month), today())
 
   return useQuery({
     queryKey: ['transactions', 'wallet', walletId, from, to],

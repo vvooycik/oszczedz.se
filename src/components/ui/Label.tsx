@@ -26,7 +26,7 @@ export function Label({
 }) {
   return (
     <span
-      className={`text-[11px] font-semibold tracking-[0.06em] text-label uppercase ${className}`}
+      className={`text-kicker font-semibold tracking-[0.06em] text-label uppercase ${className}`}
       style={tone ? { color: tone } : undefined}
     >
       {children}

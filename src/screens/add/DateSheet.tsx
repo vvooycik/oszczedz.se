@@ -37,7 +37,7 @@ export function DateSheet({
         >
           <IconChevronLeft size={20} stroke={2} />
         </button>
-        <div className="text-[15px] font-semibold">
+        <div className="text-row font-semibold">
           {formatMonthLong(month)} {fromISODate(month).getFullYear()}
         </div>
         <button
@@ -51,7 +51,7 @@ export function DateSheet({
 
       <div className="grid grid-cols-7 px-4 pt-4 text-center">
         {WEEKDAY_INITIALS.map((d, i) => (
-          <span key={i} className="text-[10.5px] text-ink-dim">
+          <span key={i} className="text-badge text-ink-dim">
             {d}
           </span>
         ))}
@@ -68,7 +68,7 @@ export function DateSheet({
                 onPick(iso)
                 onClose()
               }}
-              className="tnum mx-auto flex size-9 items-center justify-center rounded-full text-[13px]"
+              className="tnum mx-auto flex size-9 items-center justify-center rounded-full text-value"
               style={
                 iso === value
                   ? { background: 'var(--color-accent)', color: 'var(--color-accent-fg)', fontWeight: 600 }
@@ -94,7 +94,7 @@ export function DateSheet({
               onPick(quick.iso)
               onClose()
             }}
-            className="flex-1 rounded-field bg-inset py-3 text-[13px] font-medium"
+            className="flex-1 rounded-field bg-inset py-3 text-value font-medium"
           >
             {quick.label}
           </button>

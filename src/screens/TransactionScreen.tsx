@@ -49,6 +49,7 @@ import {
 import {
   addMonths,
   formatFullDate,
+  minDay,
   formatMonthLong,
   formatMonthShort,
   startOfMonth,
@@ -59,9 +60,6 @@ import { isPlanned } from '@/lib/schedules'
 import { categoryVar } from '@/theme/tokens'
 
 const CURRENCY = 'PLN'
-
-/** Earlier of two 'YYYY-MM-DD' days — they sort lexically, so no parsing. */
-const minDay = (a: string, b: string): string => (a < b ? a : b)
 
 /**
  * Six months of one category, the last of them highlighted.
@@ -115,14 +113,14 @@ function CategoryHistory({
       {values.map((v, i) => (
         <div key={months[i]} className="flex flex-1 flex-col items-center gap-1.5">
           <span
-            className={`tnum text-[10px] whitespace-nowrap ${
+            className={`tnum text-quote whitespace-nowrap ${
               i === current ? 'font-semibold text-ink' : 'font-medium text-ink-dim'
             }`}
           >
             {recorded[i] ? (
               <>
                 {formatMoneyShort(asMinor(v))}
-                <span className="ml-[2px] text-[9px] font-medium text-ink-dim">
+                <span className="ml-[2px] text-quote-unit font-medium text-ink-dim">
                   {unit}
                 </span>
               </>
@@ -152,7 +150,7 @@ function CategoryHistory({
               }
             />
           </div>
-          <span className="tnum text-[11px] font-medium text-ink-dim">
+          <span className="tnum text-kicker font-medium text-ink-dim">
             {formatMonthShort(months[i]!).slice(0, 3)}
           </span>
         </div>
@@ -215,7 +213,7 @@ function CategoryVerdict({
   const month = formatMonthLong(months[last]!)
 
   return (
-    <p className="mt-3 text-[12.5px] leading-[1.5] text-ink-muted">
+    <p className="mt-3 text-meta leading-[1.5] text-ink-muted">
       {/* Plain, like the rest of the sentence. It was ink and semibold, which
           made the sentence open on a second hero after the 42px one at the top
           of the screen — and set the leading figure above the one it is being
@@ -294,7 +292,7 @@ export function TransactionScreen() {
   if (tx.isLoading || !tx.data) {
     return (
       <FullScreen>
-        <p className="px-4 py-10 text-[13px] text-ink-muted">
+        <p className="px-4 py-10 text-value text-ink-muted">
           {tx.error ? 'Could not load this transaction.' : 'Loading…'}
         </p>
       </FullScreen>
@@ -437,7 +435,7 @@ export function TransactionScreen() {
               <div
                 className="tnum mt-4"
                 style={{
-                  fontSize: 44,
+                  fontSize: 'var(--text-hero)',
                   fontWeight: 600,
                   lineHeight: 1,
                   letterSpacing: '-0.035em',
@@ -449,7 +447,7 @@ export function TransactionScreen() {
                   : formatSigned(asMinor(row.amount))}
                 <span
                   className="text-ink-faint"
-                  style={{ fontSize: 20, fontWeight: 500, letterSpacing: 0 }}
+                  style={{ fontSize: 'var(--text-hero-unit)', fontWeight: 500, letterSpacing: 0 }}
                 >
                   {' '}
                   {currencySymbol(wallet?.currency ?? CURRENCY)}
@@ -457,12 +455,12 @@ export function TransactionScreen() {
               </div>
 
               <span
-                className="mt-3.5 rounded-full px-3 py-1.5 text-[13px] font-medium"
+                className="mt-3.5 rounded-full px-3 py-1.5 text-value font-medium"
                 style={{ background: 'var(--field-scrim)', color: 'var(--field-ink)' }}
               >
                 {isTransfer ? 'Transfer' : (category?.name ?? 'Uncategorised')}
               </span>
-              <div className="tnum mt-2.5 text-[13px] text-ink-muted">
+              <div className="tnum mt-2.5 text-value text-ink-muted">
                 {formatFullDate(row.date)}
               </div>
 
@@ -471,7 +469,7 @@ export function TransactionScreen() {
                   above reads as something that already left the account, and
                   the balance row below would appear not to include it. */}
               {planned && (
-                <div className="mt-2 flex items-center gap-1.5 text-[12.5px] text-ink-faint">
+                <div className="mt-2 flex items-center gap-1.5 text-meta text-ink-faint">
                   {row.schedule_id ? (
                     <IconRepeat size={13} stroke={2} />
                   ) : (
@@ -497,10 +495,10 @@ export function TransactionScreen() {
                           <span className="flex w-[26px] flex-none justify-center text-ink-dim">
                             <Arrow size={18} stroke={2} />
                           </span>
-                          <span className="flex-1 truncate text-[15px] font-medium">
+                          <span className="flex-1 truncate text-row font-medium">
                             {legWallet?.name ?? '—'}
                           </span>
-                          <span className="tnum text-[15px] font-semibold text-ink-muted">
+                          <span className="tnum text-row font-semibold text-ink-muted">
                             {formatSignedMoney(
                               asMinor(leg.amount),
                               legWallet?.currency ?? CURRENCY,
@@ -512,7 +510,7 @@ export function TransactionScreen() {
                   })}
                 </Card>
 
-                <Card className="flex gap-2.5 p-[18px] text-[12.5px] leading-[1.55] text-ink-muted">
+                <Card className="flex gap-2.5 p-[18px] text-meta leading-[1.55] text-ink-muted">
                   <IconInfoCircle size={16} stroke={2} className="mt-0.5 flex-none" />
                   <p>
                     A transfer moves money between your own wallets, so it is left
@@ -543,7 +541,7 @@ export function TransactionScreen() {
                           {tagNames.map((name) => (
                             <span
                               key={name}
-                              className="rounded-full px-2.5 py-1 text-[12px] font-medium"
+                              className="rounded-full px-2.5 py-1 text-meta-sm font-medium"
                               style={{
                                 background: `color-mix(in oklab, ${accent} 20%, transparent)`,
                                 color: accent,
@@ -619,10 +617,10 @@ export function TransactionScreen() {
         {confirming && (
           <div className="absolute inset-0 z-40 flex items-end bg-black/50 p-4">
             <Card className="w-full p-[18px]">
-              <h2 className="text-[17px] font-semibold">
+              <h2 className="text-dialog font-semibold">
                 Delete this {isTransfer ? 'transfer' : 'transaction'}?
               </h2>
-              <p className="mt-2 text-[13px] leading-[1.55] text-ink-muted">
+              <p className="mt-2 text-value leading-[1.55] text-ink-muted">
                 {isTransfer && outLeg && inLeg
                   ? `Both legs go together. ${
                       wallets.data?.find((w) => w.id === outLeg.wallet_id)?.name ?? '—'
@@ -666,8 +664,8 @@ function DetailRow({
       <span className="flex w-[26px] flex-none justify-center pt-px text-ink-faint">
         {icon}
       </span>
-      <span className="flex-none text-[13px] text-ink-muted">{label}</span>
-      <span className="flex-1 text-right text-[15px] font-medium">{children}</span>
+      <span className="flex-none text-value text-ink-muted">{label}</span>
+      <span className="flex-1 text-right text-row font-medium">{children}</span>
     </div>
   )
 }

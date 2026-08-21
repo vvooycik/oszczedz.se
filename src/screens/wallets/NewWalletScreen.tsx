@@ -194,7 +194,7 @@ export function NewWalletScreen() {
                 type="button"
                 onMouseDown={keepFocus}
                 onClick={() => setTypeOpen(true)}
-                className="flex items-center gap-1.5 text-[13px] text-ink-muted"
+                className="flex items-center gap-1.5 text-value text-ink-muted"
               >
                 {labelForWalletType(type)}
                 <IconSelector size={17} stroke={2} className="text-ink-dim" />
@@ -243,7 +243,7 @@ export function NewWalletScreen() {
             )}
           </Card>
 
-          <p className="px-1 text-[12.5px] leading-[1.5] text-ink-muted">{spec.hint}</p>
+          <p className="px-1 text-meta leading-[1.5] text-ink-muted">{spec.hint}</p>
 
           <section className="flex flex-col gap-2">
             <Label className="px-1">Categories</Label>
@@ -255,12 +255,12 @@ export function NewWalletScreen() {
                 className="flex w-full items-center gap-3 px-4 py-[13px] text-left active:bg-press"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-medium">
+                  <span className="block text-row font-medium">
                     {categoryIds.length === 0
                       ? 'Every category'
                       : `${categoryIds.length} chosen`}
                   </span>
-                  <span className="mt-px block text-[12.5px] leading-[1.4] text-ink-muted">
+                  <span className="mt-px block text-meta leading-[1.4] text-ink-muted">
                     {categoryIds.length === 0
                       ? 'Narrow the picker to what this wallet is for, in the order you want it.'
                       : 'Shown in this order when adding a transaction here.'}
@@ -271,9 +271,9 @@ export function NewWalletScreen() {
             </Card>
           </section>
 
-          {error && <p className="px-1 text-[12.5px] text-expense">{error}</p>}
+          {error && <p className="px-1 text-meta text-expense">{error}</p>}
 
-          <p className="px-1 text-[12.5px] leading-[1.5] text-ink-muted">
+          <p className="px-1 text-meta leading-[1.5] text-ink-muted">
             Balances are never stored — this is only where the wallet starts.
             Everything after it comes from its transactions.
           </p>

@@ -62,9 +62,9 @@ export function WalletIdentityCard({
               onChange={(e) => onName(e.target.value)}
               placeholder="Wallet name"
               aria-label="Wallet name"
-              className="w-full bg-transparent text-[17px] font-semibold outline-none placeholder:text-ink-faint"
+              className="w-full bg-transparent text-dialog font-semibold outline-none placeholder:text-ink-faint"
             />
-            <div className="mt-0.5 text-[12.5px] text-ink-muted">
+            <div className="mt-0.5 text-meta text-ink-muted">
               Tap the tile to change icon
             </div>
           </div>
@@ -159,7 +159,7 @@ export function SettingRow({
   return (
     <div className="flex items-center gap-3 px-4 py-[13px]">
       <span
-        className="flex-1 text-[15px] font-medium"
+        className="flex-1 text-row font-medium"
         style={{ color: invalid ? 'var(--color-expense)' : undefined }}
       >
         {label}
@@ -198,10 +198,10 @@ export function AmountInput({
         inputMode={numeric ? 'numeric' : 'decimal'}
         placeholder={placeholder}
         aria-label={label}
-        className="tnum w-32 bg-transparent text-right text-[16px] font-semibold outline-none placeholder:text-ink-faint"
+        className="tnum w-32 bg-transparent text-right text-field font-semibold outline-none placeholder:text-ink-faint"
         style={{ color: invalid ? 'var(--color-expense)' : undefined }}
       />
-      <span className="text-[13px] text-ink-faint">{unit}</span>
+      <span className="text-value text-ink-faint">{unit}</span>
     </span>
   )
 }
@@ -242,8 +242,8 @@ export function TypeSheet({
                 <Icon size={18} stroke={2} />
               </Tile>
               <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-medium">{option.label}</span>
-                <span className="block text-[12.5px] text-ink-muted">
+                <span className="block text-row font-medium">{option.label}</span>
+                <span className="block text-meta text-ink-muted">
                   {option.blurb}
                 </span>
               </span>

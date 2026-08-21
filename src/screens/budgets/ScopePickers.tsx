@@ -67,9 +67,9 @@ function PickRow({
     >
       {children}
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[15px] font-medium">{label}</span>
+        <span className="block truncate text-row font-medium">{label}</span>
         {meta && (
-          <span className="mt-px block truncate text-[12.5px] text-ink-muted">{meta}</span>
+          <span className="mt-px block truncate text-meta text-ink-muted">{meta}</span>
         )}
       </span>
       <CheckBox on={selected} label={label} />
@@ -135,7 +135,7 @@ export function BudgetCategoriesScreen({
             type="button"
             onClick={onClose}
             disabled={selected.length === 0}
-            className="px-1 text-[14px] font-semibold text-accent disabled:opacity-40"
+            className="px-1 text-link font-semibold text-accent disabled:opacity-40"
           >
             Done
           </button>
@@ -143,7 +143,7 @@ export function BudgetCategoriesScreen({
       />
 
       <div className="no-scrollbar flex flex-1 flex-col gap-[14px] overflow-y-auto px-4 pt-2 pb-10">
-        <p className="px-1 text-[12.5px] leading-[1.5] text-ink-muted">
+        <p className="px-1 text-meta leading-[1.5] text-ink-muted">
           {selected.length === 0
             ? `Pick at least one. Only spend in these ${spendable.length} expense categories can count against the limit.`
             : `${selected.length} of ${spendable.length} counted. Spend anywhere else is invisible to this budget.`}
@@ -156,7 +156,7 @@ export function BudgetCategoriesScreen({
               <button
                 type="button"
                 onClick={() => onChange([])}
-                className="text-[12.5px] font-semibold text-accent"
+                className="text-meta font-semibold text-accent"
               >
                 Clear
               </button>
@@ -192,7 +192,7 @@ export function BudgetCategoriesScreen({
                 type="button"
                 onMouseDown={keepFocus}
                 onClick={() => onChange([...selected, ...rest.map((c) => c.id)])}
-                className="text-[12.5px] font-semibold text-accent"
+                className="text-meta font-semibold text-accent"
               >
                 {/* Counted, and it counts what is *visible*: under a search this
                     adds the matches, not the whole list, so the label has to say
@@ -213,7 +213,7 @@ export function BudgetCategoriesScreen({
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              className="w-full bg-transparent text-[16px] outline-none placeholder:text-ink-faint"
+              className="w-full bg-transparent text-field outline-none placeholder:text-ink-faint"
             />
           </label>
 
@@ -237,7 +237,7 @@ export function BudgetCategoriesScreen({
               ))}
             </Card>
           ) : (
-            <p className="px-1 pt-1 text-[12.5px] text-ink-muted">
+            <p className="px-1 pt-1 text-meta text-ink-muted">
               {query.trim()
                 ? `No categories match “${query}”.`
                 : // Worth saying out loud now that one tap gets here: the set is
@@ -311,7 +311,7 @@ export function BudgetWalletsScreen({
           <button
             type="button"
             onClick={onClose}
-            className="px-1 text-[14px] font-semibold text-accent"
+            className="px-1 text-link font-semibold text-accent"
           >
             Done
           </button>
@@ -319,7 +319,7 @@ export function BudgetWalletsScreen({
       />
 
       <div className="no-scrollbar flex flex-1 flex-col gap-[14px] overflow-y-auto px-4 pt-2 pb-10">
-        <p className="px-1 text-[12.5px] leading-[1.5] text-ink-muted">
+        <p className="px-1 text-meta leading-[1.5] text-ink-muted">
           {all
             ? 'Spend from any wallet counts, including wallets opened later.'
             : `Only spend from these ${selected.length} counts. The same purchase made from another wallet is invisible to this budget.`}
@@ -336,8 +336,8 @@ export function BudgetWalletsScreen({
               <IconAsterisk size={18} stroke={2} />
             </Tile>
             <span className="min-w-0 flex-1">
-              <span className="block text-[15px] font-medium">All wallets</span>
-              <span className="mt-px block text-[12.5px] text-ink-muted">
+              <span className="block text-row font-medium">All wallets</span>
+              <span className="mt-px block text-meta text-ink-muted">
                 Including any added later
               </span>
             </span>

@@ -33,6 +33,17 @@ export function addMonths(iso: string, months: number): string {
 
 export const startOfMonth = (iso: string): string => `${iso.slice(0, 7)}-01`
 
+/**
+ * Earlier / later of two 'YYYY-MM-DD' days.
+ *
+ * They sort lexically, so there is no parsing in it — which is exactly why it
+ * got written twice, once in `queries.ts` and once on the transaction screen,
+ * within a week. Three words is not too small to share when the alternative is
+ * two of them.
+ */
+export const minDay = (a: string, b: string): string => (a < b ? a : b)
+export const maxDay = (a: string, b: string): string => (a > b ? a : b)
+
 /** Last calendar day of the month `iso` falls in — day 0 of the next month. */
 export function endOfMonth(iso: string): string {
   const d = fromISODate(iso)

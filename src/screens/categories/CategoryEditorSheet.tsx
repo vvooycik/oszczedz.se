@@ -91,7 +91,7 @@ export function CategoryEditorSheet({
         <ScreenHeader title={`Delete ${draft.name}`} onBack={onCancelDelete} />
 
         <div className="no-scrollbar flex flex-1 flex-col gap-[14px] overflow-y-auto px-4 pt-2 pb-8">
-          <p className="px-1 text-[14px] leading-[1.55] text-ink-muted">
+          <p className="px-1 text-link leading-[1.55] text-ink-muted">
             {usageCount === 0 ? (
               <>Nothing uses {draft.name} yet, so it can go straight away.</>
             ) : (
@@ -104,10 +104,10 @@ export function CategoryEditorSheet({
             )}
           </p>
 
-          {error && <p className="px-1 text-[12.5px] text-expense">{error}</p>}
+          {error && <p className="px-1 text-meta text-expense">{error}</p>}
 
           {usageCount > 0 && targets.length === 0 && (
-            <p className="px-1 text-[14px] leading-[1.55] text-ink-muted">
+            <p className="px-1 text-link leading-[1.55] text-ink-muted">
               There is no other {draft.kind} category to move them to. Create one
               first, and this one can go.
             </p>
@@ -133,7 +133,7 @@ export function CategoryEditorSheet({
                         size={36}
                         dashed={category.kind === 'transfer'}
                       />
-                      <span className="flex-1 truncate text-[15px] font-medium">
+                      <span className="flex-1 truncate text-row font-medium">
                         {category.name}
                       </span>
                       {reassignTo === category.id && (
@@ -180,7 +180,7 @@ export function CategoryEditorSheet({
         />
 
         <div className="no-scrollbar flex flex-1 flex-col gap-[14px] overflow-y-auto px-4 pt-2 pb-8">
-          {error && <p className="px-1 text-[12.5px] text-expense">{error}</p>}
+          {error && <p className="px-1 text-meta text-expense">{error}</p>}
 
           <Card className="flex flex-col items-center gap-4 p-[18px]">
             <CategoryGlyph
@@ -194,7 +194,7 @@ export function CategoryEditorSheet({
               onChange={(e) => onPatch({ name: e.target.value })}
               placeholder="Category name"
               aria-label="Category name"
-              className="w-full rounded-field bg-inset px-4 py-3 text-center text-[16px] font-medium caret-accent outline-none placeholder:text-ink-faint"
+              className="w-full rounded-field bg-inset px-4 py-3 text-center text-field font-medium caret-accent outline-none placeholder:text-ink-faint"
             />
             <SegmentedTrack
               className="w-full"
@@ -244,7 +244,7 @@ export function CategoryEditorSheet({
                 type="button"
                 onMouseDown={keepFocus}
                 onClick={() => setShowAllGlyphs((s) => !s)}
-                className="text-[12.5px] font-semibold text-accent"
+                className="text-meta font-semibold text-accent"
               >
                 {showAllGlyphs ? 'Show fewer' : `Search all ${GLYPH_CHOICES.length}`}
               </button>
@@ -261,7 +261,7 @@ export function CategoryEditorSheet({
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}
-                  className="w-full bg-transparent text-[16px] outline-none placeholder:text-ink-faint"
+                  className="w-full bg-transparent text-field outline-none placeholder:text-ink-faint"
                 />
               </label>
             )}
@@ -298,7 +298,7 @@ export function CategoryEditorSheet({
                 })}
               </div>
               {glyphs.length === 0 && (
-                <p className="text-center text-[12.5px] text-ink-muted">
+                <p className="text-center text-meta text-ink-muted">
                   No icons match “{glyphQuery}”.
                 </p>
               )}
@@ -320,7 +320,7 @@ export function CategoryEditorSheet({
                   />
                 </Tile>
                 <span
-                  className="flex-1 text-[15px] font-medium"
+                  className="flex-1 text-row font-medium"
                   style={{ color: 'var(--color-expense)' }}
                 >
                   Delete category

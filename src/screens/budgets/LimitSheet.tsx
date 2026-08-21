@@ -67,11 +67,11 @@ export function LimitSheet({
 
         <div className="flex min-h-[92px] flex-col justify-center py-2">
           {/* The working, not the answer — the answer is the figure below. */}
-          <div className="tnum h-[18px] text-[13px] text-ink-faint">{tape ?? ''}</div>
+          <div className="tnum h-[18px] text-value text-ink-faint">{tape ?? ''}</div>
           <div
             className="tnum"
             style={{
-              fontSize: 38,
+              fontSize: 'var(--text-sheet)',
               fontWeight: 600,
               lineHeight: 1.1,
               letterSpacing: '-.035em',
@@ -81,13 +81,13 @@ export function LimitSheet({
             {figure ?? '0,00'}
             <span
               className="text-ink-faint"
-              style={{ fontSize: 19, fontWeight: 500, letterSpacing: 0 }}
+              style={{ fontSize: 'var(--text-sheet-unit)', fontWeight: 500, letterSpacing: 0 }}
             >
               {' '}
               {currencySymbol(currency)}
             </span>
           </div>
-          <div className="mt-1 text-[12.5px] text-ink-muted">{periodLabel}</div>
+          <div className="mt-1 text-meta text-ink-muted">{periodLabel}</div>
         </div>
 
         <Keypad op={entry.op} onKey={(key) => setEntry((s) => applyKey(s, key))} />

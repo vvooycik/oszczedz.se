@@ -29,7 +29,7 @@ function Cell({
       aria-pressed={active}
       onMouseDown={keepFocus}
       onClick={onClick}
-      className="tnum flex h-11 w-full items-center justify-center rounded-tile text-[14.5px]"
+      className="tnum flex h-11 w-full items-center justify-center rounded-tile text-action"
       style={{
         fontWeight: active ? 600 : 500,
         background: active ? 'var(--color-accent)' : 'var(--color-inset)',
@@ -102,7 +102,7 @@ export function ResetsOnSheet({
                 aria-pressed={value === day}
                 onMouseDown={keepFocus}
                 onClick={() => commit(day)}
-                className="flex items-center rounded-field px-4 py-3 text-left text-[15px]"
+                className="flex items-center rounded-field px-4 py-3 text-left text-row"
                 style={{
                   fontWeight: value === day ? 600 : 500,
                   background:
@@ -136,7 +136,7 @@ export function ResetsOnSheet({
                 onClick={() => commit(31)}
               />
             </div>
-            <p className="mt-3 px-1 text-[12.5px] leading-[1.5] text-ink-muted">
+            <p className="mt-3 px-1 text-meta leading-[1.5] text-ink-muted">
               Days past the 28th are only offered as “last day”, because February
               has to clamp somewhere and a budget that silently moved would be
               worse than one that says where it lands.
@@ -176,7 +176,7 @@ export function ResetsOnSheet({
               ))}
             </div>
 
-            <p className="mt-3 px-1 text-[12.5px] leading-[1.5] text-ink-muted">
+            <p className="mt-3 px-1 text-meta leading-[1.5] text-ink-muted">
               Stored as a month and a day against a non-leap year, so the
               anniversary never drifts. 29 February is not offered for the same
               reason.

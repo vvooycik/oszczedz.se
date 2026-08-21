@@ -59,8 +59,8 @@ function NavRow({
       >
         {icon}
       </Tile>
-      <span className="flex-1 truncate text-[15px] font-medium">{name}</span>
-      {value != null && <span className="text-[13px] text-ink-muted">{value}</span>}
+      <span className="flex-1 truncate text-row font-medium">{name}</span>
+      {value != null && <span className="text-value text-ink-muted">{value}</span>}
       <IconChevronRight size={18} stroke={2} className="flex-none text-ink-dim" />
     </>
   )
@@ -105,7 +105,7 @@ export function MoreScreen() {
 
   return (
     <div className="flex flex-col gap-[14px] px-4 pt-1">
-      <h1 className="px-1 text-[28px] font-semibold tracking-[-0.02em]">More</h1>
+      <h1 className="px-1 text-title-sm font-semibold tracking-[-0.02em]">More</h1>
 
       <section className="flex flex-col gap-2">
         <Label className="px-1">Data</Label>
@@ -199,7 +199,7 @@ export function MoreScreen() {
           <Divider inset={0} />
 
           <div className="flex items-center gap-3 px-4 py-[13px]">
-            <span className="flex-1 text-[15px] font-medium">Theme</span>
+            <span className="flex-1 text-row font-medium">Theme</span>
             <SegmentedTrack
               className="w-[200px]"
               options={MODES}
@@ -224,22 +224,22 @@ export function MoreScreen() {
             <Tile size={36} variant="neutral">
               <IconCurrencyZloty size={18} stroke={2} />
             </Tile>
-            <span className="flex-1 text-[15px] font-medium">Currency</span>
-            <span className="text-[13px] text-ink-muted">PLN · zł</span>
+            <span className="flex-1 text-row font-medium">Currency</span>
+            <span className="text-value text-ink-muted">PLN · zł</span>
           </div>
           <Divider inset={57} />
           <div className="flex items-center gap-[13px] px-4 py-[13px]">
             <Tile size={36} variant="neutral">
               <IconInfoCircle size={18} stroke={2} />
             </Tile>
-            <span className="flex-1 text-[15px] font-medium">About</span>
-            <span className="tnum text-[13px] text-ink-muted">
+            <span className="flex-1 text-row font-medium">About</span>
+            <span className="tnum text-value text-ink-muted">
               {__APP_VERSION__}
             </span>
           </div>
         </Card>
         {exportError && (
-          <p className="px-1 text-[12.5px] text-expense">{exportError}</p>
+          <p className="px-1 text-meta text-expense">{exportError}</p>
         )}
       </section>
 

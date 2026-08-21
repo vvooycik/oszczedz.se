@@ -93,7 +93,7 @@ export function EditWalletScreen() {
   if (!wallet || !hydrated) {
     return (
       <FullScreen>
-        <p className="px-4 py-10 text-[13px] text-ink-muted">
+        <p className="px-4 py-10 text-value text-ink-muted">
           {wallets.data && !wallet ? 'That wallet no longer exists.' : 'Loading…'}
         </p>
       </FullScreen>
@@ -176,7 +176,7 @@ export function EditWalletScreen() {
                 invent an installment count — for a change that is nearly always
                 a mistake made at creation rather than an event. */}
             <SettingRow label="Type">
-              <span className="text-[13px] text-ink-muted">
+              <span className="text-value text-ink-muted">
                 {labelForWalletType(wallet.type)} · fixed
               </span>
             </SettingRow>
@@ -223,7 +223,7 @@ export function EditWalletScreen() {
                 onClick={() => setAdjustOpen(true)}
                 className="flex items-center gap-1 active:opacity-70"
               >
-                <span className="tnum text-[15px] font-semibold">
+                <span className="tnum text-row font-semibold">
                   {formatSignedMoney(asMinor(balance), wallet.currency, { plus: false })}
                 </span>
                 <IconChevronRight size={17} stroke={2} className="text-ink-dim" />
@@ -231,15 +231,15 @@ export function EditWalletScreen() {
             </SettingRow>
           </Card>
 
-          {error && <p className="px-1 text-[12.5px] text-expense">{error}</p>}
+          {error && <p className="px-1 text-meta text-expense">{error}</p>}
 
           {/* Archiving is not deleting, and the copy has to say so — the history
               is exactly what makes a closed wallet worth keeping. */}
           <Card className="p-[18px]">
-            <div className="text-[15px] font-medium">
+            <div className="text-row font-medium">
               {archived ? 'Closed wallet' : 'Close this wallet'}
             </div>
-            <p className="pt-1.5 text-[12.5px] leading-[1.5] text-ink-muted">
+            <p className="pt-1.5 text-meta leading-[1.5] text-ink-muted">
               {archived ? (
                 <>
                   Hidden from the list and from the entry form. Everything it ever
@@ -267,7 +267,7 @@ export function EditWalletScreen() {
             </p>
 
             {archiveError && (
-              <p className="pt-2.5 text-[12.5px] text-expense">{archiveError}</p>
+              <p className="pt-2.5 text-meta text-expense">{archiveError}</p>
             )}
 
             <Button

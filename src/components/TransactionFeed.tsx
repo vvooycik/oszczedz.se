@@ -94,18 +94,18 @@ function Row({
         <CategoryGlyph glyph={null} color={null} transfer />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="truncate text-[15px] font-medium text-ink/75">
+            <span className="truncate text-row font-medium text-ink/75">
               {from?.name ?? '—'} → {to?.name ?? '—'}
             </span>
             {planned && <PlannedMark scheduled={entry.out.schedule_id != null} />}
           </div>
-          <div className="mt-px truncate text-[12.5px] text-ink-muted">
+          <div className="mt-px truncate text-meta text-ink-muted">
             {planned ? 'Scheduled transfer' : 'Transfer · not counted as spending'}
           </div>
         </div>
         {/* The target leg, so the target wallet's currency — a cross-currency
             transfer has a different amount on each side. */}
-        <div className="tnum flex-none text-[15px] font-semibold whitespace-nowrap text-ink-faint">
+        <div className="tnum flex-none text-row font-semibold whitespace-nowrap text-ink-faint">
           {formatAmountMoney(asMinor(entry.in.amount), to?.currency ?? 'PLN')}
         </div>
       </Link>
@@ -147,18 +147,18 @@ function Row({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span
-            className={`truncate text-[15px] font-medium ${adjustment ? 'text-ink/75' : ''}`}
+            className={`truncate text-row font-medium ${adjustment ? 'text-ink/75' : ''}`}
           >
             {category?.name ?? 'Uncategorised'}
           </span>
           {planned && <PlannedMark scheduled={tx.schedule_id != null} />}
         </div>
         {meta && (
-          <div className="mt-px truncate text-[12.5px] text-ink-muted">{meta}</div>
+          <div className="mt-px truncate text-meta text-ink-muted">{meta}</div>
         )}
       </div>
       <div
-        className="tnum flex-none text-[15px] font-semibold whitespace-nowrap"
+        className="tnum flex-none text-row font-semibold whitespace-nowrap"
         style={{
           color:
             adjustment || planned
@@ -210,7 +210,7 @@ export function TransactionFeed({
 
   if (days.length === 0) {
     return (
-      <p className="px-4 py-8 text-center text-[13px] text-ink-muted">{empty}</p>
+      <p className="px-4 py-8 text-center text-value text-ink-muted">{empty}</p>
     )
   }
 
@@ -239,7 +239,7 @@ export function TransactionFeed({
             <div className="flex items-baseline justify-between px-1">
               <Label>{formatDayHeader(day)}</Label>
               <span
-                className="tnum text-[12.5px] font-semibold"
+                className="tnum text-meta font-semibold"
                 style={{
                   color: net > 0 ? 'var(--color-income)' : 'var(--color-ink-faint)',
                 }}

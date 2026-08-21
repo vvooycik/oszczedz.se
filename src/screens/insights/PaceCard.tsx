@@ -123,7 +123,7 @@ export function PaceCard({
     <section className="flex flex-col gap-2">
       <LabelRow
         trailing={
-          <span className="tnum text-[12px] text-ink-muted">
+          <span className="tnum text-meta-sm text-ink-muted">
             {running ? `Day ${elapsed} of ${days}` : `${days} days`}
           </span>
         }
@@ -136,18 +136,18 @@ export function PaceCard({
           <div>
             <div
               className="tnum"
-              style={{ fontSize: 34, fontWeight: 600, lineHeight: 1, letterSpacing: '-.035em' }}
+              style={{ fontSize: 'var(--text-stat)', fontWeight: 600, lineHeight: 1, letterSpacing: '-.035em' }}
             >
               {formatAmount(asMinor(spent))}
               <span
                 className="text-ink-faint"
-                style={{ fontSize: 17, fontWeight: 500, letterSpacing: 0 }}
+                style={{ fontSize: 'var(--text-stat-unit)', fontWeight: 500, letterSpacing: 0 }}
               >
                 {' '}
                 {currencySymbol(currency)}
               </span>
             </div>
-            <div className="mt-1.5 text-[13px] text-ink-muted">
+            <div className="mt-1.5 text-value text-ink-muted">
               {running ? `spent so far in ${noun}` : `spent in ${noun}`}
             </div>
           </div>
@@ -156,7 +156,7 @@ export function PaceCard({
               the biggest thing on the card. */}
           {call && (
             <span
-              className="flex flex-none items-center gap-[5px] rounded-full px-2.5 py-[5px] text-[12.5px] font-semibold"
+              className="flex flex-none items-center gap-[5px] rounded-full px-2.5 py-[5px] text-meta font-semibold"
               style={{
                 color: tone,
                 background:
@@ -265,7 +265,7 @@ export function PaceCard({
 
         {/* Outside the SVG so the labels keep the app's type size rather than
             scaling with the plot. */}
-        <div className="tnum mt-1 flex justify-between px-2 text-[10.5px] text-ink-dim">
+        <div className="tnum mt-1 flex justify-between px-2 text-badge text-ink-dim">
           <span>1</span>
           {running && <span className="font-semibold text-ink-muted">{elapsed}</span>}
           <span>{days}</span>
@@ -283,7 +283,7 @@ export function PaceCard({
         </div>
 
         {running && typicalEnd > 0 && (
-          <p className="mt-2.5 text-[12.5px] leading-[1.5] text-ink-muted">
+          <p className="mt-2.5 text-meta leading-[1.5] text-ink-muted">
             At this rate you finish around{' '}
             <span className="tnum font-semibold text-ink">
               {formatAmountMoney(asMinor(projected), currency)}
@@ -313,12 +313,12 @@ function Stat({
   return (
     <div className="flex-1 rounded-[14px] bg-inset px-3 py-2.5">
       <div
-        className="tnum text-[16px] font-semibold"
+        className="tnum text-field font-semibold"
         style={muted ? { color: 'var(--color-ink-muted)' } : undefined}
       >
         {value}
       </div>
-      <div className="mt-0.5 text-[11.5px] text-ink-muted">{label}</div>
+      <div className="mt-0.5 text-micro text-ink-muted">{label}</div>
     </div>
   )
 }

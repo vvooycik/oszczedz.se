@@ -100,18 +100,18 @@ function WalletRow({
 
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-3">
-          <div className="truncate text-[15px] font-medium">{wallet.name}</div>
+          <div className="truncate text-row font-medium">{wallet.name}</div>
 
           {isCard ? (
             <div className="flex-none text-right">
-              <div className="tnum text-[15px] font-semibold whitespace-nowrap">
+              <div className="tnum text-row font-semibold whitespace-nowrap">
                 {formatAmountMoney(asMinor(wallet.credit_limit! + balance), wallet.currency)}
               </div>
-              <div className="text-[11px] text-ink-faint">remaining</div>
+              <div className="text-kicker text-ink-faint">remaining</div>
             </div>
           ) : (
             <div
-              className="tnum flex-none text-[15px] font-semibold whitespace-nowrap"
+              className="tnum flex-none text-row font-semibold whitespace-nowrap"
               style={{
                 color:
                   balance < 0
@@ -136,7 +136,7 @@ function WalletRow({
               fraction={Math.abs(Math.min(balance, 0)) / wallet.credit_limit!}
               colour="var(--color-expense)"
             />
-            <div className="tnum mt-[5px] text-[12px] text-ink-muted">
+            <div className="tnum mt-[5px] text-meta-sm text-ink-muted">
               {formatSigned(asMinor(balance), { plus: false })} of{' '}
               {formatAmountMoney(asMinor(wallet.credit_limit!), wallet.currency)} limit
             </div>
@@ -147,7 +147,7 @@ function WalletRow({
                 other way round. A card's bar grows as it gets worse; a loan's
                 grows as it gets better, so it takes the income colour. */}
             <ProgressBar fraction={loanProgress} colour="var(--color-income)" />
-            <div className="tnum mt-[5px] text-[12px] text-ink-muted">
+            <div className="tnum mt-[5px] text-meta-sm text-ink-muted">
               {total !== null ? (
                 left === 0 ? (
                   <>All {total} settlements paid</>
@@ -167,7 +167,7 @@ function WalletRow({
         ) : (
           <div className="mt-px flex items-end justify-between gap-3">
             <div
-              className="tnum truncate text-[12.5px]"
+              className="tnum truncate text-meta"
               style={{
                 color:
                   delta === 0
@@ -215,7 +215,7 @@ export function WalletsScreen() {
   )
 
   if (!wallets.data) {
-    return <p className="px-4 py-10 text-[13px] text-ink-muted">Loading…</p>
+    return <p className="px-4 py-10 text-value text-ink-muted">Loading…</p>
   }
 
   const mine = wallets.data.filter((w) => w.currency === CURRENCY)
@@ -245,7 +245,7 @@ export function WalletsScreen() {
   return (
     <div className="flex flex-col gap-[14px] px-4 pt-1">
       <div className="flex items-center justify-between px-1">
-        <h1 className="text-[28px] font-semibold tracking-[-0.02em]">Wallets</h1>
+        <h1 className="text-title-sm font-semibold tracking-[-0.02em]">Wallets</h1>
         <ActionTile label="New wallet" onClick={() => navigate('/wallets/new')}>
           <IconPlus size={20} stroke={2} />
         </ActionTile>
@@ -256,7 +256,7 @@ export function WalletsScreen() {
         <div
           className="tnum mt-1.5"
           style={{
-            fontSize: 26,
+            fontSize: 'var(--text-stat-xs)',
             fontWeight: 600,
             letterSpacing: '-0.02em',
             color: total < 0 ? 'var(--color-expense)' : undefined,
@@ -278,7 +278,7 @@ export function WalletsScreen() {
             style={{ width: `${(debt / span) * 100}%`, background: 'var(--color-expense)' }}
           />
         </div>
-        <div className="mt-2 flex items-baseline justify-between text-[12.5px] text-ink-muted">
+        <div className="mt-2 flex items-baseline justify-between text-meta text-ink-muted">
           <span className="tnum">Assets {formatAmountMoney(asMinor(assets), CURRENCY)}</span>
           <span className="tnum">Debt {formatAmountMoney(asMinor(debt), CURRENCY)}</span>
         </div>
@@ -296,7 +296,7 @@ export function WalletsScreen() {
             <div className="flex items-baseline justify-between px-1">
               <Label>{section.label}</Label>
               <span
-                className="tnum text-[12.5px] font-semibold"
+                className="tnum text-meta font-semibold"
                 style={{
                   color:
                     subtotal < 0 ? 'var(--color-expense)' : 'var(--color-ink-muted)',
@@ -326,7 +326,7 @@ export function WalletsScreen() {
         <section className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between px-1">
             <Label>Closed</Label>
-            <span className="text-[12.5px] text-ink-muted">{closed.length} archived</span>
+            <span className="text-meta text-ink-muted">{closed.length} archived</span>
           </div>
           <Card>
             {closed.map((w, i) => {
@@ -344,10 +344,10 @@ export function WalletsScreen() {
                     <Tile size={36} variant="neutral">
                       <Icon size={18} stroke={2} />
                     </Tile>
-                    <span className="min-w-0 flex-1 truncate text-[15px] font-medium">
+                    <span className="min-w-0 flex-1 truncate text-row font-medium">
                       {w.name}
                     </span>
-                    <span className="tnum flex-none text-[13px] text-ink-muted">
+                    <span className="tnum flex-none text-value text-ink-muted">
                       {formatSignedMoney(asMinor(balanceFor(w)), w.currency, {
                         plus: false,
                       })}

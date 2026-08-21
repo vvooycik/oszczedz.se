@@ -84,21 +84,21 @@ export function LoginPage() {
   }
 
   const input =
-    'min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-ink-faint'
+    'min-w-0 flex-1 bg-transparent text-field outline-none placeholder:text-ink-faint'
 
   return (
-    <div className="relative mx-auto flex h-dvh max-w-lg flex-col justify-center px-6">
+    <div className="relative mx-auto flex h-svh max-w-frame flex-col justify-center px-6">
       <form onSubmit={submit} className="w-full">
         <div className="flex flex-col gap-5">
           <AppMark size={64} radius={20} />
           <div>
             <h1
-              className="text-[30px] font-semibold"
+              className="text-title font-semibold"
               style={{ letterSpacing: '-0.025em', lineHeight: 1.15 }}
             >
               Sign in
             </h1>
-            <p className="mt-2 text-[14.5px] leading-[1.55] text-ink-muted">
+            <p className="mt-2 text-action leading-[1.55] text-ink-muted">
               Your wallets, categories and history are where you left them.
             </p>
           </div>
@@ -165,12 +165,12 @@ export function LoginPage() {
             </FormField>
 
             {error && (
-              <p role="alert" className="mt-2 px-1 text-[13px] text-expense">
+              <p role="alert" className="mt-2 px-1 text-value text-expense">
                 {error}
               </p>
             )}
             {!error && emailBad && (
-              <p role="alert" className="mt-2 px-1 text-[13px] text-expense">
+              <p role="alert" className="mt-2 px-1 text-value text-expense">
                 That does not look like an email address.
               </p>
             )}
@@ -192,13 +192,13 @@ export function LoginPage() {
           >
             {stayIn && <IconCheck size={14} stroke={2.5} />}
           </button>
-          <span className="flex-1 text-[13.5px] text-ink-muted">Keep me signed in</span>
+          <span className="flex-1 text-prose text-ink-muted">Keep me signed in</span>
         </div>
 
         <button
           type="submit"
           disabled={!ready}
-          className="mt-5 flex w-full items-center justify-center rounded-field py-4 text-[15px] font-semibold transition-transform duration-[90ms] active:scale-[.98] disabled:opacity-45 disabled:active:scale-100"
+          className="mt-5 flex w-full items-center justify-center rounded-field py-4 text-row font-semibold transition-transform duration-[90ms] active:scale-[.98] disabled:opacity-45 disabled:active:scale-100"
           style={{ background: 'var(--color-accent)', color: 'var(--color-accent-fg)' }}
         >
           {busy ? (
@@ -212,7 +212,7 @@ export function LoginPage() {
       {/* Sign-ups are disabled — there is one account, made by hand. Saying so
           is more use than a "Create one" link that cannot work. */}
       <p
-        className="absolute inset-x-0 text-center text-[13.5px] text-ink-faint"
+        className="absolute inset-x-0 text-center text-prose text-ink-faint"
         style={{ bottom: 'max(env(safe-area-inset-bottom, 0px), 34px)' }}
       >
         A single-account app. Sign-ups are closed.

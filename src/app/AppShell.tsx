@@ -23,7 +23,7 @@ export function AppShell() {
 
   return (
     <div
-      className="fixed inset-x-0 top-0 mx-auto flex max-w-lg flex-col overflow-hidden bg-bg"
+      className="fixed inset-x-0 top-0 mx-auto flex max-w-frame flex-col overflow-hidden bg-bg"
       style={{ height: height ?? '100svh' }}
     >
       <main
@@ -66,7 +66,7 @@ export function FullScreen({
 
   return (
     <div
-      className={`mx-auto flex max-w-lg flex-col overflow-hidden bg-bg ${
+      className={`mx-auto flex max-w-frame flex-col overflow-hidden bg-bg ${
         overlay ? 'absolute inset-0 z-40' : 'relative'
       }`}
       style={{

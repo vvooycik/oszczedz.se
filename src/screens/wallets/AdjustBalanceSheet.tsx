@@ -146,7 +146,7 @@ export function AdjustBalanceSheet({
 
         <div className="no-scrollbar mt-4 flex-1 overflow-y-auto">
           <div className="rounded-card bg-inset px-4 py-3.5">
-            <span className="text-[12.5px] text-ink-muted">{label}</span>
+            <span className="text-meta text-ink-muted">{label}</span>
             <div className="mt-1 flex items-baseline gap-2">
               <input
                 value={value}
@@ -157,17 +157,17 @@ export function AdjustBalanceSheet({
                 inputMode="decimal"
                 placeholder="0,00"
                 aria-label={label}
-                className="tnum min-w-0 flex-1 bg-transparent text-[30px] font-semibold outline-none placeholder:text-ink-faint"
+                className="tnum min-w-0 flex-1 bg-transparent text-title font-semibold outline-none placeholder:text-ink-faint"
                 style={{
                   letterSpacing: '-0.03em',
                   color: bad ? 'var(--color-expense)' : undefined,
                 }}
               />
-              <span className="text-[15px] font-medium text-ink-faint">{symbol}</span>
+              <span className="text-row font-medium text-ink-faint">{symbol}</span>
             </div>
           </div>
 
-          <p className="px-1 pt-3.5 text-[12.5px] leading-[1.55] text-ink-muted">
+          <p className="px-1 pt-3.5 text-meta leading-[1.55] text-ink-muted">
             {bad ? (
               <>That is not an amount.</>
             ) : delta === 0 ? (
@@ -195,7 +195,7 @@ export function AdjustBalanceSheet({
           </p>
 
           {adjust.isError && (
-            <p className="px-1 pt-2.5 text-[12.5px] text-expense">
+            <p className="px-1 pt-2.5 text-meta text-expense">
               {adjust.error instanceof Error
                 ? adjust.error.message
                 : 'Could not record the adjustment.'}

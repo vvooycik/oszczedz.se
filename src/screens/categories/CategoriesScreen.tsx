@@ -136,10 +136,10 @@ export function CategoriesScreen() {
                   size={36}
                   dashed={category.kind === 'transfer'}
                 />
-                <span className="flex-1 truncate text-[15px] font-medium">
+                <span className="flex-1 truncate text-row font-medium">
                   {category.name}
                 </span>
-                <span className="tnum text-[12px] text-ink-dim">
+                <span className="tnum text-meta-sm text-ink-dim">
                   {usage?.[category.id] ?? 0}
                 </span>
                 <IconChevronRight size={18} stroke={2} className="flex-none text-ink-dim" />
@@ -148,7 +148,7 @@ export function CategoriesScreen() {
           ))}
         </Card>
 
-        <p className="px-1 text-[12.5px] leading-[1.5] text-ink-muted">
+        <p className="px-1 text-meta leading-[1.5] text-ink-muted">
           {all.length} in total, shared across wallets. Order follows the name, the
           same as the picker — a wallet's own set is what changes that.
         </p>

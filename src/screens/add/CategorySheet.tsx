@@ -95,12 +95,12 @@ export function CategorySheet({
   return (
     <Sheet open={open} onClose={onClose} height="76%" label="Choose a category">
       <div className="flex flex-none items-center gap-3 px-4 pt-1 pb-3">
-        <h2 className="flex-1 text-[19px] font-semibold tracking-[-0.01em]">Category</h2>
+        <h2 className="flex-1 text-heading font-semibold tracking-[-0.01em]">Category</h2>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="text-[13px] font-medium text-ink-muted"
+          className="text-value font-medium text-ink-muted"
         >
           Cancel
         </button>
@@ -121,7 +121,7 @@ export function CategorySheet({
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
-            className="w-full bg-transparent text-[16px] outline-none placeholder:text-ink-faint"
+            className="w-full bg-transparent text-field outline-none placeholder:text-ink-faint"
           />
         </label>
 
@@ -129,7 +129,7 @@ export function CategorySheet({
       </div>
 
       {kind === 'transfer' && (
-        <p className="flex-none px-4 pt-3 text-[12.5px] leading-[1.5] text-ink-muted">
+        <p className="flex-none px-4 pt-3 text-meta leading-[1.5] text-ink-muted">
           {allowTransfer
             ? 'Moving money between your own wallets. Picking one of these asks for a second wallet, and records both sides at once.'
             : 'A transfer is a pair of rows created together, so an existing transaction cannot be turned into one. Delete it and add the transfer instead.'}
@@ -160,7 +160,7 @@ export function CategorySheet({
                     dashed={category.kind === 'transfer'}
                     selected={picked?.id === category.id}
                   />
-                  <span className="line-clamp-2 w-full text-center text-[11px] leading-tight">
+                  <span className="line-clamp-2 w-full text-center text-kicker leading-tight">
                     {category.name}
                   </span>
                 </button>
@@ -190,10 +190,10 @@ export function CategorySheet({
                   dashed={category.kind === 'transfer'}
                   selected={picked?.id === category.id}
                 />
-                <span className="min-w-0 flex-1 truncate text-[15px] font-medium">
+                <span className="min-w-0 flex-1 truncate text-row font-medium">
                   {category.name}
                 </span>
-                <span className="tnum flex-none text-[12px] text-ink-dim">
+                <span className="tnum flex-none text-meta-sm text-ink-dim">
                   {usage.data?.[category.id] ?? 0}
                 </span>
               </button>
@@ -202,7 +202,7 @@ export function CategorySheet({
         </div>
 
         {shown.length === 0 && (
-          <p className="pt-6 text-center text-[12.5px] text-ink-muted">
+          <p className="pt-6 text-center text-meta text-ink-muted">
             {query.trim()
               ? `No categories match “${query}”.`
               : 'Nothing in this kind yet.'}

@@ -50,7 +50,13 @@ export function Tile({
 
   const skin: React.CSSProperties =
     variant === 'solid'
-      ? { background: hue, color: '#fff' }
+      ? // Not white. In light mode the slots sit near 50% lightness and white
+        // is fine; in dark they are near 70%, where white lands around 2.2:1.
+        // `--color-accent-fg` is the token picked for exactly this pairing —
+        // `Button` already takes it when it is handed a category `tone`, on the
+        // grounds that a category colour and the accent share a foreground —
+        // and it gives about 6.4:1 on the same tile.
+        { background: hue, color: 'var(--color-accent-fg)' }
       : variant === 'dashed'
         ? {
             // box-sizing keeps a dashed tile the same footprint as a filled

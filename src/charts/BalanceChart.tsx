@@ -346,7 +346,7 @@ export function BalanceChart({
 
   if (current.length === 0) {
     return (
-      <div className="flex h-[130px] items-center justify-center text-[13px] text-ink-muted">
+      <div className="flex h-[130px] items-center justify-center text-value text-ink-muted">
         No balance history yet
       </div>
     )

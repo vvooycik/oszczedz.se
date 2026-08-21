@@ -75,8 +75,8 @@ function EditRow({
       <Tile size={36} variant="neutral">
         {icon}
       </Tile>
-      <span className="min-w-0 flex-1 text-[15px] font-medium">{title}</span>
-      <span className="truncate text-[13px] text-ink-muted">{value}</span>
+      <span className="min-w-0 flex-1 text-row font-medium">{title}</span>
+      <span className="truncate text-value text-ink-muted">{value}</span>
       <IconChevronRight size={18} stroke={2} className="flex-none text-ink-dim" />
     </button>
   )
@@ -153,7 +153,7 @@ export function ScheduleEditScreen() {
     return (
       <FullScreen>
         <ScreenHeader title="Schedule" onBack={goBack} size={19} />
-        <p className="px-4 py-10 text-[13px] text-ink-muted">
+        <p className="px-4 py-10 text-value text-ink-muted">
           {schedule.error ? 'Could not load this schedule.' : 'Loading…'}
         </p>
       </FullScreen>
@@ -242,7 +242,7 @@ export function ScheduleEditScreen() {
             onClick={() => setAmountOpen(true)}
             className="tnum mt-4 flex items-end justify-center active:opacity-80"
             style={{
-              fontSize: 44,
+              fontSize: 'var(--text-hero)',
               fontWeight: 600,
               lineHeight: 1,
               letterSpacing: '-.035em',
@@ -256,13 +256,13 @@ export function ScheduleEditScreen() {
             {formatSigned(signed, { plus: !draft.negative && !isTransfer })}
             <span
               className="text-ink-faint"
-              style={{ fontSize: 20, fontWeight: 500, letterSpacing: 0 }}
+              style={{ fontSize: 'var(--text-hero-unit)', fontWeight: 500, letterSpacing: 0 }}
             >
               &nbsp;{currencySymbol(currency)}
             </span>
           </button>
 
-          <div className="mt-3 text-center text-[12.5px] text-ink-muted">
+          <div className="mt-3 text-center text-meta text-ink-muted">
             {cadenceLabel(draft.repeat.frequency, draft.repeat.everyN, draft.anchor)}
             {!draft.active
               ? ' · paused'
@@ -286,7 +286,7 @@ export function ScheduleEditScreen() {
               onChange={(e) => patch({ name: e.target.value })}
               placeholder="Name"
               aria-label="Schedule name"
-              className="flex-1 bg-transparent text-[16px] font-medium outline-none placeholder:text-ink-faint"
+              className="flex-1 bg-transparent text-field font-medium outline-none placeholder:text-ink-faint"
             />
           </div>
 
@@ -324,7 +324,7 @@ export function ScheduleEditScreen() {
               <button
                 type="button"
                 onClick={() => patch({ ends_on: null })}
-                className="rounded-full px-3 py-1.5 text-[12px] text-ink-muted"
+                className="rounded-full px-3 py-1.5 text-meta-sm text-ink-muted"
                 style={{ background: 'var(--color-inset)' }}
               >
                 Clear end date
@@ -339,14 +339,14 @@ export function ScheduleEditScreen() {
             <Tile size={36} variant="neutral">
               <IconWallet size={18} stroke={2} />
             </Tile>
-            <span className="flex-none text-[12px] text-ink-muted">
+            <span className="flex-none text-meta-sm text-ink-muted">
               {isTransfer ? 'From' : 'Wallet'}
             </span>
             <select
               value={draft.wallet_id}
               onChange={(e) => patch({ wallet_id: e.target.value })}
               aria-label="Wallet"
-              className="flex-1 appearance-none bg-transparent text-right text-[16px] outline-none"
+              className="flex-1 appearance-none bg-transparent text-right text-field outline-none"
             >
               {selectable.map((w) => (
                 <option key={w.id} value={w.id}>
@@ -369,12 +369,12 @@ export function ScheduleEditScreen() {
                 <Tile size={36} variant="neutral">
                   <IconWallet size={18} stroke={2} />
                 </Tile>
-                <span className="flex-none text-[12px] text-ink-muted">To</span>
+                <span className="flex-none text-meta-sm text-ink-muted">To</span>
                 <select
                   value={draft.target_wallet_id ?? ''}
                   onChange={(e) => patch({ target_wallet_id: e.target.value })}
                   aria-label="Target wallet"
-                  className="flex-1 appearance-none bg-transparent text-right text-[16px] outline-none"
+                  className="flex-1 appearance-none bg-transparent text-right text-field outline-none"
                 >
                   {selectable
                     .filter((w) => w.id !== draft.wallet_id)
@@ -389,7 +389,7 @@ export function ScheduleEditScreen() {
           )}
         </Card>
 
-        {error && <p className="px-1 pt-3 text-[12.5px] text-expense">{error}</p>}
+        {error && <p className="px-1 pt-3 text-meta text-expense">{error}</p>}
 
         {/* ------------------------------------------------------- actions */}
         <div className="mt-6 flex flex-col gap-2.5">
@@ -397,7 +397,7 @@ export function ScheduleEditScreen() {
             type="button"
             disabled={busy}
             onClick={toggleActive}
-            className="flex items-center justify-center gap-2 rounded-field bg-card py-3.5 text-[14.5px] font-semibold disabled:opacity-40"
+            className="flex items-center justify-center gap-2 rounded-field bg-card py-3.5 text-action font-semibold disabled:opacity-40"
           >
             {draft.active ? (
               <>
@@ -414,7 +414,7 @@ export function ScheduleEditScreen() {
 
           {confirmDelete ? (
             <div className="rounded-card bg-card px-4 py-4">
-              <p className="text-[13.5px] leading-[1.55] text-ink-muted">
+              <p className="text-prose leading-[1.55] text-ink-muted">
                 Delete this schedule? Occurrences still to come are cancelled;
                 the ones that already charged stay in your history as ordinary
                 transactions.
@@ -423,7 +423,7 @@ export function ScheduleEditScreen() {
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(false)}
-                  className="flex-1 rounded-field bg-inset py-3 text-[14px] font-semibold"
+                  className="flex-1 rounded-field bg-inset py-3 text-link font-semibold"
                 >
                   Keep it
                 </button>
@@ -441,7 +441,7 @@ export function ScheduleEditScreen() {
                       )
                     }
                   }}
-                  className="flex-1 rounded-field py-3 text-[14px] font-semibold disabled:opacity-40"
+                  className="flex-1 rounded-field py-3 text-link font-semibold disabled:opacity-40"
                   style={{
                     background: 'color-mix(in oklab, var(--color-expense) 18%, transparent)',
                     color: 'var(--color-expense)',
@@ -455,7 +455,7 @@ export function ScheduleEditScreen() {
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              className="flex items-center justify-center gap-2 rounded-field bg-card py-3.5 text-[14.5px] font-semibold text-expense"
+              className="flex items-center justify-center gap-2 rounded-field bg-card py-3.5 text-action font-semibold text-expense"
             >
               <IconTrash size={17} stroke={2} />
               Delete
@@ -463,7 +463,7 @@ export function ScheduleEditScreen() {
           )}
         </div>
 
-        <p className="px-1 pt-4 pb-2 text-[12.5px] leading-[1.6] text-ink-muted">
+        <p className="px-1 pt-4 pb-2 text-meta leading-[1.6] text-ink-muted">
           Saving rewrites what is still to come and leaves what already happened
           alone.
         </p>

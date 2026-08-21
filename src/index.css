@@ -217,6 +217,82 @@
 
   --font-sans: 'Instrument Sans', system-ui, sans-serif;
 
+  /*
+   * Type.
+   *
+   * Every size in the app has a name here and nowhere else. Before this, type
+   * was set two ways — `text-[12.5px]` utilities and inline `fontSize: 42` —
+   * with no name on any of them, which meant there was nothing to *change*: a
+   * tablet that wants body text a point larger was three hundred call sites.
+   *
+   * **This is the mechanism a second form factor uses.** Tailwind compiles
+   * `text-row` to `font-size: var(--text-row)`, so redeclaring the property
+   * inside a media query re-sizes every use of it at once:
+   *
+   *     @media (min-width: 768px) { :root { --text-row: 16px; } }
+   *
+   * Names describe the role that *dominates* each step, not a promise that only
+   * that role may use it — 16px is every text field and also one figure on the
+   * Insight tab, and both are legitimate.
+   *
+   * Steps that share a value today (title and stat-sm are both 30px) are
+   * deliberately kept apart: two names at one value cost nothing and can
+   * diverge, where one name shared by two roles cannot be split again without
+   * finding every call site a second time.
+   *
+   * `--text-label` would collide with `--color-label`; both compile to
+   * `.text-label` and one silently wins. The 11px step keeps the name the app
+   * used before the refresh.
+   */
+
+  /* Amount blocks: a figure and its unit, which must scale together — hence a
+     paired name per step rather than one ladder they both index into. */
+  --text-entry: 52px;
+  --text-entry-unit: 22px;
+  --text-hero: 44px;
+  --text-hero-unit: 20px;
+  --text-figure: 42px;
+  --text-figure-unit: 19px;
+  --text-sheet: 38px;
+  --text-sheet-unit: 19px;
+  --text-stat: 34px;
+  --text-stat-unit: 17px;
+  --text-stat-sm: 30px;
+  --text-stat-sm-unit: 16px;
+  --text-stat-xs: 26px;
+
+  /* Titles and body. */
+  --text-title: 30px;
+  --text-title-sm: 28px;
+  --text-heading: 19px;
+  --text-dialog: 17px;
+  /* The iOS floor. Nothing below this may be a text field — see the rule at the
+     foot of this file. */
+  --text-field: 16px;
+  --text-row: 15px;
+  --text-action: 14.5px;
+  --text-link: 14px;
+  --text-prose: 13.5px;
+  --text-value: 13px;
+  --text-meta: 12.5px;
+  --text-meta-sm: 12px;
+  --text-micro: 11.5px;
+  --text-kicker: 11px;
+  --text-badge: 10.5px;
+  --text-quote: 10px;
+  --text-quote-unit: 9px;
+
+  /*
+   * The app frame's width cap.
+   *
+   * One name, because there is exactly one frame and three places that draw it
+   * — `AppShell`, `FullScreen` and `LoginPage`. It was `max-w-lg` written out
+   * three times, which is fine until a tablet wants a different number and the
+   * third copy is the one nobody remembers. Tailwind emits `max-w-frame` from
+   * this, so widening the app for a second form factor is one media query here.
+   */
+  --container-frame: 32rem;
+
   /* Radii, by the thing they belong to rather than by size, so a card and a
      screen's outer container cannot drift apart. */
   --radius-card: 22px;

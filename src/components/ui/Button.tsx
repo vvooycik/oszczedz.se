@@ -1,13 +1,20 @@
 import type { ReactNode } from 'react'
 
-type Variant = 'primary' | 'secondary' | 'scrim'
+type Variant = 'primary' | 'secondary'
 
 /**
- * The design has three buttons and one shape.
+ * The design has two buttons and one shape.
  *
  * `primary` is the accent. `secondary` is the inset fill — Cancel, "Save & add
- * another". `scrim` is the variant for buttons sitting on a colour field, where
- * neither token would be legible against the tint.
+ * another".
+ *
+ * There was a third, `scrim`, for buttons on a colour field. It was used
+ * nowhere, and it hardcoded `rgba(0,0,0,.24)` and `#fff` — which are the *dark*
+ * values of `--field-scrim` and `--field-ink`, whose light values are
+ * deliberately different (ink at 78% over a barely-there wash, because a white
+ * glyph vanishes on a pale field). So the one variant nobody used was also the
+ * one that would have been wrong in light mode. `ActionTile onField` is the
+ * living version of that idea and reads the tokens.
  *
  * `tone` overrides the primary fill with an explicit colour, which the entry
  * screen's Save uses: that screen is themed by the chosen category, so its
@@ -29,7 +36,7 @@ export function Button({
   className?: string
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const base =
-    'rounded-field px-4 py-[15px] text-[14.5px] font-semibold transition-transform duration-[90ms] active:scale-[.98] disabled:opacity-40 disabled:active:scale-100'
+    'rounded-field px-4 py-[15px] text-action font-semibold transition-transform duration-[90ms] active:scale-[.98] disabled:opacity-40 disabled:active:scale-100'
 
   const styles: Record<Variant, React.CSSProperties> = {
     primary: {
@@ -42,10 +49,6 @@ export function Button({
     secondary: {
       background: 'var(--color-inset)',
       color: 'var(--color-ink)',
-    },
-    scrim: {
-      background: 'rgba(0,0,0,.24)',
-      color: '#fff',
     },
   }
 

@@ -80,6 +80,16 @@ const read = (name: string): string =>
     getComputedStyle(document.documentElement).getPropertyValue(name).trim(),
   )
 
+/**
+ * Any custom property, resolved to something a canvas can take.
+ *
+ * `token` below is the curated list the charts use; this is the escape hatch
+ * for code that knows the property name at runtime — the category slots, the
+ * `--field-*` family, and the design-system reference, which enumerates every
+ * token there is.
+ */
+export const readToken = (name: string): string => read(name)
+
 export const token = {
   bg: () => read('--color-bg'),
   card: () => read('--color-card'),

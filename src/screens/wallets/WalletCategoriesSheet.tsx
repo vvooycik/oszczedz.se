@@ -41,14 +41,14 @@ function CategoryRow({
         size={36}
         dashed={category.kind === 'transfer'}
       />
-      <span className="min-w-0 flex-1 truncate text-[15px] font-medium">
+      <span className="min-w-0 flex-1 truncate text-row font-medium">
         {category.name}
       </span>
       {/* Expense is the default and goes unlabelled; the other two are worth
           calling out, because a picker tab is what usually tells them apart and
           this list has no tabs. */}
       {category.kind !== 'expense' && (
-        <span className="flex-none text-[11px] text-ink-dim">
+        <span className="flex-none text-kicker text-ink-dim">
           {KIND_LABEL[category.kind]}
         </span>
       )}
@@ -150,7 +150,7 @@ export function WalletCategoriesSheet({
             type="button"
             onClick={onDone}
             disabled={busy || loading}
-            className="px-1 text-[14px] font-semibold text-accent disabled:opacity-40"
+            className="px-1 text-link font-semibold text-accent disabled:opacity-40"
           >
             {busy ? 'Saving…' : 'Done'}
           </button>
@@ -158,7 +158,7 @@ export function WalletCategoriesSheet({
       />
 
       {error && (
-        <p className="flex-none px-4 pt-2 text-center text-[12.5px] text-expense">
+        <p className="flex-none px-4 pt-2 text-center text-meta text-expense">
           {error}
         </p>
       )}
@@ -167,7 +167,7 @@ export function WalletCategoriesSheet({
         ref={scroller}
         className="no-scrollbar flex flex-1 flex-col gap-[14px] overflow-y-auto px-4 pt-2 pb-10"
       >
-        <p className="px-1 text-[12.5px] leading-[1.5] text-ink-muted">
+        <p className="px-1 text-meta leading-[1.5] text-ink-muted">
           {selected.length === 0 ? (
             <>
               Nothing chosen, so {walletName || 'this wallet'} offers every category,
@@ -190,7 +190,7 @@ export function WalletCategoriesSheet({
               <button
                 type="button"
                 onClick={() => onChange([])}
-                className="text-[12.5px] font-semibold text-accent"
+                className="text-meta font-semibold text-accent"
               >
                 Clear
               </button>
@@ -245,7 +245,7 @@ export function WalletCategoriesSheet({
               <button
                 type="button"
                 onClick={() => onChange([...selected, ...rest.map((c) => c.id)])}
-                className="text-[12.5px] font-semibold text-accent"
+                className="text-meta font-semibold text-accent"
               >
                 Select all
               </button>
@@ -263,7 +263,7 @@ export function WalletCategoriesSheet({
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              className="w-full bg-transparent text-[16px] outline-none placeholder:text-ink-faint"
+              className="w-full bg-transparent text-field outline-none placeholder:text-ink-faint"
             />
           </label>
 
@@ -289,7 +289,7 @@ export function WalletCategoriesSheet({
               ))}
             </Card>
           ) : (
-            <p className="px-1 pt-1 text-[12.5px] text-ink-muted">
+            <p className="px-1 pt-1 text-meta text-ink-muted">
               {query.trim()
                 ? `No categories match “${query}”.`
                 : 'Every category is in this wallet.'}
@@ -298,7 +298,7 @@ export function WalletCategoriesSheet({
         </section>
 
         {loading && (
-          <p className="px-1 text-[12.5px] text-ink-muted">Loading this wallet’s set…</p>
+          <p className="px-1 text-meta text-ink-muted">Loading this wallet’s set…</p>
         )}
       </div>
     </FullScreen>
