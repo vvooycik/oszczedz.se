@@ -1220,9 +1220,17 @@ About row. Bump the version there, not in the component.
     `src/lib/budgets.ts` and the schema changes described above.
 
     **The tab bar did not change.** The tab and its route already existed; only
-    what they point at did. The FAB stays a transaction everywhere, budgets
-    included — `CREATES` gains no entry, and the plus that makes a budget is a
+    what they point at did. The FAB stayed a transaction everywhere, budgets
+    included — `CREATES` gained no entry, and the plus that makes a budget was a
     38px tile in the list's own title row.
+
+    **That last part is superseded by item 24.** `CREATES` has a `/budgets`
+    entry now. The argument above did not survive the button growing a label: a
+    sidebar reading "New transaction" while standing on Budgets, one row below a
+    Wallets screen where the same button reads "New wallet", is the map telling
+    two stories about itself. One entry, so the dock and the sidebar change
+    together — and the title-row tile stays, which is the same two-ways-in that
+    `/wallets` has had all along.
 
     **The list groups by verdict, not by size**, so the screen answers "what
     needs attention" before "what did I set": over → at risk → on track, and
@@ -1704,6 +1712,17 @@ About row. Bump the version there, not in the component.
       card's two stat tiles are the only thing that reads it on the home screen,
       and a hook cannot be called conditionally — so the condition goes in the
       query rather than a round trip going out for a figure nothing draws.
+
+    Two things came back from the first real session at these widths:
+
+    - **`CREATES` gained `/budgets`**, reversing item 17 — see the note there.
+    - **The budgets grid only runs two columns when both Over and At risk are
+      present.** The second column exists to put those two beside each other;
+      with one of them absent it is not a layout but a hole, and the screen read
+      as a list of budgets in the left half of a 1080px page. Every group spans
+      when they are not both there. On track always spans regardless — it is
+      nearly always the longest group, so its presence says nothing about
+      whether a second column would be filled.
 
     **The Amount field in the modal is read-only and driven through `applyKey`.**
     Typing `2+3*4` still folds left to right, because the field, the tape and

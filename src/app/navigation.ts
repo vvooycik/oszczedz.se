@@ -47,10 +47,26 @@ export const SIDEBAR_TABS = TABS.filter((t) => t.to !== '/more')
  * What the primary action makes, per tab. The button keeps one place and one
  * shape and only its destination moves — the dock's rule, and the sidebar's
  * full-width button follows it so the two cannot disagree about what the plus
- * on the Wallets screen does.
+ * on a given screen does.
+ *
+ * **Budgets is in here now, and it was a real inconsistency that it was not.**
+ * The budgets work argued that the plus should stay a transaction everywhere
+ * and that a budget is made from the 38px tile in the list's own title row.
+ * That reasoning does not survive the button growing a *label*: a sidebar
+ * reading "New transaction" while standing on the Budgets screen — one row
+ * below a Wallets screen where the same button reads "New wallet" — is the map
+ * telling two different stories about itself.
+ *
+ * One entry, so both places change together. That is the whole point of the map
+ * and the reason a sidebar-only version of it would be worse than the bug: the
+ * dock's plus on `/budgets` now makes a budget too. It leaves the screen with
+ * two ways to start one, which is exactly what `/wallets` has already had since
+ * that screen got its own title-row plus — so the two screens agree, which is
+ * what was being asked for.
  */
 export const CREATES: Record<string, { label: string; to: string }> = {
   '/wallets': { label: 'New wallet', to: '/wallets/new' },
+  '/budgets': { label: 'New budget', to: '/budgets/new' },
 }
 
 export const DEFAULT_CREATE = { label: 'New transaction', to: '/add' }

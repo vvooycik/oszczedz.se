@@ -218,6 +218,25 @@ export function BudgetsScreen() {
     })
   }, [ordered])
 
+  /**
+   * Whether the wide layout runs two columns at all.
+   *
+   * The second column exists for exactly one thing: putting **Over** beside
+   * **At risk**, which are the two short groups and the two a reader compares.
+   * With only one of them present there is nothing to put beside anything, and
+   * the grid stops being a layout and becomes a hole — a list of budgets in the
+   * left half of a 1080px page with the right half empty. So the columns are
+   * conditional on both being there, and every group spans when they are not.
+   *
+   * On track is not part of the test: it is nearly always the longest group and
+   * always spans, so its presence says nothing about whether a second column
+   * would be filled.
+   */
+  const paired = useMemo(() => {
+    const present = new Set(grouped.map((g) => g.verdict))
+    return present.has('over') && present.has('at-risk')
+  }, [grouped])
+
   const totalLimit = budgets.reduce((sum, b) => sum + effectiveLimit(b), 0)
   const totalSpent = budgets.reduce((sum, b) => sum + b.spent, 0)
   const totalOver = totalSpent > totalLimit
@@ -345,10 +364,11 @@ export function BudgetsScreen() {
               <section
                 key={verdict}
                 className={`flex flex-col gap-2 ${
-                  // Over and At risk take a column each; On track spans, because
-                  // it is nearly always the longest group and a column of ten
-                  // rows beside a column of one is a page with a hole in it.
-                  verdict === 'on-track' ? 'lg:col-span-2' : ''
+                  // Over and At risk take a column each — but only when both are
+                  // there to fill one. On track always spans: it is nearly always
+                  // the longest group, and a column of ten rows beside a column of
+                  // one is a page with a hole in it.
+                  verdict === 'on-track' || !paired ? 'lg:col-span-2' : ''
                 }`}
               >
                 <div className="flex items-baseline justify-between px-1">
