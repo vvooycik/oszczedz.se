@@ -34,6 +34,7 @@ export function BalanceChart({
   currency,
   compare,
   todayIndex,
+  height = 130,
 }: {
   current: BalancePoint[]
   prior: BalancePoint[]
@@ -45,6 +46,18 @@ export function BalanceChart({
    * looks like — then this behaves exactly as it did before.
    */
   todayIndex: number
+  /**
+   * How tall to draw it.
+   *
+   * 130 is the card's own foot on a phone. Beside the figure rather than under
+   * it — the tablet and desktop split — the chart has a whole column's height
+   * to fill, and 130px there reads as a sliver rather than as a chart.
+   *
+   * A number, not a class: the empty state and the Suspense fallback have to
+   * reserve exactly this, and `h-[${n}px]` is the one thing Tailwind cannot
+   * compile because it never sees the string.
+   */
+  height?: number
 }) {
   // Accent and ground both change at runtime; without these in the dep list the
   // chart keeps the colours it was first painted with.
@@ -346,11 +359,14 @@ export function BalanceChart({
 
   if (current.length === 0) {
     return (
-      <div className="flex h-[130px] items-center justify-center text-value text-ink-muted">
+      <div
+        className="flex items-center justify-center text-value text-ink-muted"
+        style={{ height }}
+      >
         No balance history yet
       </div>
     )
   }
 
-  return <EChart option={option} className="h-[130px] w-full" />
+  return <EChart option={option} className="w-full" style={{ height }} />
 }

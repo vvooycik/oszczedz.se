@@ -1,5 +1,5 @@
-import { lazy, Suspense, useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router'
 import { IconArrowDownRight, IconArrowUpRight, IconArrowsLeftRight } from '@tabler/icons-react'
 import { BudgetRail } from '@/components/BudgetRail'
 import { MonthStepper } from '@/components/MonthStepper'
@@ -9,6 +9,10 @@ import { FirstRunSetup } from '@/components/FirstRunSetup'
 import { Card } from '@/components/ui/Card'
 import { Label, LabelRow } from '@/components/ui/Label'
 import { SegmentedTrack } from '@/components/ui/SegmentedTrack'
+import { MasterDetail } from '@/app/MasterDetail'
+import { FEED_COLUMN_W, isWide, useLayoutMode } from '@/app/layout'
+import { useListKeyboard } from '@/app/useListKeyboard'
+import { TransactionScreen } from '@/screens/TransactionScreen'
 import {
   useBalanceHistory,
   useBudgetProgress,
@@ -16,9 +20,10 @@ import {
   useEarliestTransactionDate,
   useMonthTransactions,
   useWalletBalances,
+  useWalletMonthlyNet,
   useWallets,
 } from '@/data/queries'
-import { asMinor, currencySymbol, formatAmountMoney, formatSigned } from '@/lib/money'
+import { asMinor, currencySymbol, formatAmountMoney, formatSigned, formatSignedMoney } from '@/lib/money'
 import { addDays, addMonths, formatMonthLabel, startOfMonth, today } from '@/lib/dates'
 
 // Charts are per-currency in v1 — no FX conversion.
@@ -99,7 +104,226 @@ function rangeFor(range: Range, earliest: string) {
   }
 }
 
+/**
+ * The range track and the Compare pill, which travel together.
+ *
+ * They sit in the wealth card's foot on a phone and at a tablet-landscape's
+ * 512px column, and move up into the title row once there is one with room —
+ * tablet portrait and desktop. One component either way, because they are one
+ * control: Compare is meaningless without knowing what range it compares.
+ */
+function RangeControls({
+  range,
+  onRange,
+  compare,
+  onCompare,
+  comparable,
+  /** In a card's foot the track takes the slack; in a header it is its own size. */
+  fill,
+}: {
+  range: Range
+  onRange: (next: Range) => void
+  compare: boolean
+  onCompare: (next: boolean) => void
+  comparable: boolean
+  fill: boolean
+}) {
+  const on = compare && comparable
+  return (
+    <>
+      <SegmentedTrack
+        className={fill ? 'flex-1' : 'flex-none'}
+        options={RANGES}
+        value={range}
+        onChange={onRange}
+      />
+      {/* Kept mounted but inert on All time: removing it would shift the row
+          every time the range changes. */}
+      <button
+        type="button"
+        onClick={() => onCompare(!compare)}
+        disabled={!comparable}
+        className="flex min-h-[34px] flex-none items-center gap-1.5 rounded-full px-3 text-meta font-medium"
+        style={{
+          color: on ? 'var(--color-accent)' : 'var(--color-ink-muted)',
+          background: on
+            ? 'color-mix(in oklab, var(--color-accent) 18%, transparent)'
+            : 'transparent',
+          opacity: comparable ? 1 : 0.4,
+        }}
+      >
+        <IconArrowsLeftRight size={14} stroke={2} />
+        Compare
+      </button>
+    </>
+  )
+}
+
+/** One of the two inset readings under the figure on a desktop. */
+function StatTile({
+  value,
+  label,
+  colour,
+}: {
+  value: string
+  label: string
+  colour?: string
+}) {
+  return (
+    <div className="flex-1 rounded-tile bg-inset px-3 py-2.5">
+      <div className="tnum text-field font-semibold" style={{ color: colour }}>
+        {value}
+      </div>
+      <div className="mt-0.5 text-micro text-ink-muted">{label}</div>
+    </div>
+  )
+}
+
+/**
+ * Total wealth, its delta, and the balance chart.
+ *
+ * **`split` is the whole of what the extra width buys here.** Stacked, the
+ * chart is the card's own bottom edge and the figure sits above it; split, the
+ * chart moves beside the figure and stays flush to the card's bottom *and*
+ * right — which is why the right cell is `self-end` rather than centred. Both
+ * arrangements are the same two things; only the axis changes.
+ *
+ * The two stat tiles are desktop-only, and are the one thing on this card that
+ * is genuinely new rather than re-laid-out. They fill the room the split
+ * creates under a 300px column, and they answer the two questions the figure
+ * above cannot: what moved this month, and what is booked but has not charged.
+ */
+function WealthCard({
+  wealth,
+  delta,
+  label,
+  split,
+  chart,
+  stats,
+  controls,
+}: {
+  wealth: number
+  delta: number
+  label: string
+  split: boolean
+  chart: React.ReactNode
+  /** `[net this month, booked but not charged]`, or null below desktop. */
+  stats: [number, number] | null
+  /** The range track, when it lives in the card's foot rather than a header. */
+  controls: React.ReactNode | null
+}) {
+  const up = delta >= 0
+  const deltaColour = up ? 'var(--color-income)' : 'var(--color-expense)'
+
+  const head = (
+    <>
+      <div className="flex items-center gap-2.5">
+        <Label>Total wealth</Label>
+        {/* The delta rides on a 20% wash of its own colour rather than on a
+            neutral chip: the sign is the whole content of the number. */}
+        <span
+          className="flex items-center gap-[5px] rounded-full px-[9px] py-1 text-meta font-semibold"
+          style={{
+            color: deltaColour,
+            background: `color-mix(in oklab, ${deltaColour} 20%, transparent)`,
+          }}
+        >
+          {up ? (
+            <IconArrowUpRight size={13} stroke={2} />
+          ) : (
+            <IconArrowDownRight size={13} stroke={2} />
+          )}
+          <span className="tnum">{formatAmountMoney(asMinor(delta), CURRENCY)}</span>
+        </span>
+      </div>
+      <div
+        className="tnum mt-2.5"
+        style={{
+          fontSize: 'var(--text-figure)',
+          fontWeight: 600,
+          lineHeight: 1,
+          letterSpacing: '-.035em',
+        }}
+      >
+        {formatSigned(asMinor(wealth), { plus: false })}
+        <span
+          className="text-ink-faint"
+          style={{ fontSize: 'var(--text-figure-unit)', fontWeight: 500, letterSpacing: 0 }}
+        >
+          {' '}
+          {currencySymbol(CURRENCY)}
+        </span>
+      </div>
+      <div className="mt-1.5 text-meta text-ink-muted">{label}</div>
+    </>
+  )
+
+  if (split) {
+    return (
+      <Card className="grid" style={{ gridTemplateColumns: '300px minmax(0, 1fr)' }}>
+        <div className="flex flex-col justify-between py-[22px] pl-[22px]">
+          <div>{head}</div>
+          {stats && (
+            <div className="flex gap-2.5 pt-5 pr-[22px]">
+              <StatTile
+                value={formatSignedMoney(asMinor(stats[0]), CURRENCY, {
+                  plus: stats[0] > 0,
+                })}
+                label="net this month"
+                colour={
+                  stats[0] === 0
+                    ? 'var(--color-ink-muted)'
+                    : stats[0] > 0
+                      ? 'var(--color-income)'
+                      : 'var(--color-expense)'
+                }
+              />
+              <StatTile
+                value={formatSignedMoney(asMinor(stats[1]), CURRENCY, {
+                  plus: stats[1] > 0,
+                })}
+                label="booked, not charged"
+                colour="var(--color-ink-muted)"
+              />
+            </div>
+          )}
+        </div>
+        {/* Flush to the card's bottom and right, exactly as it is flush to the
+            bottom when stacked. */}
+        <div className="min-w-0 self-end">{chart}</div>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <div className="px-[18px] pt-[18px]">{head}</div>
+      {/* Flush to the card's edges — the chart is the card's own bottom, not
+          a picture sitting inside its padding. */}
+      <div className="mt-1">{chart}</div>
+      {controls && (
+        <div className="flex items-center gap-2 px-[14px] pt-1 pb-[14px]">{controls}</div>
+      )}
+    </Card>
+  )
+}
+
 export function FeedScreen() {
+  const mode = useLayoutMode()
+  const wide = isWide(mode)
+  const desktop = mode === 'desktop'
+
+  /**
+   * The open transaction, which on a wide layout is the route and nowhere else.
+   *
+   * `/` and `/tx/:id` render this same component, so the param is present or it
+   * is not — no state, no lifting, and the back button still means what it
+   * always did. Below 1024 there is no param here at all, because `/tx/:id` is
+   * its own full-screen route.
+   */
+  const { id: openId } = useParams()
+
+  const navigate = useNavigate()
   const [range, setRange] = useState<Range>('1Q')
   const [compare, setCompare] = useState(true)
 
@@ -116,6 +340,9 @@ export function FeedScreen() {
   const transactions = useMonthTransactions(month)
   const budgets = useBudgetProgress()
   const firstDay = useEarliestTransactionDate()
+  // Only the desktop card has anywhere to put this, and it is a query the home
+  // screen otherwise has no use for — so it is asked for only where it is read.
+  const nets = useWalletMonthlyNet(desktop)
 
   // Falls back to a year while the query is in flight, so All time opens on
   // something rather than collapsing to a single day.
@@ -129,19 +356,31 @@ export function FeedScreen() {
   // the far end, which at a long range drops today from the series entirely.
   // Measured: over the full history at 60 points the step is 18 days, and
   // without the anchor today is simply not in the result.
-  const current = useBalanceHistory(
-    CURRENCY,
-    window.from,
-    window.chartTo,
-    true,
-    window.to,
-  )
+  const current = useBalanceHistory(CURRENCY, window.from, window.chartTo, true, window.to)
   const prior = useBalanceHistory(
     CURRENCY,
     window.priorFrom,
     window.priorTo,
     window.comparable,
   )
+
+  // The rows the arrow keys walk, in the order they are drawn — newest first,
+  // and one entry per transfer *pair* would be wrong here only if a pair could
+  // straddle a day, which invariant 5 forbids.
+  const rowIds = useMemo(
+    () =>
+      [...(transactions.data ?? [])]
+        .sort((a, b) => (a.date === b.date ? 0 : a.date < b.date ? 1 : -1))
+        .map((t) => t.id),
+    [transactions.data],
+  )
+  const select = useCallback((id: string) => navigate(`/tx/${id}`), [navigate])
+  useListKeyboard({
+    enabled: wide,
+    ids: rowIds,
+    selected: openId ?? null,
+    onSelect: select,
+  })
 
   const failed = [wallets, categories, balances, transactions, budgets].find(
     (q) => q.error,
@@ -160,15 +399,20 @@ export function FeedScreen() {
 
   if (wallets.data.length === 0 || categories.data.length === 0) {
     return (
-      <div className="px-4 py-6">
+      <div className="px-4 py-6 md:px-8">
         <FirstRunSetup />
       </div>
     )
   }
 
-  const wealth = (balances.data ?? [])
-    .filter((b) => b.currency === CURRENCY)
-    .reduce((sum, b) => sum + (b.balance ?? 0), 0)
+  const mine = (balances.data ?? []).filter((b) => b.currency === CURRENCY)
+  const wealth = mine.reduce((sum, b) => sum + (b.balance ?? 0), 0)
+  const booked = mine.reduce((sum, b) => sum + (b.planned ?? 0), 0)
+
+  const thisMonth = startOfMonth(today())
+  const netThisMonth = (nets.data ?? [])
+    .filter((n) => n.month === thisMonth)
+    .reduce((sum, n) => sum + (n.net ?? 0), 0)
 
   const rail = sortForHome(budgets.data ?? [])
   // Named only when every budget on the rail really is in that month.
@@ -183,92 +427,181 @@ export function FeedScreen() {
   // Over the settled span only. The chip says what happened; letting a
   // subscription four weeks out move it would be the chart reporting the future
   // as though it were the past.
-  const delta =
-    lastSettled > 0 ? series[lastSettled]!.balance - series[0]!.balance : 0
-  const up = delta >= 0
-  const deltaColour = up ? 'var(--color-income)' : 'var(--color-expense)'
+  const delta = lastSettled > 0 ? series[lastSettled]!.balance - series[0]!.balance : 0
   const comparing = compare && window.comparable
 
-  return (
-    <div className="flex flex-col gap-[14px] px-4 pt-2.5">
-      <Card>
-        <div className="px-[18px] pt-[18px]">
-          <div className="flex items-center justify-between">
-            <Label>Total wealth</Label>
-            {/* The delta rides on a 20% wash of its own colour rather than on a
-                neutral chip: the sign is the whole content of the number. */}
-            <span
-              className="flex items-center gap-[5px] rounded-full px-[9px] py-1 text-meta font-semibold"
-              style={{
-                color: deltaColour,
-                background: `color-mix(in oklab, ${deltaColour} 20%, transparent)`,
-              }}
-            >
-              {up ? (
-                <IconArrowUpRight size={13} stroke={2} />
-              ) : (
-                <IconArrowDownRight size={13} stroke={2} />
-              )}
-              <span className="tnum">{formatAmountMoney(asMinor(delta), CURRENCY)}</span>
-            </span>
-          </div>
-          <div
-            className="tnum mt-2.5"
-            style={{ fontSize: 'var(--text-figure)', fontWeight: 600, lineHeight: 1, letterSpacing: '-.035em' }}
-          >
-            {formatSigned(asMinor(wealth), { plus: false })}
-            <span
-              className="text-ink-faint"
-              style={{ fontSize: 'var(--text-figure-unit)', fontWeight: 500, letterSpacing: 0 }}
-            >
-              {' '}
-              {currencySymbol(CURRENCY)}
-            </span>
-          </div>
-          <div className="mt-1.5 text-meta text-ink-muted">{window.label}</div>
-        </div>
+  // The chart is taller once it is beside the figure rather than under it: the
+  // 130px that reads as a card's foot reads as a sliver in a 300-plus-remainder
+  // split, where it has a whole column's height to fill.
+  const chartHeight = mode === 'desktop' ? 232 : mode === 'tablet' ? 168 : 130
+  const chart = (
+    // The fallback reserves exactly what the chart will take, so the card does
+    // not resize when the ECharts chunk lands.
+    <Suspense fallback={<div className="w-full" style={{ height: chartHeight }} />}>
+      <BalanceChart
+        current={series}
+        prior={prior.data ?? []}
+        currency={CURRENCY}
+        compare={comparing}
+        todayIndex={lastSettled}
+        height={chartHeight}
+      />
+    </Suspense>
+  )
 
-        {/* Flush to the card's edges — the chart is the card's own bottom, not
-            a picture sitting inside its padding. */}
-        <div className="mt-1">
-          <Suspense fallback={<div className="h-[130px] w-full" />}>
-            <BalanceChart
-              current={series}
-              prior={prior.data ?? []}
-              currency={CURRENCY}
-              compare={comparing}
-              todayIndex={lastSettled}
+  const controls = (
+    <RangeControls
+      range={range}
+      onRange={setRange}
+      compare={compare}
+      onCompare={setCompare}
+      comparable={window.comparable}
+      fill
+    />
+  )
+
+  const wealthCard = (
+    <WealthCard
+      wealth={wealth}
+      delta={delta}
+      label={window.label}
+      // Beside the figure from tablet portrait up; under it only on a phone.
+      split={mode !== 'mobile' && mode !== 'rail'}
+      chart={chart}
+      stats={desktop ? [netThisMonth, booked] : null}
+      controls={mode === 'mobile' || mode === 'rail' ? controls : null}
+    />
+  )
+
+  const stepper = (
+    <MonthStepper month={month} onChange={setMonth} earliest={firstDay.data ?? null} />
+  )
+
+  const feed = (
+    <TransactionFeed
+      transactions={transactions.data ?? []}
+      wallets={wallets.data}
+      categories={categories.data}
+      empty={`Nothing recorded in ${formatMonthLabel(month)}.`}
+      selectedId={openId ?? null}
+      rowActions={wide}
+      alignAmounts={desktop}
+    />
+  )
+
+  const detail = openId ? (
+    <TransactionScreen pane rounded={desktop} onClose={() => navigate('/')} />
+  ) : null
+
+  if (wide) {
+    const header = (
+      <div className="flex items-center gap-3.5">
+        <h1 className="text-title-sm font-semibold tracking-[-0.02em]">Home</h1>
+        <div className="flex-1" />
+        {/* Only where the navigation does not already draw it. The desktop
+            sidebar has a Scheduled row; the 76px rail has no room for one. */}
+        {mode === 'rail' && (
+          <Link to="/scheduled" className="text-meta font-semibold text-accent">
+            Scheduled
+          </Link>
+        )}
+        {stepper}
+        {desktop && (
+          <>
+            <span aria-hidden className="h-6 w-px bg-divider" />
+            <RangeControls
+              range={range}
+              onRange={setRange}
+              compare={compare}
+              onCompare={setCompare}
+              comparable={window.comparable}
+              fill={false}
             />
-          </Suspense>
-        </div>
+          </>
+        )}
+      </div>
+    )
 
-        <div className="flex items-center gap-2 px-[14px] pt-1 pb-[14px]">
-          <SegmentedTrack
-            className="flex-1"
-            options={RANGES}
-            value={range}
-            onChange={setRange}
+    const master = (
+      <div
+        className={`no-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto ${
+          mode === 'rail' ? 'px-5 pb-5' : ''
+        }`}
+      >
+        {wealthCard}
+        {/* Three cards at 512px, and none at all on a desktop — where Budgets
+            is a labelled sidebar row carrying its own over-limit badge, and the
+            width is better spent on the pane. */}
+        {mode === 'rail' && (
+          <>
+            {rail.length > 0 && (
+              <LabelRow
+                trailing={
+                  <Link to="/budgets" className="text-meta font-semibold text-accent">
+                    See all
+                  </Link>
+                }
+              >
+                {railMonth ? `Budgets · ${railMonth}` : 'Budgets'}
+              </LabelRow>
+            )}
+            <BudgetRail budgets={budgets.data ?? []} columns={3} />
+          </>
+        )}
+        {feed}
+      </div>
+    )
+
+    // At `rail` the header belongs to the feed column — the pane is the page's
+    // other half and has a header of its own. At `desktop` it spans both, which
+    // is what lets the range track sit beside the title.
+    return mode === 'rail' ? (
+      <MasterDetail
+        mode={mode}
+        masterWidth={FEED_COLUMN_W}
+        empty="Pick a row to see it here"
+        master={
+          <>
+            <div className="flex-none px-5 pt-[18px] pb-3">{header}</div>
+            {master}
+          </>
+        }
+        detail={detail}
+      />
+    ) : (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex-none px-7 pt-5 pb-3.5">{header}</div>
+        <MasterDetail
+          mode={mode}
+          className="px-7 pb-7"
+          empty="Pick a row to see it here"
+          master={master}
+          detail={detail}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-[14px] px-4 pt-2.5 md:gap-4 md:px-8 md:pt-1">
+      {/* A phone's home screen has no title row to put anything in — the total
+          wealth card is the heading. A tablet has the room, so the range track
+          moves up out of the card's foot and the screen gets a name. */}
+      {mode === 'tablet' && (
+        <div className="flex items-center gap-3 px-1">
+          <h1 className="flex-1 text-title-sm font-semibold tracking-[-0.02em]">Home</h1>
+          <RangeControls
+            range={range}
+            onRange={setRange}
+            compare={compare}
+            onCompare={setCompare}
+            comparable={window.comparable}
+            fill={false}
           />
-          {/* Kept mounted but inert on All time: removing it would shift the row
-              every time the range changes. */}
-          <button
-            type="button"
-            onClick={() => setCompare((c) => !c)}
-            disabled={!window.comparable}
-            className="flex min-h-[34px] flex-none items-center gap-1.5 rounded-full px-3 text-meta font-medium"
-            style={{
-              color: comparing ? 'var(--color-accent)' : 'var(--color-ink-muted)',
-              background: comparing
-                ? 'color-mix(in oklab, var(--color-accent) 18%, transparent)'
-                : 'transparent',
-              opacity: window.comparable ? 1 : 0.4,
-            }}
-          >
-            <IconArrowsLeftRight size={14} stroke={2} />
-            Compare
-          </button>
         </div>
-      </Card>
+      )}
+
+      {wealthCard}
 
       {/* The label row is dropped entirely when nothing is on the rail: there
           is no period to name and nothing to see all of, so the rail is one
@@ -286,7 +619,12 @@ export function FeedScreen() {
           </LabelRow>
         </div>
       )}
-      <BudgetRail budgets={budgets.data ?? []} />
+      <BudgetRail
+        budgets={budgets.data ?? []}
+        // Four fixed cards instead of a scroller: at 770px they fit, and a
+        // scroller that never scrolls is a gesture that does nothing.
+        columns={mode === 'tablet' ? 4 : undefined}
+      />
 
       {/* The feed is what happened, and only that.
 
@@ -311,18 +649,13 @@ export function FeedScreen() {
           is exactly enough, and the month name beside it already establishes
           that the row is about *when*. */}
       <div className="-mb-1.5 flex items-center justify-between px-1">
-        <MonthStepper month={month} onChange={setMonth} earliest={firstDay.data ?? null} />
+        {stepper}
         <Link to="/scheduled" className="text-meta font-semibold text-accent">
           Scheduled
         </Link>
       </div>
 
-      <TransactionFeed
-        transactions={transactions.data ?? []}
-        wallets={wallets.data}
-        categories={categories.data}
-        empty={`Nothing recorded in ${formatMonthLabel(month)}.`}
-      />
+      {feed}
     </div>
   )
 }

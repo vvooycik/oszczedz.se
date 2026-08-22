@@ -28,9 +28,12 @@ echarts.use([
 export function EChart({
   option,
   className,
+  style,
 }: {
   option: EChartsOption
   className?: string
+  /** The host's height, which the caller sets in pixels — see `BalanceChart`. */
+  style?: React.CSSProperties
 }) {
   const host = useRef<HTMLDivElement>(null)
   const chart = useRef<echarts.ECharts | null>(null)
@@ -54,5 +57,5 @@ export function EChart({
     chart.current?.setOption(option, { notMerge: true })
   }, [option])
 
-  return <div ref={host} className={className} />
+  return <div ref={host} className={className} style={style} />
 }

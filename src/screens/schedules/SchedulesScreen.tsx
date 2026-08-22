@@ -69,7 +69,7 @@ function ScheduleRow({
   return (
     <Link
       to={`/scheduled/${schedule.id}/edit`}
-      className="flex items-center gap-[13px] px-4 py-[13px] active:bg-press"
+      className="flex items-center gap-[13px] px-4 py-[13px] hover:bg-press active:bg-press"
       style={{ opacity: schedule.active ? 1 : 0.55 }}
     >
       <CategoryGlyph

@@ -110,7 +110,7 @@ export function AppearanceScreen() {
                     type="button"
                     aria-pressed={active}
                     onClick={() => setPrefs({ accent: name })}
-                    className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left active:bg-press"
+                    className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left hover:bg-press active:bg-press"
                   >
                     <span
                       className="size-[34px] flex-none rounded-tile-sm"

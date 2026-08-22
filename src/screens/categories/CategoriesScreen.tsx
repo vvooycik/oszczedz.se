@@ -128,7 +128,7 @@ export function CategoriesScreen() {
               {index > 0 && <Divider inset={57} />}
               <button
                 onClick={() => edit(draftFrom(category))}
-                className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left active:bg-press"
+                className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left hover:bg-press active:bg-press"
               >
                 <CategoryGlyph
                   glyph={category.glyph}

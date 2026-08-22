@@ -22,11 +22,22 @@ export function Sparkline({
   height = 18,
   strokeWidth = 1.8,
   span: fixedSpan,
+  fluid = false,
 }: {
   values: number[]
   width?: number
   height?: number
   strokeWidth?: number
+  /**
+   * Scale to the container instead of drawing at `width` × `height`, which then
+   * only set the aspect ratio.
+   *
+   * For the wallet pane, where the line shares a row with the balance figure
+   * and has however much of it the figure leaves. Uniformly — `width: 100%`
+   * with `height: auto` — never `preserveAspectRatio: none`, which would widen
+   * the stroke with the container and turn a 2px line into a smear.
+   */
+  fluid?: boolean
   /**
    * A value range shared with the marks beside it, in place of this series'
    * own.
@@ -49,7 +60,9 @@ export function Sparkline({
   // one-point series still has to not crash.
   const gradientId = useId()
 
-  if (values.length < 2) return <div style={{ width, height }} />
+  if (values.length < 2) {
+    return <div style={fluid ? { height } : { width, height }} />
+  }
 
   const lo = Math.min(...values)
   const hi = Math.max(...values)
@@ -85,9 +98,10 @@ export function Sparkline({
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      width={width}
-      height={height}
-      className="block flex-none"
+      {...(fluid
+        ? { style: { width: '100%', height: 'auto' } }
+        : { width, height })}
+      className={fluid ? 'block' : 'block flex-none'}
       aria-hidden="true"
     >
       {crosses && (

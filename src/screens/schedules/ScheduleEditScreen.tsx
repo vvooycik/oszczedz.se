@@ -70,7 +70,7 @@ function EditRow({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left active:bg-press"
+      className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left hover:bg-press active:bg-press"
     >
       <Tile size={36} variant="neutral">
         {icon}

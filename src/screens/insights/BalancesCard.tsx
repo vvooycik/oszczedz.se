@@ -173,7 +173,7 @@ export function BalancesCard({
                 <Divider inset={i === 0 ? 16 : 62} />
                 <Link
                   to={`/wallets/${row.wallet.id}`}
-                  className="flex items-center gap-3 px-4 py-[11px] active:bg-press"
+                  className="flex items-center gap-3 px-4 py-[11px] hover:bg-press active:bg-press"
                 >
                   <Tile color={categoryVar(row.wallet.color_scheme)} size={34}>
                     <Glyph size={18} stroke={2} />

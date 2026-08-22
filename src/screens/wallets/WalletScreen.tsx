@@ -6,6 +6,7 @@ import {
   IconClock,
   IconPencil,
   IconPlus,
+  IconScale,
 } from '@tabler/icons-react'
 import { FullScreen } from '@/app/AppShell'
 import { DOCK_SPACER } from '@/app/TabBar'
@@ -37,6 +38,7 @@ import {
 import { formatMonthLabel, startOfMonth, today } from '@/lib/dates'
 import { balanceHistory, isArchived, loanStanding, walletGlyph } from '@/lib/wallets'
 import { categoryVar } from '@/theme/tokens'
+import { useLayoutMode } from '@/app/layout'
 import { AdjustBalanceSheet } from './AdjustBalanceSheet'
 import { WalletCategoriesEditor } from './WalletCategoriesSheet'
 
@@ -59,7 +61,12 @@ function FieldBar({ fraction, colour }: { fraction: number; colour: string }) {
  * rather than a filtered copy of itself — a per-wallet feed that diverged from
  * the main one would be two things to keep in step for no gain.
  */
-export function WalletScreen() {
+export function WalletScreen({ pane = false }: { pane?: boolean } = {}) {
+  const mode = useLayoutMode()
+  // The table only exists at desktop: a 606px landscape pane does not hold four
+  // fixed columns and a note, so there it stays a card list with the note
+  // folded back into the meta line.
+  const asTable = pane && mode === 'desktop'
   const { id } = useParams()
   const goBack = useGoBack('/wallets')
   const navigate = useNavigate()
@@ -104,7 +111,7 @@ export function WalletScreen() {
 
   if (!wallet) {
     return (
-      <FullScreen>
+      <FullScreen pane={pane}>
         <p className="px-4 py-10 text-value text-ink-muted">
           {wallets.data ? 'That wallet no longer exists.' : 'Loading…'}
         </p>
@@ -133,157 +140,245 @@ export function WalletScreen() {
     )
 
   return (
-    <FullScreen style={colourFieldStyle(wallet.color_scheme, resolvedMode)}>
+    <FullScreen pane={pane} style={colourFieldStyle(wallet.color_scheme, resolvedMode)}>
       {/* The scroll column reserves the same lane the dock gets on a tabbed
           screen, for the same reason: the last feed row has to be scrollable
-          out from under the button floating over it. */}
+          out from under the button floating over it. In a pane there is no
+          floating button — "Add here" is a real button in the header — so the
+          lane is not reserved and the last row ends where the pane does. */}
       <div
         className="no-scrollbar flex-1 overflow-y-auto"
-        style={{ paddingBottom: DOCK_SPACER }}
+        style={{ paddingBottom: pane ? 24 : DOCK_SPACER }}
       >
-        <div className="px-4 pb-5">
-          <header className="flex items-center gap-3 pt-1 pb-4">
-            <ActionTile label="Back" onField onClick={goBack}>
-              <IconChevronLeft size={20} stroke={2} />
-            </ActionTile>
-            <h1
-              className="min-w-0 flex-1 truncate text-heading font-semibold tracking-[-0.01em]"
-              style={{ color: 'var(--field-ink)' }}
-            >
-              {wallet.name}
-            </h1>
-            <ActionTile
-              label="Edit wallet"
-              onField
-              onClick={() => navigate(`/wallets/${wallet.id}/edit`)}
-            >
-              <IconPencil size={19} stroke={2} />
-            </ActionTile>
-          </header>
-
-          <div className="flex items-center gap-3">
-            <span
-              className="flex size-[34px] flex-none items-center justify-center rounded-tile-sm"
-              style={{ background: 'var(--field-scrim)', color: 'var(--field-ink)' }}
-            >
-              <Icon size={19} stroke={2} />
-            </span>
-            <Label>{isCard ? 'Owed' : 'Balance'}</Label>
-            {isArchived(wallet) && (
+        <div className={pane ? 'px-7 pb-5' : 'px-4 pb-5'}>
+          {/* Two headers, one screen. On a phone the row is Back / name /
+              Edit, because the list it came from is gone and the name has the
+              line to itself. In a pane the list is still on the left, so the
+              row leads with the wallet's own mark and spends the rest of the
+              width on the two things you actually do to a wallet — correct its
+              balance, and add to it. That is the FAB and the Adjust row made
+              into real buttons, which is what a pointer wants. */}
+          {pane ? (
+            <header className="flex items-center gap-3 pt-1 pb-1">
               <span
-                className="rounded-full px-2 py-px text-badge font-semibold tracking-[0.06em] uppercase"
-                style={{
-                  border: '1px dashed var(--color-dash)',
-                  color: 'var(--color-ink-muted)',
-                }}
+                className="flex size-11 flex-none items-center justify-center rounded-field"
+                style={{ background: 'var(--field-scrim)', color: 'var(--field-ink)' }}
               >
-                Closed
+                <Icon size={22} stroke={2} />
               </span>
-            )}
-          </div>
+              <h1
+                className="min-w-0 flex-1 truncate text-title-sm font-semibold tracking-[-0.02em]"
+                style={{ color: 'var(--field-ink)' }}
+              >
+                {wallet.name}
+              </h1>
+              <button
+                type="button"
+                onClick={() => setAdjustOpen(true)}
+                className="flex flex-none items-center gap-2 rounded-tile px-4 py-[11px] text-action font-semibold"
+                style={{ background: 'var(--field-scrim)', color: 'var(--field-ink)' }}
+              >
+                <IconScale size={18} stroke={2} />
+                Adjust balance
+              </button>
+              {/* Not on an archived wallet: it is hidden from the entry form's
+                  select, so this would open a form that immediately disagreed
+                  with where it came from. */}
+              {!isArchived(wallet) && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/add?wallet=${wallet.id}`)}
+                  className="flex flex-none items-center gap-2 rounded-tile px-4 py-[11px] text-action font-semibold"
+                  style={{
+                    background: categoryVar(wallet.color_scheme),
+                    color: 'var(--color-accent-fg)',
+                  }}
+                >
+                  <IconPlus size={18} stroke={2} />
+                  Add here
+                </button>
+              )}
+              <ActionTile
+                label="Edit wallet"
+                onField
+                size={34}
+                onClick={() => navigate(`/wallets/${wallet.id}/edit`)}
+              >
+                <IconPencil size={18} stroke={2} />
+              </ActionTile>
+            </header>
+          ) : (
+            <header className="flex items-center gap-3 pt-1 pb-4">
+              <ActionTile label="Back" onField onClick={goBack}>
+                <IconChevronLeft size={20} stroke={2} />
+              </ActionTile>
+              <h1
+                className="min-w-0 flex-1 truncate text-heading font-semibold tracking-[-0.01em]"
+                style={{ color: 'var(--field-ink)' }}
+              >
+                {wallet.name}
+              </h1>
+              <ActionTile
+                label="Edit wallet"
+                onField
+                onClick={() => navigate(`/wallets/${wallet.id}/edit`)}
+              >
+                <IconPencil size={19} stroke={2} />
+              </ActionTile>
+            </header>
+          )}
 
+          {/* Beside the figure rather than under it, once there is a column
+              to put it in: the balance answers "how much" and the line answers
+              "which way", and at a pane's width those are two readings of the
+              same wallet rather than two rows. `items-end` is what sits the
+              line on the figure's baseline instead of floating it. */}
           <div
-            className="tnum mt-2.5"
-            style={{
-              fontSize: 'var(--text-figure)',
-              fontWeight: 600,
-              lineHeight: 1,
-              letterSpacing: '-0.035em',
-              color: balance < 0 ? 'var(--color-expense)' : undefined,
-            }}
+            className={pane ? 'grid items-end gap-7' : ''}
+            style={pane ? { gridTemplateColumns: '340px minmax(0, 1fr)' } : undefined}
           >
-            {formatSigned(asMinor(balance), { plus: false })}
-            <span
-              className="text-ink-faint"
-              style={{ fontSize: 'var(--text-figure-unit)', fontWeight: 500, letterSpacing: 0 }}
-            >
-              {' '}
-              {currencySymbol(wallet.currency)}
-            </span>
-          </div>
-
-          {/* Reads as arithmetic waiting to happen — the sign is on the figure
-              and the sentence says where it lands — because that is exactly
-              what it is. Hidden at zero, which is every wallet with nothing
-              scheduled against it. */}
-          {planned !== 0 && (
-            <Link
-              to="/scheduled"
-              className="tnum mt-2 flex items-center gap-1.5 text-meta text-ink-muted"
-            >
-              <IconClock size={13} stroke={2} className="text-ink-dim" />
-              {formatSigned(asMinor(planned), { plus: planned > 0 })}{' '}
-              {currencySymbol(wallet.currency)} planned ·{' '}
-              {formatSigned(asMinor(balance + planned), { plus: false })} after
-            </Link>
-          )}
-
-          {isCard && (
-            <>
-              <FieldBar
-                fraction={Math.abs(Math.min(balance, 0)) / wallet.credit_limit!}
-                colour="var(--color-expense)"
-              />
-              <div className="tnum mt-2 flex justify-between text-meta text-ink-muted">
-                <span>
-                  {formatAmountMoney(
-                    asMinor(wallet.credit_limit! + balance),
-                    wallet.currency,
-                  )}{' '}
-                  left
+            <div>
+            <div className={`flex items-center gap-3 ${pane ? 'mt-5' : ''}`}>
+              {!pane && (
+                <span
+                  className="flex size-[34px] flex-none items-center justify-center rounded-tile-sm"
+                  style={{ background: 'var(--field-scrim)', color: 'var(--field-ink)' }}
+                >
+                  <Icon size={19} stroke={2} />
                 </span>
-                <span>
-                  {formatAmountMoney(asMinor(wallet.credit_limit!), wallet.currency)} limit
+              )}
+              <Label>{isCard ? 'Owed' : 'Balance'}</Label>
+              {isArchived(wallet) && (
+                <span
+                  className="rounded-full px-2 py-px text-badge font-semibold tracking-[0.06em] uppercase"
+                  style={{
+                    border: '1px dashed var(--color-dash)',
+                    color: 'var(--color-ink-muted)',
+                  }}
+                >
+                  Closed
                 </span>
-              </div>
-            </>
-          )}
+              )}
+            </div>
 
-          {progress !== null && (
-            <>
-              <FieldBar fraction={progress} colour="var(--color-income)" />
-              <div className="tnum mt-2 text-meta text-ink-muted">
-                {total !== null ? (
-                  left === 0 ? (
-                    <>All {total} settlements paid</>
+            <div
+              className="tnum mt-2.5"
+              style={{
+                fontSize: 'var(--text-figure)',
+                fontWeight: 600,
+                lineHeight: 1,
+                letterSpacing: '-0.035em',
+                color: balance < 0 ? 'var(--color-expense)' : undefined,
+              }}
+            >
+              {formatSigned(asMinor(balance), { plus: false })}
+              <span
+                className="text-ink-faint"
+                style={{ fontSize: 'var(--text-figure-unit)', fontWeight: 500, letterSpacing: 0 }}
+              >
+                {' '}
+                {currencySymbol(wallet.currency)}
+              </span>
+            </div>
+
+            {/* Reads as arithmetic waiting to happen — the sign is on the figure
+                and the sentence says where it lands — because that is exactly
+                what it is. Hidden at zero, which is every wallet with nothing
+                scheduled against it. */}
+            {planned !== 0 && (
+              <Link
+                to="/scheduled"
+                className="tnum mt-2 flex items-center gap-1.5 text-meta text-ink-muted"
+              >
+                <IconClock size={13} stroke={2} className="text-ink-dim" />
+                {formatSigned(asMinor(planned), { plus: planned > 0 })}{' '}
+                {currencySymbol(wallet.currency)} planned ·{' '}
+                {formatSigned(asMinor(balance + planned), { plus: false })} after
+              </Link>
+            )}
+
+            {isCard && (
+              <>
+                <FieldBar
+                  fraction={Math.abs(Math.min(balance, 0)) / wallet.credit_limit!}
+                  colour="var(--color-expense)"
+                />
+                <div className="tnum mt-2 flex justify-between text-meta text-ink-muted">
+                  <span>
+                    {formatAmountMoney(
+                      asMinor(wallet.credit_limit! + balance),
+                      wallet.currency,
+                    )}{' '}
+                    left
+                  </span>
+                  <span>
+                    {formatAmountMoney(asMinor(wallet.credit_limit!), wallet.currency)} limit
+                  </span>
+                </div>
+              </>
+            )}
+
+            {progress !== null && (
+              <>
+                <FieldBar fraction={progress} colour="var(--color-income)" />
+                <div className="tnum mt-2 text-meta text-ink-muted">
+                  {total !== null ? (
+                    left === 0 ? (
+                      <>All {total} settlements paid</>
+                    ) : (
+                      <>
+                        {left} of {total} settlement{total === 1 ? '' : 's'} left
+                      </>
+                    )
                   ) : (
                     <>
-                      {left} of {total} settlement{total === 1 ? '' : 's'} left
+                      {formatSigned(asMinor(repaid), { plus: false })} of{' '}
+                      {formatAmountMoney(asMinor(origin), wallet.currency)} repaid
                     </>
-                  )
-                ) : (
-                  <>
-                    {formatSigned(asMinor(repaid), { plus: false })} of{' '}
-                    {formatAmountMoney(asMinor(origin), wallet.currency)} repaid
-                  </>
-                )}
-              </div>
-            </>
-          )}
+                  )}
+                </div>
+              </>
+            )}
 
-          {/* Wider than the list's, because there is room for it here — same
-              series, same sign-painted rule. */}
-          {!isCard && progress === null && trend.length > 2 && (
-            <div className="mt-4">
-              <Sparkline values={trend} width={330} height={56} strokeWidth={2} />
             </div>
-          )}
+            {/* Wider than the list's, because there is room for it here — same
+                series, same sign-painted rule. */}
+            {!isCard && progress === null && trend.length > 2 && (
+              <div className="mt-4">
+                <Sparkline
+                  values={trend}
+                  width={pane ? 560 : 330}
+                  height={pane ? 96 : 56}
+                  strokeWidth={pane ? 2.4 : 2}
+                  fluid={pane}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="flex flex-col gap-[14px] px-4">
+        <div className={`flex flex-col gap-[14px] ${pane ? 'px-7' : 'px-4'}`}>
           <Card>
             {/* The balance is the figure this screen leads with, so the way to
                 correct it belongs here rather than three taps away inside Edit
-                wallet — and it is an *event*, not an attribute of the wallet. */}
-            <CardRow onClick={() => setAdjustOpen(true)} className="cursor-pointer">
-              <span className="flex-1 text-row font-medium">Adjust balance</span>
-              <span className="text-value text-ink-muted">
-                {isCard ? 'Owed or remaining' : 'Set what it really holds'}
-              </span>
-              <IconChevronRight size={18} stroke={2} className="text-ink-dim" />
-            </CardRow>
+                wallet — and it is an *event*, not an attribute of the wallet.
 
-            <Divider inset={16} />
+                Dropped in a pane, where it is a real button in the header: the
+                same act offered twice on one screen is two things to keep in
+                step for nothing. */}
+            {!pane && (
+              <>
+                <CardRow onClick={() => setAdjustOpen(true)} className="cursor-pointer">
+                  <span className="flex-1 text-row font-medium">Adjust balance</span>
+                  <span className="text-value text-ink-muted">
+                    {isCard ? 'Owed or remaining' : 'Set what it really holds'}
+                  </span>
+                  <IconChevronRight size={18} stroke={2} className="text-ink-dim" />
+                </CardRow>
+
+                <Divider inset={16} />
+              </>
+            )}
 
             <CardRow onClick={() => setCatOpen(true)} className="cursor-pointer">
               <span className="flex-1 text-row font-medium">Categories</span>
@@ -318,6 +413,7 @@ export function WalletScreen() {
               // Every row is this wallet, so naming it on each one is noise. The
               // note keeps its place on the same line.
               hideWallet
+              variant={asTable ? 'table' : 'cards'}
               empty={`Nothing moved through this wallet in ${formatMonthLabel(month)}.`}
             />
           ) : (
@@ -335,7 +431,7 @@ export function WalletScreen() {
           Not drawn on an archived wallet: a closed wallet is hidden from the
           entry form's select entirely, so the button would open a form that
           immediately disagrees with where it came from. */}
-      {!isArchived(wallet) && (
+      {!pane && !isArchived(wallet) && (
         <button
           aria-label={`Add transaction to ${wallet.name}`}
           onClick={() => navigate(`/add?wallet=${wallet.id}`)}

@@ -54,7 +54,7 @@ export function CardRow({
   return (
     <div
       className={`flex items-center gap-[13px] px-4 py-[13px] ${
-        press ? 'active:bg-press' : ''
+        press ? 'hover:bg-press active:bg-press' : ''
       } ${className}`}
       style={style}
       {...rest}

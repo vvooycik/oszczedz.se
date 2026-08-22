@@ -125,7 +125,7 @@ export function CategoryEditorSheet({
                     <button
                       type="button"
                       onClick={() => onReassign(category.id)}
-                      className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left active:bg-press"
+                      className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left hover:bg-press active:bg-press"
                     >
                       <CategoryGlyph
                         glyph={category.glyph}
@@ -310,7 +310,7 @@ export function CategoryEditorSheet({
               <button
                 type="button"
                 onClick={onAskDelete}
-                className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left active:bg-press"
+                className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left hover:bg-press active:bg-press"
               >
                 <Tile size={36} variant="neutral">
                   <IconTrash

@@ -1,9 +1,11 @@
-import { lazy, Suspense, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { useAuth } from '@/auth/AuthProvider'
 import { useMaterialiseSchedules } from '@/data/queries'
 import { LoginPage } from '@/auth/LoginPage'
 import { AppShell } from '@/app/AppShell'
+import { isWide, useLayoutMode } from '@/app/layout'
+import { WideRoutes } from '@/app/WideRoutes'
 import { ScreenTransition } from '@/app/ScreenTransition'
 import { FeedScreen } from '@/screens/FeedScreen'
 import { WalletsScreen } from '@/screens/WalletsScreen'
@@ -22,20 +24,7 @@ import { AddScreen } from '@/screens/add/AddScreen'
 import { SchedulesScreen } from '@/screens/schedules/SchedulesScreen'
 import { ScheduleEditScreen } from '@/screens/schedules/ScheduleEditScreen'
 import { TransactionScreen } from '@/screens/TransactionScreen'
-
-/**
- * The design-system reference, at `/dev/design-system`.
- *
- * **Lazy, and that is load-bearing.** The page imports every component in the
- * system so it can show them, which is exactly the import graph the initial
- * chunk must not grow — the app ships ~208 kB gzipped and the figure is tracked
- * commit by commit. Behind a `lazy()` it costs nothing until it is asked for.
- *
- * Deliberately unreachable from the UI: no tab, no link, no row in More. It is
- * a document for whoever is building the app, and a route the user can stumble
- * into is a screen that has to be designed and explained.
- */
-const DesignSystemScreen = lazy(() => import('@/screens/dev/DesignSystemScreen'))
+import { DesignSystemRoute } from '@/screens/dev/DesignSystemRoute'
 
 /**
  * Schedules catch up on launch, and this is the entire mechanism behind "it
@@ -81,14 +70,7 @@ function PublicRoutes() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route
-          path="/dev/design-system/:section?"
-          element={
-            <Suspense fallback={null}>
-              <DesignSystemScreen />
-            </Suspense>
-          }
-        />
+        <Route path="/dev/design-system/:section?" element={<DesignSystemRoute />} />
         <Route path="*" element={<LoginPage />} />
       </Routes>
     </BrowserRouter>
@@ -106,152 +88,168 @@ export default function App() {
   return (
     <BrowserRouter>
       <ScheduleCatchUp />
-      <Routes>
-        <Route element={<AppShell />}>
-          <Route index element={<FeedScreen />} />
-          <Route path="wallets" element={<WalletsScreen />} />
-          <Route path="insights" element={<InsightsScreen />} />
-          <Route path="budgets" element={<BudgetsScreen />} />
-          <Route path="more" element={<MoreScreen />} />
-        </Route>
-
-        {/* Screens that cover the tabs entirely. Each arrives through
-            `ScreenTransition`: detail screens push in from the right, the
-            entry and creation forms present from the bottom. */}
-        <Route
-          path="/add"
-          element={
-            <ScreenTransition>
-              <AddScreen />
-            </ScreenTransition>
-          }
-        />
-        <Route
-          path="/tx/:id"
-          element={
-            <ScreenTransition>
-              <TransactionScreen />
-            </ScreenTransition>
-          }
-        />
-        {/* Same form as /add, seeded from the row it names. */}
-        <Route
-          path="/tx/:id/edit"
-          element={
-            <ScreenTransition>
-              <AddScreen />
-            </ScreenTransition>
-          }
-        />
-        <Route
-          path="/appearance"
-          element={
-            <ScreenTransition>
-              <AppearanceScreen />
-            </ScreenTransition>
-          }
-        />
-        <Route
-          path="/categories"
-          element={
-            <ScreenTransition>
-              <CategoriesScreen />
-            </ScreenTransition>
-          }
-        />
-        <Route
-          path="/tags"
-          element={
-            <ScreenTransition>
-              <TagsScreen />
-            </ScreenTransition>
-          }
-        />
-        {/* Static before dynamic, by route ranking rather than source order. */}
-        <Route
-          path="/scheduled"
-          element={
-            <ScreenTransition>
-              <SchedulesScreen />
-            </ScreenTransition>
-          }
-        />
-        <Route
-          path="/scheduled/:id/edit"
-          element={
-            <ScreenTransition>
-              <ScheduleEditScreen />
-            </ScreenTransition>
-          }
-        />
-        {/* `/budgets/new`, `/budgets/order` and `/wallets/new` stay above their
-            dynamic siblings by route *ranking*, not by source order — a static
-            segment always outranks a param. */}
-        <Route
-          path="/budgets/new"
-          element={
-            <ScreenTransition>
-              <BudgetEditScreen />
-            </ScreenTransition>
-          }
-        />
-        <Route
-          path="/budgets/order"
-          element={
-            <ScreenTransition>
-              <HomeOrderScreen />
-            </ScreenTransition>
-          }
-        />
-        <Route
-          path="/budgets/:id/edit"
-          element={
-            <ScreenTransition>
-              <BudgetEditScreen />
-            </ScreenTransition>
-          }
-        />
-        <Route
-          path="/wallets/new"
-          element={
-            <ScreenTransition>
-              <NewWalletScreen />
-            </ScreenTransition>
-          }
-        />
-        <Route
-          path="/wallets/:id"
-          element={
-            <ScreenTransition>
-              <WalletScreen />
-            </ScreenTransition>
-          }
-        />
-        <Route
-          path="/wallets/:id/edit"
-          element={
-            <ScreenTransition>
-              <EditWalletScreen />
-            </ScreenTransition>
-          }
-        />
-
-        {/* Not in the tab bar and not linked from anywhere — typed in. The
-            optional segment is what makes `/dev/design-system/tokens` a real
-            address rather than an anchor. Declared twice, here and in
-            `PublicRoutes`, because a signed-in reader must reach it too and the
-            two routers never both exist. */}
-        <Route
-          path="/dev/design-system/:section?"
-          element={
-            <Suspense fallback={null}>
-              <DesignSystemScreen />
-            </Suspense>
-          }
-        />
-
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <AppRoutes />
     </BrowserRouter>
+  )
+}
+
+/**
+ * Which of the two route trees is in force.
+ *
+ * Two trees rather than one with conditionals, because they disagree about
+ * something structural: below 1024 a transaction detail *covers* the tabs and
+ * is its own route element, and at 1024 and up it is a pane belonging to the
+ * feed. One tree trying to be both would need a branch at every route element,
+ * which is the version that quietly goes wrong.
+ *
+ * Crossing the boundary remounts the tree, and that is accepted rather than
+ * worked around: it is a layout at a width, not a transition, and dragging a
+ * window edge across 1024px is a thing that happens once, not continuously.
+ */
+function AppRoutes() {
+  const mode = useLayoutMode()
+
+  if (isWide(mode)) return <WideRoutes />
+
+  return (
+    <Routes>
+      <Route element={<AppShell />}>
+        <Route index element={<FeedScreen />} />
+        <Route path="wallets" element={<WalletsScreen />} />
+        <Route path="insights" element={<InsightsScreen />} />
+        <Route path="budgets" element={<BudgetsScreen />} />
+        <Route path="more" element={<MoreScreen />} />
+      </Route>
+
+      {/* Screens that cover the tabs entirely. Each arrives through
+          `ScreenTransition`: detail screens push in from the right, the
+          entry and creation forms present from the bottom. */}
+      <Route
+        path="/add"
+        element={
+          <ScreenTransition>
+            <AddScreen />
+          </ScreenTransition>
+        }
+      />
+      <Route
+        path="/tx/:id"
+        element={
+          <ScreenTransition>
+            <TransactionScreen />
+          </ScreenTransition>
+        }
+      />
+      {/* Same form as /add, seeded from the row it names. */}
+      <Route
+        path="/tx/:id/edit"
+        element={
+          <ScreenTransition>
+            <AddScreen />
+          </ScreenTransition>
+        }
+      />
+      <Route
+        path="/appearance"
+        element={
+          <ScreenTransition>
+            <AppearanceScreen />
+          </ScreenTransition>
+        }
+      />
+      <Route
+        path="/categories"
+        element={
+          <ScreenTransition>
+            <CategoriesScreen />
+          </ScreenTransition>
+        }
+      />
+      <Route
+        path="/tags"
+        element={
+          <ScreenTransition>
+            <TagsScreen />
+          </ScreenTransition>
+        }
+      />
+      {/* Static before dynamic, by route ranking rather than source order. */}
+      <Route
+        path="/scheduled"
+        element={
+          <ScreenTransition>
+            <SchedulesScreen />
+          </ScreenTransition>
+        }
+      />
+      <Route
+        path="/scheduled/:id/edit"
+        element={
+          <ScreenTransition>
+            <ScheduleEditScreen />
+          </ScreenTransition>
+        }
+      />
+      {/* `/budgets/new`, `/budgets/order` and `/wallets/new` stay above their
+          dynamic siblings by route *ranking*, not by source order — a static
+          segment always outranks a param. */}
+      <Route
+        path="/budgets/new"
+        element={
+          <ScreenTransition>
+            <BudgetEditScreen />
+          </ScreenTransition>
+        }
+      />
+      <Route
+        path="/budgets/order"
+        element={
+          <ScreenTransition>
+            <HomeOrderScreen />
+          </ScreenTransition>
+        }
+      />
+      <Route
+        path="/budgets/:id/edit"
+        element={
+          <ScreenTransition>
+            <BudgetEditScreen />
+          </ScreenTransition>
+        }
+      />
+      <Route
+        path="/wallets/new"
+        element={
+          <ScreenTransition>
+            <NewWalletScreen />
+          </ScreenTransition>
+        }
+      />
+      <Route
+        path="/wallets/:id"
+        element={
+          <ScreenTransition>
+            <WalletScreen />
+          </ScreenTransition>
+        }
+      />
+      <Route
+        path="/wallets/:id/edit"
+        element={
+          <ScreenTransition>
+            <EditWalletScreen />
+          </ScreenTransition>
+        }
+      />
+
+      {/* Not in the tab bar and not linked from anywhere — typed in. The
+          optional segment is what makes `/dev/design-system/tokens` a real
+          address rather than an anchor. Declared three times now — here, in
+          `PublicRoutes` and in `WideRoutes` — because a signed-in reader must
+          reach it too and no two of those routers ever both exist. */}
+      <Route path="/dev/design-system/:section?" element={<DesignSystemRoute />} />
+
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }

@@ -167,7 +167,7 @@ export function InsightsScreen() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-[22px] px-4 pt-1">
+      <div className="flex flex-col gap-[22px] px-4 pt-1 md:px-8">
         <PaceCard
           points={pace.data ?? []}
           period={period}

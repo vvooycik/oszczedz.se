@@ -55,6 +55,7 @@ const fmt = (opts: Intl.DateTimeFormatOptions) =>
 
 const dayHeaderFmt = fmt({ weekday: 'long', day: 'numeric', month: 'long' })
 const fullDateFmt = fmt({ weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+const dayShortFmt = fmt({ day: 'numeric', month: 'short' })
 const monthShortFmt = fmt({ month: 'short', year: '2-digit' })
 const monthLongFmt = fmt({ month: 'long' })
 const monthYearFmt = fmt({ month: 'long', year: 'numeric' })
@@ -66,6 +67,16 @@ export const formatDayHeader = (iso: string): string =>
 /** "Thursday, 6 August 2026" — the detail screen. */
 export const formatFullDate = (iso: string): string =>
   fullDateFmt.format(fromISODate(iso))
+
+/**
+ * "21 Aug" — the Date column of the wallet pane's table.
+ *
+ * No year and no weekday: the table is one month at a time, so the year is
+ * already established by the stepper above it and the weekday is the thing a
+ * day *header* carries when there is no column to put a date in.
+ */
+export const formatDayShort = (iso: string): string =>
+  dayShortFmt.format(fromISODate(iso))
 
 /** "Aug '26" — chart axes. */
 export const formatMonthShort = (iso: string): string =>

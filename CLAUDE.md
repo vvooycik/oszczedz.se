@@ -1,6 +1,7 @@
 # Budget Tracker — Project Context
 
-Personal budget tracker (single real user), mobile-first PWA. Core differentiator:
+Personal budget tracker (single real user), mobile-first PWA — with tablet and
+desktop layouts on top of it (roadmap item 24). Core differentiator:
 rich, non-generic data visualization (spending history, balance over time, budgets).
 No bank integrations — transactions entered manually. Possible future: MCP server for
 AI-assisted entry (e.g. parsing transaction screenshots).
@@ -430,6 +431,16 @@ through an aggregate — so chart code must guard them.
 
 ## Design tokens
 
+`src/index.css` is the single source, in three layers — plus two media queries
+below them that restate the type scale for tablet and desktop. Those queries are
+**unlayered on purpose**: `@theme` emits inside `@layer theme`, and an unlayered
+rule beats a layered one whatever the order in the file. They are the whole
+mechanism behind the second form factor — Tailwind compiles `text-row` to
+`font-size: var(--text-row)`, so redeclaring the property re-sizes every one of
+its ~350 call sites and no component knows a breakpoint exists. `--dock-gutter`
+and `--dock-right` ride along in the 768px block, which is the entire difference
+between the phone's dock and the tablet's.
+
 `src/index.css` is the single source, in three layers:
 
 1. `--h` / `--c-accent` / `--c-accent-mix` — written onto `<html>` at runtime from
@@ -640,7 +651,7 @@ Without it Vite inlines the values as `undefined`, the guard in `src/lib/supabas
 folds to a constant, and the bundler dead-code-eliminates supabase-js and every
 chart behind it — producing a *successful* build of an app that throws on load.
 
-ECharts is code-split so it stays off the login path — **~202 kB gzipped initial,
+ECharts is code-split so it stays off the login path — **~216 kB gzipped initial,
 ~189 kB for the chart chunk**. The initial figure was ~174 kB after the visual
 refresh and grew to ~177 with the wallet add button and balance-adjustment
 sheet, then to ~190 when the glyph set went from 111 to 256 (that 12 kB is icons
@@ -649,8 +660,12 @@ and nothing else), then to ~194 with the whole Insight tab — four blocks for
 budgets: three screens, three drawers and two pickers for 8 kB, on the same
 argument. Scheduled transactions took it to **~207** — two screens, a drawer and
 the planned treatment for 5 kB, and the chart chunk did not move at all, because
-the forecast is a second series on a chart that already existed. Keep an eye on
-this: a second charting library adds to that budget rather than replacing it.
+the forecast is a second series on a chart that already existed. The
+design-system reference is behind a `lazy()` and costs the initial chunk
+nothing (only ~0.4 kB of shared CSS), and the tablet/desktop layer took it to
+**~216** — a sidebar, an icon rail, three grid arrangements, a dialog frame, a
+second route tree and the entry modal for 8 kB. Keep an eye on this: a second
+charting library adds to that budget rather than replacing it.
 
 `__APP_VERSION__` is inlined by `vite.config.ts` from `package.json`, for the
 About row. Bump the version there, not in the component.
@@ -1516,10 +1531,11 @@ About row. Bump the version there, not in the component.
     **The one thing it restates is the type scale — because there is nothing to
     read.** That is the audit's first finding, not a shortcut.
 
-    **It is the only screen not capped at `max-w-lg`.** A reference read on a
+    **It was the only screen not capped at `max-w-lg`.** A reference read on a
     desktop while building a desktop layout should not be squeezed into the
-    phone frame it documents, and it is the only place in the app where a
-    `sm:` breakpoint appears at all.
+    phone frame it documents. It was also the only place in the app where a
+    breakpoint appeared at all — which item 24 changed: there are now four
+    layouts, and this page's `sm:` is no longer exotic.
 
 22. **The type scale, and the audit it came from — DONE.** The design-system
     reference (item 21) turned up eight findings; the six that stood between
@@ -1576,9 +1592,11 @@ About row. Bump the version there, not in the component.
     **Left open, on the page and on purpose.** Three radii are still outside the
     set (`rounded-lg` on the history bars, `borderRadius: 12` on the two
     drag-lifts) — they want names, and naming a radius is a design decision
-    about what those things are. And there is still no breakpoint anywhere,
-    which is correct until there is a second form factor to serve; what changed
-    is that there is now something for one to *do*.
+    about what those things are. There was still no breakpoint anywhere, which
+    was correct until there was a second form factor to serve; what changed was
+    that there was now something for one to *do*. Item 24 is that form factor,
+    and it re-sized the whole app from two media queries — which is the return
+    on this work, measured.
 
     **Verified in a browser**, on the real database at localhost: Home, the
     entry screen and its category sheet, a transaction detail, Insight, Wallets
@@ -1616,18 +1634,136 @@ About row. Bump the version there, not in the component.
     future-dated row sitting one day past the period; and the CHECK refusing
     `resets_on = 25` on a daily row.
 
-24. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
+24. **Tablet and desktop — DONE**, against `design/design_handoff_tablet_desktop/`.
+    The app stops being a 512px column in the middle of a window: the dock
+    unfolds into a sidebar, the screens become master-detail, and the entry form
+    becomes a centred modal. `src/app/layout.ts`, `Sidebar.tsx`,
+    `MasterDetail.tsx`, `Modal.tsx`, `ModalScreen.tsx`, `WideRoutes.tsx`.
+
+    **Four arrangements, and the two boundaries that matter are not about
+    width.** `mobile` (<768) is what ships today, untouched. `tablet`
+    (768–1023) keeps the floating dock and spends the room on 32px gutters and
+    a budget rail of four fixed cards. `rail` (1024–1279) is a 76px icon rail, a
+    512px feed column and a pane taking the remainder. `desktop` (≥1280) is a
+    264px labelled sidebar, a fluid master and a 440px pane. **1024 is the real
+    line**: below it a 440px pane cannot exist without squeezing the list under
+    the 512 a transaction row wants, so master-detail simply does not fit.
+
+    **The type scale is what the naming work was for.** Every one of the ~350
+    call sites re-sizes from two media queries restating the tokens — no
+    component knows a breakpoint exists. Those blocks are **unlayered**, which
+    is what makes them win: `@theme` emits inside `@layer theme`, and an
+    unlayered rule beats a layered one whatever the file order. Verified in the
+    built stylesheet — the utilities layer closes at byte 29 327 and both
+    queries start after it.
+
+    **Selection is a URL, never state.** `/tx/:id` and `/` are the *same route
+    element* on a wide layout, and so are `/wallets/:id` and `/wallets`; the
+    screen reads `useParams()` and decides whether it has a pane. Deep links,
+    the back button and every `useGoBack` fallback keep working with nothing
+    added, and no screen gained a `selected` state. Nothing is auto-selected — a
+    feed is a list you read, and opening a row nobody asked for would put a
+    colour field on screen to answer a question nobody had.
+
+    **Two route trees, chosen by width, rather than one with conditionals.**
+    They disagree about something structural — below 1024 a transaction detail
+    covers the tabs and is its own route element, above it is a pane belonging
+    to the feed — and one tree trying to be both needs a branch at every route.
+    Crossing 1024 remounts; that is a layout at a width, not a transition.
+
+    **A modal route keeps the page behind it mounted**, through
+    `<Routes location={behind}>` where `behind` is the last non-modal address,
+    held in a ref written during render. Derived state, not an effect: an effect
+    would paint one frame of the modal's own route underneath itself before
+    correcting. It starts at `/`, so a cold load onto `/add` opens the form over
+    the home screen rather than over nothing.
+
+    **`useInModal` is why six screens became dialogs without a line changing in
+    any of them.** Categories, Tags, Scheduled, the budget editor and both
+    wallet forms all go through `FullScreen`, so the context is read there
+    rather than threaded as a prop through components that have no use for the
+    fact. `pane` on the same component is the same idea one step further.
+
+    Five decisions taken against the handoff's literal text:
+
+    - **The rail keeps all five tabs, More included.** The reference file draws
+      Scheduled as the fifth cell, which on a 76px rail with no room for a Data
+      group would leave Categories, Tags and Export unreachable. The desktop
+      sidebar can drop More precisely because it draws those rows itself.
+    - **The rail's account tile is an avatar, not a button.** The sidebar's
+      account card carries a real logout glyph; at 36px, one mis-tap ending the
+      session is not a trade.
+    - **Delete is not one of the hover actions.** The handoff brings the detail
+      screen's header actions forward onto the hovered row; edit and duplicate
+      are safe there, and a destructive action behind a hover one row from the
+      one the eye is on is how the wrong row gets deleted.
+    - **The wallet pane keeps its Categories row but loses its Adjust balance
+      row**, because that became a real button in the pane's header. The same
+      act offered twice on one screen is two things to keep in step for nothing.
+    - **`useWalletMonthlyNet` gained an `enabled` flag.** The desktop wealth
+      card's two stat tiles are the only thing that reads it on the home screen,
+      and a hook cannot be called conditionally — so the condition goes in the
+      query rather than a round trip going out for a figure nothing draws.
+
+    **The Amount field in the modal is read-only and driven through `applyKey`.**
+    Typing `2+3*4` still folds left to right, because the field, the tape and
+    the (optional) keypad are one entry model; letting the browser own the value
+    would mean a second parser and two ideas of what is half-typed. The keypad
+    is **off by default at desktop and on at tablet landscape** — a hardware
+    keyboard makes the pad redundant, hands on glass do not. Not persisted on
+    this pass.
+
+    **The one place the width buys something genuinely new** is the wallet
+    pane's feed at desktop, which becomes a four-column table. On a phone the
+    note is concatenated into the meta line and the date exists only as a day
+    header because there is nowhere else for either to go; given columns they
+    become things you scan down — which is also why the day grouping goes away
+    there, since a Date column says the same thing once per row.
+
+    Hover states: exactly one was added, `hover:bg-press` on every row that
+    navigates, plus the two ghost buttons on the hovered feed row. They fade on
+    `opacity` rather than toggling `display`, so the row does not reflow under
+    the pointer, and on `focus-within` as well, or Tab would land on two buttons
+    nobody can see. Arrow up/down walk a master list and Enter opens the first
+    row; the listener bails while a `[role="dialog"]` is in the document, since
+    the list behind a modal is still mounted by design.
+
+    **`ScreenTransition` is not used at these widths.** A push from the right is
+    wrong for a pane at any duration — nothing is being covered — so the pane
+    cross-fades its *contents* over 120ms and leaves the geometry still.
+
+    **Not verified in a browser.** The Chrome extension was not connected this
+    session, so this fell back to the project's usual method plus what a build
+    can prove: `tsc -b` and `oxlint` clean, both media queries confirmed present
+    and unlayered in the built stylesheet, `max-w-wide` and every new utility
+    confirmed emitted, and the bundle confirmed to boot and render through
+    headless Chrome. **The signed-in wide layouts have not been seen** — they
+    need a session, and that is the one thing this check could not produce.
+
+    Cost: the initial chunk went from ~208 kB gzipped to **~216**, and the CSS
+    from 8.2 to 8.4 — a sidebar, a rail, three grid arrangements, a dialog
+    frame, a second route tree and the entry modal for 8 kB. The chart chunk did
+    not move.
+
+25. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
     already permits exactly that case and nothing else. Tag CRUD has no design
     yet, which is why `/tags` is a list and not an editor. The **budget detail
     screen** is named by the budgets handoff and deliberately left undesigned;
     until it exists, a list row and a rail card both open the editor, which is
     the only thing there is to do with a budget.
-25. Deferred by explicit decision: split transactions, FX conversion in charts
+26. **Not yet designed at these widths**, and left alone rather than guessed:
+   Insight, More and Login are still mobile compositions inside a capped
+   column. Insight is the one with a real open question — four blocks in one
+   scroll is a mobile answer, and at 1440px it wants a two-column grid, but the
+   period control owns all four blocks and the grid has to keep that reading
+   true.
+27. Deferred by explicit decision: split transactions, FX conversion in charts
    (`exchange_rates`), MCP/AI entry.
 
 Resolved by the redesign: icons are Lucide; both light and dark grounds ship, each
 with its own resolved palette; navigation is `react-router` with five tabs (needs
-`public/_redirects` for the Cloudflare SPA fallback).
+`public/_redirects` for the Cloudflare SPA fallback) — a sidebar or an icon rail
+from 1024px up, drawn from the same `TABS` array in `src/app/navigation.ts`.
 
 **The iOS status bar must stay `default`, not `black-translucent`.** With a
 translucent bar iOS counts the status bar as *retractable browser chrome* and

@@ -490,9 +490,20 @@ export const useLoanProgress = () =>
       unwrap(await supabase.from('loan_progress').select('*')),
   })
 
-export const useWalletMonthlyNet = () =>
+/**
+ * Net movement per wallet per month — sparklines, deltas, and the desktop home
+ * card's "net this month".
+ *
+ * `enabled` exists for that last caller and only for it: the home screen reads
+ * this on a desktop, where there is room for two stat tiles under the figure,
+ * and reads nothing from it on a phone. A hook cannot be called conditionally,
+ * so the condition goes here instead of a round trip going out for a figure
+ * nothing draws.
+ */
+export const useWalletMonthlyNet = (enabled = true) =>
   useQuery({
     queryKey: ['wallet_monthly_net'],
+    enabled,
     queryFn: async (): Promise<WalletMonthlyNet[]> =>
       unwrap(await supabase.from('wallet_monthly_net').select('*').order('month')),
   })

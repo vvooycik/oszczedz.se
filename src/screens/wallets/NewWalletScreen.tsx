@@ -252,7 +252,7 @@ export function NewWalletScreen() {
                 type="button"
                 onMouseDown={keepFocus}
                 onClick={() => setCatOpen(true)}
-                className="flex w-full items-center gap-3 px-4 py-[13px] text-left active:bg-press"
+                className="flex w-full items-center gap-3 px-4 py-[13px] text-left hover:bg-press active:bg-press"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block text-row font-medium">

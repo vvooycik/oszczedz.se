@@ -1,36 +1,10 @@
 import { NavLink, useLocation, useNavigate } from 'react-router'
-import {
-  IconDots,
-  IconHome,
-  IconPlus,
-  IconTarget,
-  IconTrendingUp,
-  IconWallet,
-} from '@tabler/icons-react'
-
-const TABS = [
-  { to: '/', label: 'Home', Icon: IconHome, end: true },
-  { to: '/wallets', label: 'Wallets', Icon: IconWallet },
-  { to: '/insights', label: 'Insights', Icon: IconTrendingUp },
-  { to: '/budgets', label: 'Budgets', Icon: IconTarget },
-  { to: '/more', label: 'More', Icon: IconDots },
-]
-
-/**
- * What the floating button makes, per tab.
- *
- * The button stays in one place and keeps one shape; only its destination
- * moves. A screen that is about wallets has no use for a transaction shortcut,
- * and swapping the target is cheaper than teaching every screen to draw its own
- * button in the same spot and hoping they agree — which is how the wallets
- * screen ended up with a bordered "Add a wallet" below the fold while a
- * transaction FAB floated over it.
- */
-const CREATES: Record<string, { label: string; to: string }> = {
-  '/wallets': { label: 'New wallet', to: '/wallets/new' },
-}
-
-const DEFAULT_CREATE = { label: 'Add transaction', to: '/add' }
+import { IconPlus } from '@tabler/icons-react'
+// TABS and CREATES moved to `navigation.ts` when the sidebar arrived: the dock
+// and the sidebar are the same navigation drawn at two sizes, and a second copy
+// of the list is how a tab added on a phone quietly fails to appear on a
+// desktop.
+import { CREATES, DEFAULT_CREATE, DEFAULT_CREATE_SHORT, TABS } from './navigation'
 
 /**
  * The height the scroll column has to reserve at its foot. The dock is 60 tall
@@ -68,16 +42,24 @@ export const DOCK_SPACER = 96
 export function TabBar() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const create = CREATES[pathname] ?? DEFAULT_CREATE
+  // The dock's shorter word for the default: "New transaction" is right beside
+  // a 264px sidebar and too long for a 60px circle's accessible name to be the
+  // same phrase the sidebar's button reads.
+  const create = CREATES[pathname] ?? { ...DEFAULT_CREATE, label: DEFAULT_CREATE_SHORT }
 
   return (
     <div
       className="pointer-events-none absolute inset-x-0 bottom-0 z-20"
       style={{ height: DOCK_SPACER, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
+      {/* 16/86 on a phone, 32/104 once there is room for it — the same component
+          with wider gutters, which is the whole of the tablet-portrait dock. The
+          two numbers are custom properties declared in index.css, so the
+          breakpoint stays in CSS and this component keeps knowing nothing about
+          widths. */}
       <nav
         className="pointer-events-auto absolute flex h-[60px] items-center rounded-full bg-dock px-2 shadow-dock"
-        style={{ left: 16, right: 86, bottom: 26 }}
+        style={{ left: 'var(--dock-gutter)', right: 'var(--dock-right)', bottom: 26 }}
       >
         {TABS.map(({ to, label, Icon, end }) => (
           <NavLink
@@ -125,7 +107,7 @@ export function TabBar() {
         aria-label={create.label}
         onClick={() => navigate(create.to)}
         className="pointer-events-auto absolute flex size-[60px] items-center justify-center rounded-full bg-accent text-accent-fg shadow-fab transition-transform duration-[90ms] active:scale-[.98]"
-        style={{ right: 16, bottom: 26 }}
+        style={{ right: 'var(--dock-gutter)', bottom: 26 }}
       >
         <IconPlus size={26} stroke={2} />
       </button>

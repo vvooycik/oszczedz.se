@@ -149,7 +149,14 @@ function Ring({
  * made it as tall as it was wide — which is also what stopped the card reading
  * as a rectangle at any width.
  */
-function BudgetCard({ budget }: { budget: BudgetProgress }) {
+function BudgetCard({
+  budget,
+  grow = false,
+}: {
+  budget: BudgetProgress
+  /** Share the row equally instead of taking `ITEM`'s 40% of a scroller. */
+  grow?: boolean
+}) {
   const limit = effectiveLimit(budget)
   const share = shareOf(budget)
   const over = budget.spent > limit
@@ -162,7 +169,10 @@ function BudgetCard({ budget }: { budget: BudgetProgress }) {
   const daily = budget.period === 'daily'
 
   return (
-    <Link to={`/budgets/${budget.budget_id}/edit`} className={ITEM}>
+    <Link
+      to={`/budgets/${budget.budget_id}/edit`}
+      className={grow ? 'min-w-0 flex-1' : ITEM}
+    >
       {/* `h-full` because the Link is a stretched flex item: without it the card
           would size to its own content and the dashed tile beside it would be
           the only thing reaching the rail's full height. */}
@@ -231,7 +241,27 @@ function BudgetCard({ budget }: { budget: BudgetProgress }) {
  * `FeedScreen` drops the label row above it in that case, since there is no
  * period to name and nothing to see all of.
  */
-export function BudgetRail({ budgets }: { budgets: BudgetProgress[] }) {
+export function BudgetRail({
+  budgets,
+  columns,
+}: {
+  budgets: BudgetProgress[]
+  /**
+   * Draw exactly this many cards, sharing the width equally, instead of a
+   * horizontal scroller.
+   *
+   * Four at tablet portrait and three at a 512px landscape column — the counts
+   * that fit at those widths, which is the whole reason to stop scrolling: a
+   * rail that never scrolls is a gesture that does nothing, and the half card
+   * at the fold that says "there is more" would be a lie.
+   *
+   * `flex: none` on the row is load-bearing in the fixed form. It sits in a
+   * `min-height: 0` scroll column whose other children are all `flex: none`,
+   * and without it the column takes its overflow out of the rail — which slices
+   * the rings rather than scrolling the page.
+   */
+  columns?: number
+}) {
   const rail = sortForHome(budgets)
 
   if (rail.length === 0) {
@@ -247,8 +277,30 @@ export function BudgetRail({ budgets }: { budgets: BudgetProgress[] }) {
     )
   }
 
+  if (columns) {
+    const shown = rail.slice(0, columns)
+    const invite = shown.length < columns
+    return (
+      <div className="flex flex-none gap-3">
+        {shown.map((b) => (
+          <BudgetCard key={b.budget_id} budget={b} grow />
+        ))}
+        {invite && (
+          <Link
+            to="/budgets/new"
+            className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1.5 rounded-card text-ink-faint"
+            style={{ border: '1.5px dashed var(--color-hint)' }}
+          >
+            <IconPlus size={18} stroke={2} />
+            <span className="text-micro">Budget</span>
+          </Link>
+        )}
+      </div>
+    )
+  }
+
   return (
-    <div className="no-scrollbar -mx-4 flex gap-[10px] overflow-x-auto px-4">
+    <div className="no-scrollbar -mx-4 flex gap-[10px] overflow-x-auto px-4 md:-mx-8 md:px-8">
       {rail.map((b) => (
         <BudgetCard key={b.budget_id} budget={b} />
       ))}

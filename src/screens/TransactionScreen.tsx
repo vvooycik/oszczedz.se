@@ -13,6 +13,7 @@ import {
   IconTag,
   IconTrash,
   IconWallet,
+  IconX,
 } from '@tabler/icons-react'
 import { FullScreen } from '@/app/AppShell'
 import { useGoBack } from '@/app/useGoBack'
@@ -250,7 +251,29 @@ function CategoryVerdict({
   )
 }
 
-export function TransactionScreen() {
+/**
+ * One transaction, whole.
+ *
+ * The same component at every width, and that is the point of the two props
+ * below: on a phone it is a route that covers the tabs, and from 1024px up it
+ * is the right-hand pane of the feed that opened it. Nothing about *what* it
+ * shows changes — the colour field, the hero, the details card and the six
+ * months of category history are the screen either way. What changes is the
+ * header, because a pane is closed rather than gone back from, and there is a
+ * list still on screen to close it *to*.
+ */
+export function TransactionScreen({
+  pane = false,
+  rounded = false,
+  onClose,
+}: {
+  /** Render inside a master-detail grid cell rather than over the tabs. */
+  pane?: boolean
+  /** Draw the pane as a rounded card — desktop, where it is an object on the ground. */
+  rounded?: boolean
+  /** Where the close tile goes. Falls back to `useGoBack` when not a pane. */
+  onClose?: () => void
+} = {}) {
   const { id } = useParams()
   const navigate = useNavigate()
   const goBack = useGoBack()
@@ -289,9 +312,14 @@ export function TransactionScreen() {
   const remove = useDeleteTransaction()
   const duplicate = useAddTransaction()
 
+  const dismiss = onClose ?? goBack
+  // 34 in a pane, where four tiles share a header with a label; 38 on a phone,
+  // where a finger is what presses them.
+  const tileSize = pane ? 34 : 38
+
   if (tx.isLoading || !tx.data) {
     return (
-      <FullScreen>
+      <FullScreen pane={pane} rounded={rounded}>
         <p className="px-4 py-10 text-value text-ink-muted">
           {tx.error ? 'Could not load this transaction.' : 'Loading…'}
         </p>
@@ -347,6 +375,8 @@ export function TransactionScreen() {
 
   const onDelete = async () => {
     await remove.mutateAsync(row)
+    // In a pane, closing means clearing the selection rather than leaving a
+    // screen — `dismiss` is the route back to the bare list either way.
     // Back where you came from, not home: a row opened from a wallet belongs to
     // that wallet's feed, and being thrown to the home feed loses the place you
     // were working in. `useGoBack` still falls back to '/' when this screen is
@@ -356,11 +386,15 @@ export function TransactionScreen() {
     // Safe after a delete because the list behind is query-driven: the mutation
     // invalidates ['transactions'], which every feed's key sits under, so the
     // page it returns to has already dropped the row.
-    goBack()
+    dismiss()
   }
 
   return (
-    <FullScreen style={colourFieldStyle(isTransfer ? null : category?.color, resolvedMode)}>
+    <FullScreen
+      pane={pane}
+      rounded={rounded}
+      style={colourFieldStyle(isTransfer ? null : category?.color, resolvedMode)}
+    >
       {/* Category owns the accent here too. Override the token itself — see
           the note in AddScreen for why --c-accent would not cascade. */}
       <div
@@ -370,9 +404,19 @@ export function TransactionScreen() {
         <div className="no-scrollbar flex-1 overflow-y-auto">
           <div className="px-4 pb-6">
             <header className="flex items-center gap-2 pt-1 pb-5">
-              <ActionTile label="Back" onField onClick={goBack}>
-                <IconChevronRight size={20} stroke={2} className="rotate-180" />
-              </ActionTile>
+              {/* A pane is not somewhere you went, so there is nothing to go
+                  back from: the list that opened it is still on screen beside
+                  it. The word says which row the pane is about, and the close
+                  tile moves to the end of the row where the other actions are.
+                  On a phone the same header opens with Back, because there the
+                  list really is gone. */}
+              {pane ? (
+                <Label>Selected</Label>
+              ) : (
+                <ActionTile label="Back" onField onClick={goBack}>
+                  <IconChevronRight size={20} stroke={2} className="rotate-180" />
+                </ActionTile>
+              )}
               <div className="flex-1" />
               {/* Transfers are left out: editing one leg on its own unbalances
                   the pair, and there is no paired flow yet. */}
@@ -380,6 +424,7 @@ export function TransactionScreen() {
                 <ActionTile
                   label="Edit"
                   onField
+                  size={tileSize}
                   onClick={() => navigate(`/tx/${row.id}/edit`)}
                 >
                   <IconPencil size={19} stroke={2} />
@@ -388,6 +433,7 @@ export function TransactionScreen() {
               <ActionTile
                 label="Duplicate"
                 onField
+                size={tileSize}
                 onClick={async () => {
                   await duplicate.mutateAsync({
                     wallet_id: row.wallet_id,
@@ -396,10 +442,11 @@ export function TransactionScreen() {
                     date: today(),
                     note: row.note,
                   })
-                  // Same rule as delete: back where you came from. The copy is
-                  // dated today and keeps this row's wallet, so a wallet feed
-                  // shows it just as the home feed would.
-                  goBack()
+                  // Same rule as delete: back where you came from — except in
+                  // a pane, where "where you came from" is the list still
+                  // beside it. There the copy simply appears in the feed and
+                  // the pane keeps showing the row it was copied from.
+                  if (!pane) goBack()
                 }}
               >
                 <IconCopy size={19} stroke={2} />
@@ -407,11 +454,17 @@ export function TransactionScreen() {
               <ActionTile
                 label="Delete"
                 onField
+                size={tileSize}
                 tone="var(--color-expense)"
                 onClick={() => setConfirming(true)}
               >
                 <IconTrash size={19} stroke={2} />
               </ActionTile>
+              {pane && (
+                <ActionTile label="Close" onField size={tileSize} onClick={dismiss}>
+                  <IconX size={19} stroke={2} />
+                </ActionTile>
+              )}
             </header>
 
             <div className="flex flex-col items-center">

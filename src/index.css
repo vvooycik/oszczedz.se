@@ -44,6 +44,18 @@
    * default`, and iOS paints that strip itself from `<meta name="theme-color">`.
    */
   --safe-top: max(env(safe-area-inset-top, 0px), 12px);
+
+  /*
+   * Where the floating dock sits. `--dock-gutter` is the side inset it and the
+   * add button share; `--dock-right` is the dock's own right edge, which has to
+   * clear the button's 60px lane plus the 10px between them.
+   *
+   * Named because the tablet-portrait dock is the *same component* with wider
+   * gutters, and a breakpoint belongs in CSS rather than in a `style` branch
+   * inside `TabBar` that would have to learn what a tablet is.
+   */
+  --dock-gutter: 16px;
+  --dock-right: 86px;
 }
 
 /* ------------------------------------------------------------------- light */
@@ -290,8 +302,21 @@
    * three times, which is fine until a tablet wants a different number and the
    * third copy is the one nobody remembers. Tailwind emits `max-w-frame` from
    * this, so widening the app for a second form factor is one media query here.
+   *
+   * It stayed 32rem when the second form factor arrived, and that is not an
+   * oversight: 512px is *also* the tablet-landscape feed column, so the one
+   * name now means "as wide as a list of transactions should ever get" at both
+   * sizes. Tablet portrait — which really does want the whole window — got its
+   * own name below rather than a media query on this one.
    */
   --container-frame: 32rem;
+
+  /*
+   * The tablet-portrait frame. 834px is the iPad's portrait width, so at that
+   * size the cap does nothing and the 32px gutters are the whole margin; on a
+   * wider window in the 768–1023 band it stops the rows from stretching.
+   */
+  --container-wide: 834px;
 
   /* Radii, by the thing they belong to rather than by size, so a card and a
      screen's outer container cannot drift apart. */
@@ -301,6 +326,64 @@
   --radius-tile: 14px;
   --radius-tile-sm: 13px;
   --radius-drawer: 28px;
+}
+
+/*
+ * ------------------------------------------------- the second form factor
+ *
+ * This is what the type scale was named for. Tailwind compiles `text-row` to
+ * `font-size: var(--text-row)`, so restating the property here re-sizes every
+ * one of its ~350 call sites at once — no component knows a breakpoint exists.
+ *
+ * These blocks are **unlayered**, and that is what makes them win: `@theme`
+ * emits its declarations inside `@layer theme`, and an unlayered rule beats a
+ * layered one whatever the order in the file.
+ *
+ * Only the steps the handoff moves are restated. A step absent from a block is
+ * deliberately unchanged at that width — the ladder is not scaled uniformly,
+ * because a 42px figure has room to grow on a desktop and a 13px row does not.
+ */
+
+/* Tablet, 768–1279. One notch up on the reading sizes; the amount blocks grow
+   with their unit so a figure and its currency never scale apart. */
+@media (min-width: 768px) {
+  :root {
+    --dock-gutter: 32px;
+    --dock-right: 104px;
+
+    --text-hero: 46px;
+    --text-hero-unit: 20px;
+    --text-figure: 46px;
+    --text-figure-unit: 20px;
+    --text-title-sm: 30px;
+    --text-heading: 20px;
+    --text-row: 16px;
+    --text-action: 15px;
+    --text-value: 13.5px;
+  }
+}
+
+/* Desktop, 1280 and up. */
+@media (min-width: 1280px) {
+  :root {
+    /* The entry figure goes *down*: on a phone it is the whole screen, in the
+       modal it shares 296px with a category tile and two sign pills. */
+    --text-entry: 48px;
+    --text-entry-unit: 20px;
+    --text-hero: 52px;
+    --text-hero-unit: 22px;
+    --text-figure: 52px;
+    --text-figure-unit: 22px;
+    --text-title-sm: 32px;
+    --text-heading: 21px;
+    --text-row: 16px;
+    --text-action: 15px;
+    --text-value: 14px;
+    --text-meta: 13px;
+    --text-meta-sm: 12.5px;
+    --text-micro: 12px;
+    --text-kicker: 11.5px;
+  }
 }
 
 html {

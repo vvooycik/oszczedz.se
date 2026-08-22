@@ -77,6 +77,7 @@ export function ActionTile({
   label,
   onField = false,
   tone,
+  size = 38,
   className = '',
   ...rest
 }: {
@@ -85,18 +86,27 @@ export function ActionTile({
   onField?: boolean
   /** Overrides the glyph colour — the delete tile's red. */
   tone?: string
+  /**
+   * 38 everywhere a finger presses it. The detail *pane* takes 34, because a
+   * row of four sits in a 440px header beside a label rather than alone at the
+   * top of a screen — and a pointer does not need 44px of hit area, which is
+   * why the padded reach below stays the same either way.
+   */
+  size?: number
   className?: string
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       type="button"
       aria-label={label}
-      className={`relative flex size-[38px] flex-none items-center justify-center rounded-tile-sm after:absolute after:-inset-[3px] after:content-[''] active:opacity-70 ${className}`}
-      style={
-        onField
+      className={`relative flex flex-none items-center justify-center rounded-tile-sm after:absolute after:-inset-[3px] after:content-[''] active:opacity-70 ${className}`}
+      style={{
+        width: size,
+        height: size,
+        ...(onField
           ? { background: 'var(--field-scrim)', color: tone ?? 'var(--field-ink)' }
-          : { background: 'var(--color-card)', color: tone ?? 'var(--color-ink-muted)' }
-      }
+          : { background: 'var(--color-card)', color: tone ?? 'var(--color-ink-muted)' }),
+      }}
       {...rest}
     >
       {children}

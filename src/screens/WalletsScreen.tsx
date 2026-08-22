@@ -1,6 +1,11 @@
-import { useMemo } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { useCallback, useMemo } from 'react'
+import { Link, useNavigate, useParams } from 'react-router'
 import { IconPlus } from '@tabler/icons-react'
+import { MasterDetail } from '@/app/MasterDetail'
+import { isWide, useLayoutMode, WALLETS_MASTER_W } from '@/app/layout'
+import { useListKeyboard } from '@/app/useListKeyboard'
+import { selectedRowStyle } from '@/components/TransactionFeed'
+import { WalletScreen } from '@/screens/wallets/WalletScreen'
 import { Sparkline } from '@/components/Sparkline'
 import { Card, Divider } from '@/components/ui/Card'
 import { Label } from '@/components/ui/Label'
@@ -55,11 +60,14 @@ function WalletRow({
   balance,
   nets,
   loan,
+  selected,
 }: {
   wallet: Wallet
   balance: number
   nets: WalletMonthlyNet[]
   loan: LoanProgress | undefined
+  /** Open in the detail pane. Never true below 1024, where there is no pane. */
+  selected: boolean
 }) {
   const hue = categoryVar(wallet.color_scheme)
   const Icon = iconFor(walletGlyph(wallet))
@@ -92,7 +100,11 @@ function WalletRow({
     // shortcut to one setting.
     <Link
       to={`/wallets/${wallet.id}`}
-      className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left active:bg-press"
+      className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left hover:bg-press active:bg-press"
+      // The wallet's own hue, the same way a feed row takes its category's:
+      // the pane beside it is washed in that colour, so the highlight and what
+      // it opened read as one object.
+      style={selected ? selectedRowStyle(hue) : undefined}
     >
       <Tile color={hue} size={40}>
         <Icon size={20} stroke={2} />
@@ -100,7 +112,9 @@ function WalletRow({
 
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-3">
-          <div className="truncate text-row font-medium">{wallet.name}</div>
+          <div className={`truncate text-row ${selected ? 'font-semibold' : 'font-medium'}`}>
+            {wallet.name}
+          </div>
 
           {isCard ? (
             <div className="flex-none text-right">
@@ -193,7 +207,12 @@ function WalletRow({
 }
 
 export function WalletsScreen() {
+  const mode = useLayoutMode()
+  const wide = isWide(mode)
   const navigate = useNavigate()
+  // `/wallets` and `/wallets/:id` are the same element on a wide layout, so the
+  // selection is the route param and nothing else — see `MasterDetail`.
+  const { id: openId } = useParams()
   const wallets = useWallets()
   const balances = useWalletBalances()
   const nets = useWalletMonthlyNet()
@@ -213,6 +232,33 @@ export function WalletsScreen() {
       ),
     [loans.data],
   )
+
+  // The rows the arrow keys walk, in the order the sections draw them — open
+  // wallets by section, then the closed ones. Derived before the loading guard
+  // because a hook cannot sit behind an early return.
+  const rowIds = useMemo(() => {
+    const mine = (wallets.data ?? []).filter((w) => w.currency === CURRENCY)
+    const open = activeWallets(mine)
+    return [
+      ...SECTIONS.flatMap((section) =>
+        open
+          .filter((w) => (section.types as readonly string[]).includes(w.type))
+          .map((w) => w.id),
+      ),
+      ...mine.filter(isArchived).map((w) => w.id),
+    ]
+  }, [wallets.data])
+
+  const select = useCallback(
+    (id: string) => navigate(`/wallets/${id}`),
+    [navigate],
+  )
+  useListKeyboard({
+    enabled: wide,
+    ids: rowIds,
+    selected: openId ?? null,
+    onSelect: select,
+  })
 
   if (!wallets.data) {
     return <p className="px-4 py-10 text-value text-ink-muted">Loading…</p>
@@ -242,8 +288,8 @@ export function WalletsScreen() {
   const total = assets - debt
   const span = assets + debt || 1
 
-  return (
-    <div className="flex flex-col gap-[14px] px-4 pt-1">
+  const body = (
+    <div className="flex flex-col gap-[14px] px-4 pt-1 md:px-8 lg:px-5 lg:pt-5 lg:pb-6">
       <div className="flex items-center justify-between px-1">
         <h1 className="text-title-sm font-semibold tracking-[-0.02em]">Wallets</h1>
         <ActionTile label="New wallet" onClick={() => navigate('/wallets/new')}>
@@ -314,6 +360,7 @@ export function WalletsScreen() {
                     balance={balanceFor(w)}
                     nets={nets.data ?? []}
                     loan={loanOf.get(w.id)}
+                    selected={w.id === openId}
                   />
                 </div>
               ))}
@@ -339,7 +386,12 @@ export function WalletsScreen() {
                   {i > 0 && <Divider inset={57} />}
                   <Link
                     to={`/wallets/${w.id}`}
-                    className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left opacity-60 active:bg-press"
+                    className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left opacity-60 hover:bg-press active:bg-press"
+                    style={
+                      w.id === openId
+                        ? selectedRowStyle('var(--color-ink-muted)')
+                        : undefined
+                    }
                   >
                     <Tile size={36} variant="neutral">
                       <Icon size={18} stroke={2} />
@@ -360,5 +412,23 @@ export function WalletsScreen() {
         </section>
       )}
     </div>
+  )
+
+  if (!wide) return body
+
+  return (
+    <MasterDetail
+      mode={mode}
+      masterWidth={WALLETS_MASTER_W}
+      // Edge-to-edge at every wide width, unlike the transaction pane. This one
+      // is a whole wallet washed in that wallet's colour, and putting it in a
+      // rounded card would make it a picture of a wallet sitting on the ground
+      // rather than the right half of the page.
+      gap={0}
+      bordered
+      empty="Pick a wallet to see it here"
+      master={<div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">{body}</div>}
+      detail={openId ? <WalletScreen pane /> : null}
+    />
   )
 }

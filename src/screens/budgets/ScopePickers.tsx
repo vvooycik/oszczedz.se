@@ -63,7 +63,7 @@ function PickRow({
       // it is spent doing only that — see `keepFocus`.
       onMouseDown={keepFocus}
       onClick={onToggle}
-      className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left active:bg-press"
+      className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left hover:bg-press active:bg-press"
     >
       {children}
       <span className="min-w-0 flex-1">
@@ -330,7 +330,7 @@ export function BudgetWalletsScreen({
             type="button"
             aria-pressed={all}
             onClick={() => onChange([])}
-            className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left active:bg-press"
+            className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left hover:bg-press active:bg-press"
           >
             <Tile size={36} variant="neutral">
               <IconAsterisk size={18} stroke={2} />

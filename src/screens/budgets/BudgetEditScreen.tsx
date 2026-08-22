@@ -608,7 +608,7 @@ export function BudgetEditScreen() {
                     type="button"
                     onMouseDown={keepFocus}
                     onClick={() => setResetsOpen(true)}
-                    className="flex w-full items-center gap-3 px-4 py-[13px] text-left active:bg-press"
+                    className="flex w-full items-center gap-3 px-4 py-[13px] text-left hover:bg-press active:bg-press"
                   >
                     <span className="flex-1 text-row font-medium">Resets on</span>
                     <span className="flex items-center gap-1.5 text-value text-ink-muted">
@@ -667,7 +667,7 @@ export function BudgetEditScreen() {
               <button
                 type="button"
                 onClick={() => setConfirmDelete(true)}
-                className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left active:bg-press"
+                className="flex w-full items-center gap-[13px] px-4 py-[13px] text-left hover:bg-press active:bg-press"
               >
                 <Tile size={36} variant="neutral">
                   <IconTrash size={18} stroke={2} style={{ color: 'var(--color-expense)' }} />

@@ -259,7 +259,7 @@ export function Components() {
         </Block>
         <Block
           title="Press"
-          note="active:bg-press on anything that navigates; active:scale-[.98] over 90ms on anything that commits. Haptics come from a hidden <input type=checkbox switch>, fired on pointerdown — iOS has no Vibration API at all."
+          note="hover:bg-press active:bg-press on anything that navigates; active:scale-[.98] over 90ms on anything that commits. Haptics come from a hidden <input type=checkbox switch>, fired on pointerdown — iOS has no Vibration API at all."
         >
           <Card className="max-w-sm">
             <CardRow>

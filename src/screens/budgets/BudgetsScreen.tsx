@@ -88,7 +88,7 @@ function BudgetRow({ budget }: { budget: BudgetProgress }) {
       // row opens the one thing there is to do with a budget. When a detail
       // screen lands this is the tap that moves to it.
       to={`/budgets/${budget.budget_id}/edit`}
-      className="flex items-center gap-[13px] px-4 py-[13px] active:bg-press"
+      className="flex items-center gap-[13px] px-4 py-[13px] hover:bg-press active:bg-press"
     >
       <Tile color={hue} size={40}>
         <Icon size={20} stroke={2} />
@@ -244,7 +244,7 @@ export function BudgetsScreen() {
 
   if (error) {
     return (
-      <div className="flex flex-col gap-[14px] px-4 pt-2.5">
+      <div className="flex flex-col gap-[14px] px-4 pt-2.5 md:px-8">
         {header}
         <p className="px-1 text-value text-expense">
           {error instanceof Error ? error.message : 'Something went wrong'}
@@ -254,14 +254,19 @@ export function BudgetsScreen() {
   }
 
   return (
-    <div className="flex flex-col gap-[14px] px-4 pt-2.5">
-      {header}
+    /* One column on a phone and a tablet, two from 1024 — where a budget list
+       is a set of small independent groups and a single column would run them
+       down the middle of a wide window with a hand's width of ground either
+       side. `auto-rows-min` keeps Over and At risk at their own heights rather
+       than stretching the shorter to match. */
+    <div className="flex flex-col gap-[14px] px-4 pt-2.5 md:px-8 lg:grid lg:auto-rows-min lg:grid-cols-2 lg:gap-4">
+      <div className="lg:col-span-2">{header}</div>
 
       {budgets.length === 0 ? (
         <button
           type="button"
           onClick={() => navigate('/budgets/new')}
-          className="flex flex-col items-center justify-center gap-2 rounded-card py-10 text-ink-faint"
+          className="flex flex-col items-center justify-center gap-2 rounded-card py-10 text-ink-faint lg:col-span-2"
           style={{ border: '1.5px dashed var(--color-hint)' }}
         >
           <IconPlus size={22} stroke={2} />
@@ -273,7 +278,12 @@ export function BudgetsScreen() {
       ) : (
         <>
           {/* ------------------------------------------------ period summary */}
-          <Card className="p-[18px]">
+          {/* Spans both columns, and splits inside them: the figure and the bar
+              are two readings of one thing, so at this width they sit side by
+              side rather than stacked with a full card's width of empty ground
+              beside each. */}
+          <Card className="p-[18px] lg:col-span-2 lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:items-center lg:gap-7">
+            <div>
             <div className="flex items-start justify-between gap-3">
               <Label>
                 {sharedMonth(budgets)
@@ -306,7 +316,9 @@ export function BudgetsScreen() {
               of {formatAmountMoney(asMinor(totalLimit), CURRENCY)} across{' '}
               {budgets.length} budget{budgets.length === 1 ? '' : 's'}
             </div>
+            </div>
 
+            <div className="lg:mt-0">
             <SplitBar budgets={ordered} total={totalLimit} />
 
             <div
@@ -320,6 +332,7 @@ export function BudgetsScreen() {
                   : `${formatAmountMoney(asMinor(totalLimit - totalSpent), CURRENCY)} left`}
               </span>
             </div>
+            </div>
           </Card>
 
           {/* ------------------------------------------------------- groups */}
@@ -329,7 +342,15 @@ export function BudgetsScreen() {
               0,
             )
             return (
-              <section key={verdict} className="flex flex-col gap-2">
+              <section
+                key={verdict}
+                className={`flex flex-col gap-2 ${
+                  // Over and At risk take a column each; On track spans, because
+                  // it is nearly always the longest group and a column of ten
+                  // rows beside a column of one is a page with a hole in it.
+                  verdict === 'on-track' ? 'lg:col-span-2' : ''
+                }`}
+              >
                 <div className="flex items-baseline justify-between px-1">
                   <Label tone={verdict === 'over' ? 'var(--color-expense)' : undefined}>
                     {VERDICT_LABEL[verdict]}
@@ -366,7 +387,7 @@ export function BudgetsScreen() {
             )
           })}
 
-          <p className="px-1 text-meta leading-[1.5] text-ink-muted">
+          <p className="px-1 text-meta leading-[1.5] text-ink-muted lg:col-span-2 lg:max-w-[620px]">
             “At risk” is today’s daily rate carried to the end of the period — a
             straight line, so a period that always spends late will say it and be
             wrong. Nothing is at risk before its third day, where a single big

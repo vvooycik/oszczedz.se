@@ -11,6 +11,7 @@ export function Label({
   children,
   tone,
   className = '',
+  style,
 }: {
   children: ReactNode
   /**
@@ -23,11 +24,17 @@ export function Label({
    */
   tone?: string
   className?: string
+  /**
+   * Geometry only — the fixed column widths of the wallet pane's table header.
+   * `tone` still wins over any colour set here, since it is spread last and is
+   * the reason an inline style was needed in the first place.
+   */
+  style?: React.CSSProperties
 }) {
   return (
     <span
       className={`text-kicker font-semibold tracking-[0.06em] text-label uppercase ${className}`}
-      style={tone ? { color: tone } : undefined}
+      style={tone ? { ...style, color: tone } : style}
     >
       {children}
     </span>

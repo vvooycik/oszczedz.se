@@ -66,7 +66,7 @@ function NavRow({
   )
 
   const className =
-    'flex w-full items-center gap-[13px] px-4 py-[13px] text-left active:bg-press'
+    'flex w-full items-center gap-[13px] px-4 py-[13px] text-left hover:bg-press active:bg-press'
 
   return to ? (
     <Link to={to} className={className}>
@@ -104,7 +104,7 @@ export function MoreScreen() {
   }
 
   return (
-    <div className="flex flex-col gap-[14px] px-4 pt-1">
+    <div className="flex flex-col gap-[14px] px-4 pt-1 md:px-8">
       <h1 className="px-1 text-title-sm font-semibold tracking-[-0.02em]">More</h1>
 
       <section className="flex flex-col gap-2">
