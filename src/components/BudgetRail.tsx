@@ -4,7 +4,14 @@ import { IconPlus } from '@tabler/icons-react'
 import { iconFor } from '@/lib/icons'
 import { categoryVar } from '@/theme/tokens'
 import { asMinor, currencySymbol, formatMoneyShort } from '@/lib/money'
-import { daysLeft, effectiveLimit, shareOf, sortForHome } from '@/lib/budgets'
+import {
+  daysLeft,
+  daysUntilStart,
+  effectiveLimit,
+  phaseOf,
+  shareOf,
+  sortForHome,
+} from '@/lib/budgets'
 import { Card } from './ui/Card'
 import type { BudgetProgress } from '@/lib/db'
 
@@ -167,6 +174,11 @@ function BudgetCard({
   // nothing. It reads "today" instead — which is the whole of what its window
   // is, and the one word that fits the ~46px this line shares with the ring.
   const daily = budget.period === 'daily'
+  // A one-off can still be waiting for its first day; a finished one never
+  // reaches the rail (`sortForHome` drops it). Until it starts, the countdown
+  // is to the *start*, because `daysLeft` would report the whole run.
+  const waiting = phaseOf(budget) === 'upcoming'
+  const until = daysUntilStart(budget)
 
   return (
     <Link
@@ -187,11 +199,13 @@ function BudgetCard({
           <span
             className="flex flex-col items-end"
             title={
-              daily
-                ? 'Today — a daily budget starts again every morning'
-                : left === 0
-                  ? 'Last day of the period'
-                  : `${left} days left`
+              waiting
+                ? `Starts in ${until} day${until === 1 ? '' : 's'}`
+                : daily
+                  ? 'Today — a daily budget starts again every morning'
+                  : left === 0
+                    ? 'Last day of the period'
+                    : `${left} days left`
             }
           >
             <span
@@ -204,7 +218,13 @@ function BudgetCard({
                 "30 days left" is ~62px against ~46px of usable room at the
                 narrowest card. The `title` carries the full phrase. */}
             <span className="tnum mt-0.5 text-micro whitespace-nowrap text-ink-faint">
-              {daily ? 'today' : left === 0 ? 'last' : `${left}d`}
+              {waiting
+                ? `in ${until}d`
+                : daily
+                  ? 'today'
+                  : left === 0
+                    ? 'last'
+                    : `${left}d`}
             </span>
           </span>
         </div>

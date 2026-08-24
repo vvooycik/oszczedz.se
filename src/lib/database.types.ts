@@ -125,6 +125,7 @@ export type Database = {
           amount: number
           color: string
           currency: string
+          ends_on: string | null
           glyph: string
           home_order: number
           id: string
@@ -133,12 +134,14 @@ export type Database = {
           resets_on: number
           rollover: boolean
           show_on_home: boolean
+          starts_on: string | null
           user_id: string
         }
         Insert: {
           amount: number
           color?: string
           currency?: string
+          ends_on?: string | null
           glyph?: string
           home_order?: number
           id?: string
@@ -147,12 +150,14 @@ export type Database = {
           resets_on?: number
           rollover?: boolean
           show_on_home?: boolean
+          starts_on?: string | null
           user_id?: string
         }
         Update: {
           amount?: number
           color?: string
           currency?: string
+          ends_on?: string | null
           glyph?: string
           home_order?: number
           id?: string
@@ -161,6 +166,7 @@ export type Database = {
           resets_on?: number
           rollover?: boolean
           show_on_home?: boolean
+          starts_on?: string | null
           user_id?: string
         }
         Relationships: []
@@ -736,9 +742,11 @@ export type Database = {
       }
       budget_period_bounds: {
         Args: {
+          p_ends_on?: string
           p_on: string
           p_period: Database["public"]["Enums"]["budget_period"]
           p_resets_on: number
+          p_starts_on?: string
         }
         Returns: {
           period_end: string
@@ -859,7 +867,7 @@ export type Database = {
       }
     }
     Enums: {
-      budget_period: "monthly" | "weekly" | "yearly" | "daily"
+      budget_period: "monthly" | "weekly" | "yearly" | "daily" | "once"
       category_kind: "income" | "expense" | "transfer"
       schedule_frequency: "daily" | "weekly" | "monthly" | "yearly"
       wallet_type: "account" | "savings" | "credit_card" | "loan"
@@ -993,7 +1001,7 @@ export const Constants = {
   },
   public: {
     Enums: {
-      budget_period: ["monthly", "weekly", "yearly", "daily"],
+      budget_period: ["monthly", "weekly", "yearly", "daily", "once"],
       category_kind: ["income", "expense", "transfer"],
       schedule_frequency: ["daily", "weekly", "monthly", "yearly"],
       wallet_type: ["account", "savings", "credit_card", "loan"],

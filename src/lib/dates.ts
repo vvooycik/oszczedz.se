@@ -19,6 +19,16 @@ export function fromISODate(iso: string): Date {
   return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1)
 }
 
+/**
+ * Whole days from `from` to `to`, negative when `to` is the earlier one.
+ *
+ * Both ends are parsed as local midnight, so this counts calendar days rather
+ * than 24-hour spans — across a DST boundary those are not the same number, and
+ * a budget's period is a run of days.
+ */
+export const daysBetween = (from: string, to: string): number =>
+  Math.round((fromISODate(to).getTime() - fromISODate(from).getTime()) / 86_400_000)
+
 export function addDays(iso: string, days: number): string {
   const d = fromISODate(iso)
   d.setDate(d.getDate() + days)
@@ -77,6 +87,19 @@ export const formatFullDate = (iso: string): string =>
  */
 export const formatDayShort = (iso: string): string =>
   dayShortFmt.format(fromISODate(iso))
+
+/**
+ * "12 Sep", or "12 Sep 2027" outside the current year — a budget's run.
+ *
+ * The same rule `formatMonthLabel` follows, for the same reason: the year is
+ * where the reader almost always already is, and a row that says it out loud
+ * makes the two characters that matter harder to find. A run booked for next
+ * year brings it in, which is exactly when it starts carrying information.
+ */
+export const formatDayLabel = (iso: string): string =>
+  iso.slice(0, 4) === today().slice(0, 4)
+    ? formatDayShort(iso)
+    : `${formatDayShort(iso)} ${iso.slice(0, 4)}`
 
 /** "Aug '26" — chart axes. */
 export const formatMonthShort = (iso: string): string =>

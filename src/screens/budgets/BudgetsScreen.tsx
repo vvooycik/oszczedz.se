@@ -10,15 +10,17 @@ import {
   dayOfPeriod,
   daysInPeriod,
   daysLeft,
+  daysUntilStart,
   committedShare,
   effectiveLimit,
+  GROUP_LABEL,
+  groupOf,
+  phaseOf,
   scopeMeta,
   sharedMonth,
   shareOf,
   sortForList,
-  VERDICT_LABEL,
-  verdictOf,
-  type Verdict,
+  type BudgetGroup,
 } from '@/lib/budgets'
 import {
   asMinor,
@@ -33,7 +35,7 @@ import type { BudgetProgress } from '@/lib/db'
 
 const CURRENCY = 'PLN'
 
-const GROUPS: Verdict[] = ['over', 'at-risk', 'on-track']
+const GROUPS: BudgetGroup[] = ['over', 'at-risk', 'on-track', 'upcoming', 'finished']
 
 // The soonest reset, as a phrase. Zero used to read "Last day", which is true
 // of a month on its 31st and permanently true once a daily budget joins the
@@ -76,6 +78,7 @@ function BudgetRow({ budget }: { budget: BudgetProgress }) {
   const share = shareOf(budget)
   const committed = committedShare(budget)
   const over = budget.spent > limit
+  const phase = phaseOf(budget)
   const day = dayOfPeriod(budget)
   const days = daysInPeriod(budget)
   const hue = categoryVar(budget.color)
@@ -166,21 +169,36 @@ function BudgetRow({ budget }: { budget: BudgetProgress }) {
               period that has run out, when what it means is that the app has no
               finer grain than a day (invariant 3) and so nothing to measure the
               elapsed fraction of one with. */}
-          {budget.period !== 'daily' && (
-            <>
-              <span className="h-[3px] rounded-full bg-track">
-                <span
-                  className="block h-[3px] rounded-full"
-                  style={{
-                    width: `${(day / days) * 100}%`,
-                    background: 'var(--color-ink-dim)',
-                  }}
-                />
-              </span>
-              <span className="tnum text-kicker whitespace-nowrap text-ink-faint">
-                day {day} of {days}
-              </span>
-            </>
+          {phase === 'upcoming' ? (
+            // No elapsed fraction to draw — the run has not begun. The
+            // countdown is the one thing the row can say that its dates on the
+            // line below do not.
+            <span className="tnum col-span-2 text-kicker text-ink-faint">
+              starts in {daysUntilStart(budget)} day
+              {daysUntilStart(budget) === 1 ? '' : 's'}
+            </span>
+          ) : phase === 'finished' ? (
+            // Nothing: the group heading says it is finished and the third line
+            // says which days it covered. A full time bar under a run that is
+            // over would be the one element on the row still counting.
+            null
+          ) : (
+            budget.period !== 'daily' && (
+              <>
+                <span className="h-[3px] rounded-full bg-track">
+                  <span
+                    className="block h-[3px] rounded-full"
+                    style={{
+                      width: `${(day / days) * 100}%`,
+                      background: 'var(--color-ink-dim)',
+                    }}
+                  />
+                </span>
+                <span className="tnum text-kicker whitespace-nowrap text-ink-faint">
+                  day {day} of {days}
+                </span>
+              </>
+            )
           )}
         </div>
 
@@ -203,18 +221,31 @@ export function BudgetsScreen() {
 
   const ordered = useMemo(() => sortForList(budgets), [budgets])
 
+  /**
+   * The budgets the summary card is about.
+   *
+   * A one-off that has finished or has not started is deliberately not in it: a
+   * card headed "Budgeted now" summing a holiday that ends in November would be
+   * quoting money that is not in play, and a run that ended in July would keep
+   * its spend in the figure for the rest of time.
+   */
+  const running = useMemo(
+    () => ordered.filter((b) => phaseOf(b) === 'running'),
+    [ordered],
+  )
+
   const grouped = useMemo(() => {
-    const buckets = new Map<Verdict, BudgetProgress[]>()
+    const buckets = new Map<BudgetGroup, BudgetProgress[]>()
     for (const budget of ordered) {
-      const verdict = verdictOf(budget)
-      const bucket = buckets.get(verdict)
+      const group = groupOf(budget)
+      const bucket = buckets.get(group)
       if (bucket) bucket.push(budget)
-      else buckets.set(verdict, [budget])
+      else buckets.set(group, [budget])
     }
     // Empty groups are omitted entirely, label row included.
-    return GROUPS.flatMap((verdict) => {
-      const rows = buckets.get(verdict)
-      return rows ? [{ verdict, rows }] : []
+    return GROUPS.flatMap((group) => {
+      const rows = buckets.get(group)
+      return rows ? [{ group, rows }] : []
     })
   }, [ordered])
 
@@ -233,18 +264,19 @@ export function BudgetsScreen() {
    * would be filled.
    */
   const paired = useMemo(() => {
-    const present = new Set(grouped.map((g) => g.verdict))
+    const present = new Set(grouped.map((g) => g.group))
     return present.has('over') && present.has('at-risk')
   }, [grouped])
 
-  const totalLimit = budgets.reduce((sum, b) => sum + effectiveLimit(b), 0)
-  const totalSpent = budgets.reduce((sum, b) => sum + b.spent, 0)
+  const totalLimit = running.reduce((sum, b) => sum + effectiveLimit(b), 0)
+  const totalSpent = running.reduce((sum, b) => sum + b.spent, 0)
   const totalOver = totalSpent > totalLimit
   const used = totalLimit > 0 ? Math.round((totalSpent / totalLimit) * 100) : 0
   // The soonest reset, which is what "days" means once budgets can disagree
-  // about where their period ends.
-  const nextReset = budgets.length
-    ? Math.min(...budgets.map((b) => daysLeft(b)))
+  // about where their period ends. A one-off's is the end of its run, which is
+  // a reset only in the sense that it is when the figure stops moving.
+  const nextReset = running.length
+    ? Math.min(...running.map((b) => daysLeft(b)))
     : 0
 
   const header = (
@@ -300,13 +332,15 @@ export function BudgetsScreen() {
           {/* Spans both columns, and splits inside them: the figure and the bar
               are two readings of one thing, so at this width they sit side by
               side rather than stacked with a full card's width of empty ground
-              beside each. */}
+              beside each. Absent entirely when nothing is running — see
+              `running`. */}
+          {running.length > 0 && (
           <Card className="p-[18px] lg:col-span-2 lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:items-center lg:gap-7">
             <div>
             <div className="flex items-start justify-between gap-3">
               <Label>
-                {sharedMonth(budgets)
-                  ? `Budgeted in ${sharedMonth(budgets)}`
+                {sharedMonth(running)
+                  ? `Budgeted in ${sharedMonth(running)}`
                   : 'Budgeted now'}
               </Label>
               <span
@@ -333,12 +367,12 @@ export function BudgetsScreen() {
             </div>
             <div className="mt-1 text-meta text-ink-muted">
               of {formatAmountMoney(asMinor(totalLimit), CURRENCY)} across{' '}
-              {budgets.length} budget{budgets.length === 1 ? '' : 's'}
+              {running.length} budget{running.length === 1 ? '' : 's'}
             </div>
             </div>
 
             <div className="lg:mt-0">
-            <SplitBar budgets={ordered} total={totalLimit} />
+            <SplitBar budgets={running} total={totalLimit} />
 
             <div
               className="mt-2 flex items-baseline justify-between text-meta"
@@ -353,43 +387,52 @@ export function BudgetsScreen() {
             </div>
             </div>
           </Card>
+          )}
 
           {/* ------------------------------------------------------- groups */}
-          {grouped.map(({ verdict, rows }) => {
+          {grouped.map(({ group, rows }) => {
             const overspend = rows.reduce(
               (sum, b) => sum + Math.max(0, b.spent - effectiveLimit(b)),
               0,
             )
             return (
               <section
-                key={verdict}
+                key={group}
                 className={`flex flex-col gap-2 ${
                   // Over and At risk take a column each — but only when both are
-                  // there to fill one. On track always spans: it is nearly always
-                  // the longest group, and a column of ten rows beside a column of
-                  // one is a page with a hole in it.
-                  verdict === 'on-track' || !paired ? 'lg:col-span-2' : ''
+                  // there to fill one. Every other group spans: On track is
+                  // nearly always the longest, and the two one-off groups are
+                  // the quiet tail of the page. A column of ten rows beside a
+                  // column of one is a page with a hole in it.
+                  (group !== 'over' && group !== 'at-risk') || !paired
+                    ? 'lg:col-span-2'
+                    : ''
                 }`}
               >
                 <div className="flex items-baseline justify-between px-1">
-                  <Label tone={verdict === 'over' ? 'var(--color-expense)' : undefined}>
-                    {VERDICT_LABEL[verdict]}
+                  <Label tone={group === 'over' ? 'var(--color-expense)' : undefined}>
+                    {GROUP_LABEL[group]}
                   </Label>
                   <span
                     className="text-meta"
                     style={{
                       color:
-                        verdict === 'over'
+                        group === 'over'
                           ? 'var(--color-expense)'
                           : 'var(--color-ink-muted)',
                     }}
                   >
-                    {verdict === 'over' ? (
+                    {group === 'over' ? (
                       <span className="tnum">
                         −{formatAmountMoney(asMinor(overspend), CURRENCY)}
                       </span>
-                    ) : verdict === 'at-risk' ? (
+                    ) : group === 'at-risk' ? (
                       'on pace to overspend'
+                    ) : group === 'upcoming' ? (
+                      <span className="tnum">
+                        starts in{' '}
+                        {Math.min(...rows.map((b) => daysUntilStart(b)))} days
+                      </span>
                     ) : (
                       `${rows.length} budget${rows.length === 1 ? '' : 's'}`
                     )}
@@ -411,7 +454,9 @@ export function BudgetsScreen() {
             “At risk” is today’s daily rate carried to the end of the period — a
             straight line, so a period that always spends late will say it and be
             wrong. Nothing is at risk before its third day, where a single big
-            shop would project thirty of them.
+            shop would project thirty of them. A budget that runs once leaves
+            those three groups when its dates do: before its first day there is
+            nothing to project from, and after its last the figure is final.
           </p>
         </>
       )}

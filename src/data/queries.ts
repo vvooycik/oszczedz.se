@@ -1119,6 +1119,14 @@ export type BudgetDraft = {
   glyph: string
   period: BudgetPeriod
   resets_on: number
+  /**
+   * The run, for a one-off — `null` on every other period, and the CHECK
+   * constraint is two-way, so a budget switched away from `once` has to clear
+   * them rather than carry them along unread. `ends_on` is the last day of the
+   * run, inclusive, which is what the calendar picked.
+   */
+  starts_on: string | null
+  ends_on: string | null
   rollover: boolean
   show_on_home: boolean
   home_order: number
@@ -1198,7 +1206,13 @@ export const useSaveBudget = () => {
         glyph: draft.glyph,
         period: draft.period,
         resets_on: draft.resets_on,
-        rollover: draft.rollover,
+        // Sent as written by the editor, which nulls them off a one-off rather
+        // than trusting the form to have cleared them — the same care
+        // `NewWalletScreen` takes with the type-specific columns, and for the
+        // same reason: both CHECK constraints are two-way.
+        starts_on: draft.period === 'once' ? draft.starts_on : null,
+        ends_on: draft.period === 'once' ? draft.ends_on : null,
+        rollover: draft.period === 'once' ? false : draft.rollover,
         show_on_home: draft.show_on_home,
         home_order: draft.home_order,
       }

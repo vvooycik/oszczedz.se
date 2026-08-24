@@ -12,25 +12,59 @@
  * than its own `amount` says, and a ring drawn against the stored figure would
  * disagree with the header sitting above it.
  */
-import { formatMonthLong, fromISODate, today } from './dates'
+import {
+  addDays,
+  daysBetween,
+  formatDayShort,
+  formatMonthLong,
+  today,
+} from './dates'
 import type { BudgetProgress, BudgetPeriod } from './db'
 
 export type Verdict = 'over' | 'at-risk' | 'on-track'
 
 /**
- * Group order on the list, fixed: what needs attention comes before what does
- * not. Also the sort key, so a screen never has to spell the order out again.
+ * Where a budget sits relative to its own window.
+ *
+ * Only a **one-off** can be anywhere but inside it. Every recurring period's
+ * bounds are computed *around* the day asked for, so a monthly budget is in its
+ * month by construction — which is also why this asks the period first rather
+ * than just comparing dates: a row fetched before midnight and read after it
+ * would otherwise report a daily budget as finished, and the app would drop it
+ * off the rail for the rest of the morning.
  */
-export const VERDICT_RANK: Record<Verdict, number> = {
+export type Phase = 'upcoming' | 'running' | 'finished'
+
+/**
+ * What the list groups on: a running budget's verdict, or — for a one-off that
+ * is not running — its phase.
+ *
+ * Phase wins deliberately. The top three groups answer "what needs attention
+ * now", and a run that ended last month cannot be acted on however far over it
+ * went; its overspend still shows in red on the row, but it does not join a
+ * heading that sums what is happening this period.
+ */
+export type BudgetGroup = Verdict | 'upcoming' | 'finished'
+
+/**
+ * Group order on the list, fixed: what needs attention comes before what does
+ * not, and what is not running at all comes last. Also the sort key, so a
+ * screen never has to spell the order out again.
+ */
+export const GROUP_RANK: Record<BudgetGroup, number> = {
   over: 0,
   'at-risk': 1,
   'on-track': 2,
+  upcoming: 3,
+  finished: 4,
 }
 
-export const VERDICT_LABEL: Record<Verdict, string> = {
+export const GROUP_LABEL: Record<BudgetGroup, string> = {
   over: 'Over',
   'at-risk': 'At risk',
   'on-track': 'On track',
+  upcoming: 'Not started yet',
+  finished: 'Finished',
 }
 
 /**
@@ -45,9 +79,6 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
 const RATE_SETTLES_ON_DAY = 3
 
 const DAY_MS = 86_400_000
-
-const daysBetween = (from: string, to: string): number =>
-  Math.round((fromISODate(to).getTime() - fromISODate(from).getTime()) / DAY_MS)
 
 /** The limit the ring, the bar and every percentage are drawn against. */
 export const effectiveLimit = (b: BudgetProgress): number =>
@@ -99,6 +130,30 @@ export const daysLeft = (b: BudgetProgress, on: string = today()): number =>
   Math.max(0, daysInPeriod(b) - dayOfPeriod(b, on))
 
 /**
+ * Days until a run begins, 0 once it has.
+ *
+ * `dayOfPeriod` clamps into the period, so a budget that has not started yet
+ * reads as day 1 of it and `daysLeft` reports the whole length — true of the
+ * run and useless as "left". This is the figure a not-yet-started budget has to
+ * show instead.
+ */
+export const daysUntilStart = (b: BudgetProgress, on: string = today()): number =>
+  Math.max(0, daysBetween(on, b.period_start))
+
+/** See {@link Phase}. */
+export function phaseOf(b: BudgetProgress, on: string = today()): Phase {
+  if (b.period !== 'once') return 'running'
+  if (on < b.period_start) return 'upcoming'
+  return on < b.period_end ? 'running' : 'finished'
+}
+
+/** See {@link BudgetGroup}. */
+export function groupOf(b: BudgetProgress, on: string = today()): BudgetGroup {
+  const phase = phaseOf(b, on)
+  return phase === 'running' ? verdictOf(b, on) : phase
+}
+
+/**
  * Spend at the end of the period if the current daily rate holds.
  *
  * A straight line, and deliberately so — it cannot know that a month usually
@@ -111,12 +166,24 @@ export const projectedSpend = (b: BudgetProgress, on: string = today()): number 
 export function verdictOf(b: BudgetProgress, on: string = today()): Verdict {
   const limit = effectiveLimit(b)
   if (limit > 0 && b.spent > limit) return 'over'
+  // A run that has not started, or has already finished, has no rate to carry
+  // forward: before it there is nothing to project from, after it the figure is
+  // final and a projection would be a guess about a settled fact.
+  if (phaseOf(b, on) !== 'running') return 'on-track'
   if (dayOfPeriod(b, on) < RATE_SETTLES_ON_DAY) return 'on-track'
   return limit > 0 && projectedSpend(b, on) > limit ? 'at-risk' : 'on-track'
 }
 
 /* ------------------------------------------------------------------ periods */
 
+/**
+ * The four periods that repeat, shortest to longest.
+ *
+ * `once` is deliberately absent: it is not a fifth answer to "how often", it is
+ * the answer *no*, and the editor asks that as its own question one row above.
+ * A fifth segment would not fit either — measured at 390px the track has ~63px
+ * a segment for a label that needs ~74 — but the reading is the reason.
+ */
 export const PERIOD_OPTIONS: { key: BudgetPeriod; label: string }[] = [
   { key: 'daily', label: 'Daily' },
   { key: 'weekly', label: 'Weekly' },
@@ -124,7 +191,7 @@ export const PERIOD_OPTIONS: { key: BudgetPeriod; label: string }[] = [
   { key: 'yearly', label: 'Yearly' },
 ]
 
-/** The noun for one period, singular: "day", "week", "month", "year". */
+/** The noun for one period, singular: "day", "week", "month", "year", "run". */
 export const periodNoun = (period: BudgetPeriod): string =>
   period === 'daily'
     ? 'day'
@@ -132,10 +199,19 @@ export const periodNoun = (period: BudgetPeriod): string =>
       ? 'week'
       : period === 'yearly'
         ? 'year'
-        : 'month'
+        : period === 'once'
+          ? 'run'
+          : 'month'
 
-/** The sub-line under the limit figure: "per month". */
-export const perPeriod = (period: BudgetPeriod): string => `per ${periodNoun(period)}`
+/**
+ * The sub-line under the limit figure: "per month".
+ *
+ * A one-off says **"in total"** instead. "Per run" is grammatical and wrong in
+ * the way that matters: the whole point of the period is that there is only one
+ * of them, so the limit is not a rate at all — it is the size of the envelope.
+ */
+export const perPeriod = (period: BudgetPeriod): string =>
+  period === 'once' ? 'in total' : `per ${periodNoun(period)}`
 
 /** "Adds unspent zł to next month" — the rollover row's meta. */
 export const nextPeriodNoun = periodNoun
@@ -148,7 +224,24 @@ export const nextPeriodNoun = periodNoun
  * when it begins. So the editor's "Resets on" row is not a row with one option,
  * it is a row that is not there, and this is the one place that says so.
  */
-export const hasResetChoice = (period: BudgetPeriod): boolean => period !== 'daily'
+export const hasResetChoice = (period: BudgetPeriod): boolean =>
+  period !== 'daily' && period !== 'once'
+
+/**
+ * A one-off's window, as it is read rather than as it is stored: end inclusive,
+ * and the month said once when both ends share it.
+ *
+ * `period_end` is exclusive everywhere else in this file because that is what
+ * makes the arithmetic work, but a run that stops on the 26th is picked on the
+ * 26th and has to read back as the 26th.
+ */
+export function runLabel(b: BudgetProgress): string {
+  const last = addDays(b.period_end, -1)
+  if (b.period_start === last) return formatDayShort(last)
+  return b.period_start.slice(0, 7) === last.slice(0, 7)
+    ? `${Number(b.period_start.slice(8))} – ${formatDayShort(last)}`
+    : `${formatDayShort(b.period_start)} – ${formatDayShort(last)}`
+}
 
 /** Sunday-first, because `resets_on` for a weekly budget is `getDay()`. */
 export const WEEKDAYS = [
@@ -237,9 +330,12 @@ export const defaultResetsOn = (_period: BudgetPeriod): number => 1
 const plural = (n: number, one: string, many: string): string =>
   `${n} ${n === 1 ? one : many}`
 
-/** "4 categories · 3 wallets · rolls over" — the list row's third line. */
+/** "12 – 26 Sep · 4 categories · 3 wallets · rolls over" — the row's third line. */
 export function scopeMeta(b: BudgetProgress): string {
   const parts = [
+    // A one-off leads with its dates: every other budget's window is implied by
+    // its period, and this one's is the thing that had to be chosen.
+    ...(b.period === 'once' ? [runLabel(b)] : []),
     b.category_count === 0
       ? 'every category'
       : plural(b.category_count, 'category', 'categories'),
@@ -263,7 +359,7 @@ export function sortForList(
 ): BudgetProgress[] {
   return [...budgets].sort(
     (a, b) =>
-      VERDICT_RANK[verdictOf(a, on)] - VERDICT_RANK[verdictOf(b, on)] ||
+      GROUP_RANK[groupOf(a, on)] - GROUP_RANK[groupOf(b, on)] ||
       shareOf(b) - shareOf(a),
   )
 }
@@ -289,8 +385,17 @@ export function sharedMonth(budgets: BudgetProgress[]): string | null {
   return agreed ? formatMonthLong(first.period_start) : null
 }
 
-/** Rail order: what the user arranged, with the name as a stable tiebreak. */
+/**
+ * Rail order: what the user arranged, with the name as a stable tiebreak.
+ *
+ * **A finished run leaves the rail on its own**, without the switch moving. The
+ * rail is what is happening now; a ring frozen at its final share is a card that
+ * will never change again, and it would push a live budget off the end of a
+ * scroller that only shows two and a half. It stays on the list, which is where
+ * it can be read or deleted. A run that has not started keeps its place — a
+ * holiday budget put on Home in August is doing its job in August.
+ */
 export const sortForHome = (budgets: BudgetProgress[]): BudgetProgress[] =>
   budgets
-    .filter((b) => b.show_on_home)
+    .filter((b) => b.show_on_home && phaseOf(b) !== 'finished')
     .sort((a, b) => a.home_order - b.home_order || a.name.localeCompare(b.name))

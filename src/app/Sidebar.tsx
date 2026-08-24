@@ -7,7 +7,7 @@ import { useTheme } from '@/theme/ThemeProvider'
 import { supabase } from '@/lib/supabase'
 import { buildTransactionsCsv, downloadCsv } from '@/lib/export'
 import { today } from '@/lib/dates'
-import { verdictOf } from '@/lib/budgets'
+import { groupOf } from '@/lib/budgets'
 import {
   useBudgetProgress,
   useCategories,
@@ -38,7 +38,9 @@ const ACTIVE_WASH = 'color-mix(in oklab, var(--color-accent) 16%, transparent)'
  */
 function useOverCount(): number {
   const budgets = useBudgetProgress()
-  return (budgets.data ?? []).filter((b) => verdictOf(b) === 'over').length
+  // The group, not the verdict: a one-off that ended over its limit is a fact
+  // about July, and a badge that never clears is one nobody reads.
+  return (budgets.data ?? []).filter((b) => groupOf(b) === 'over').length
 }
 
 /** Export, which is a button rather than a destination, wherever it is drawn. */

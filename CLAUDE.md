@@ -184,22 +184,49 @@ and it buys nothing, because the editor requires at least one category and
 nobody picks that one.
 
 "Reset" is still not stored, but it is no longer always the calendar month.
-`period` is `daily | weekly | monthly | yearly` and `resets_on` is **one integer
-read three ways** — day of month 1–31 (clamped to short months, so a payday
+`period` is `daily | weekly | monthly | yearly | once` and `resets_on` is **one
+integer read three ways** — day of month 1–31 (clamped to short months, so a payday
 budget on the 31st runs 31 Jan → 28 Feb), weekday 0–6 with 0 = Sunday (matching
 both `extract(dow)` and `getDay()`), or an ordinal 1–365 against a fixed
 *non-leap* reference year, which is a month/day pair in disguise and is what
 stops an anniversary drifting every February. That one column is why there is no
 separate "custom" period.
 
-**Four periods, three readings**: `daily` does not read `resets_on` at all,
-because a day has no start to choose. The column is not-null and shared by all
-four, so the CHECK **pins it to 1** there rather than leaving it loose — the old
-`case` had no `else`, and an unlisted period evaluated to NULL, which a CHECK
-*passes*, so a daily budget would have silently carried whatever value the
-period it was switched from had left behind. `hasResetChoice` in
-`src/lib/budgets.ts` is the client's one copy of the same fact, and it is why
-the editor's "Resets on" row is absent rather than present with one option.
+**Five periods, three readings**: `daily` does not read `resets_on` at all,
+because a day has no start to choose, and neither does `once`, which is handed
+its window instead. The column is not-null and shared by all five, so the CHECK
+**pins it to 1** for both rather than leaving it loose — the old `case` had no
+`else`, and an unlisted period evaluated to NULL, which a CHECK *passes*, so a
+daily budget would have silently carried whatever value the period it was
+switched from had left behind. `hasResetChoice` in `src/lib/budgets.ts` is the
+client's one copy of the same fact, and it is why the editor's "Resets on" row is
+absent rather than present with one option.
+
+**`once` is the period that is not a rule.** Every other one can be run
+backwards from any day to find the window containing it; a holiday, a kitchen, a
+wedding has no rule behind it, so the window stops being derived and becomes two
+columns — `starts_on` and `ends_on`, the latter **inclusive**, because that is
+what gets picked on a calendar. They are present iff the period is `once` (a
+two-way CHECK, like the wallet type columns), `rollover` is refused outright
+(there is no previous run to carry a remainder from), and `budget_period_bounds`
+returns **the row's own window whatever day it is asked about**. That last part
+is what keeps every caller unchanged: a finished run still reports one row with a
+start, an end and a final figure, rather than vanishing from the only list it can
+be deleted from.
+
+So a one-off is the one budget that can be **outside its own window**, which is
+what `phaseOf` in `src/lib/budgets.ts` exists to say — `upcoming`, `running`,
+`finished`. It asks the *period* before it compares any dates, deliberately: a
+row fetched before midnight and read after it would otherwise report a daily
+budget as finished and drop it off the rail for the morning. Three consequences,
+all in `groupOf`: the list groups on phase before verdict, so a run that ended
+over its limit sits under **Finished** rather than under Over (its overspend is
+still red on the row — it is a fact about July, and the top three groups answer
+what needs attention now); the summary card and the sidebar's over-badge count
+**running budgets only**, or a holiday that ends in November would be quoted in
+a figure headed "Budgeted now"; and the Home rail drops a finished run on its
+own, without the switch moving, while keeping an upcoming one — a holiday budget
+put on Home in August is doing its job in August.
 
 A one-day period changes no arithmetic upstream, which is worth stating because
 it was checked rather than assumed. Rollover still works and is the reason to
@@ -298,11 +325,14 @@ Enforced outside the DDL:
   which day it is. Verdict, share, projection and days-left are deliberately not
   columns — they are arithmetic over these, they change with no write behind
   them, and `src/lib/budgets.ts` owns them
-- `budget_period_bounds(period, resets_on, on)` / `budget_month_anchor(month, day)`
-  — the half-open range containing a day. Everything about periods is answered
-  here once, so no caller has to know that months clamp and years do not. The day
-  before a period started is by definition in the previous one, which is how
-  `budget_progress` finds the rollover's window with the same function
+- `budget_period_bounds(period, resets_on, on, starts_on = null, ends_on = null)`
+  / `budget_month_anchor(month, day)` — the half-open range containing a day.
+  Everything about periods is answered here once, so no caller has to know that
+  months clamp, years do not, and a one-off run is not searched for at all but
+  handed in (`on` is unread there, and `ends_on + 1` is where the half-open end
+  comes from). The day before a period started is by definition in the previous
+  one, which is how `budget_progress` finds the rollover's window with the same
+  function
 - `budget_spend(budget, user, currency, from, to)` — one budget's spend over a
   day range, split out because the rollover needs the same answer for the period
   before and two copies of those membership rules is how a budget starts
@@ -651,7 +681,7 @@ Without it Vite inlines the values as `undefined`, the guard in `src/lib/supabas
 folds to a constant, and the bundler dead-code-eliminates supabase-js and every
 chart behind it — producing a *successful* build of an app that throws on load.
 
-ECharts is code-split so it stays off the login path — **~216 kB gzipped initial,
+ECharts is code-split so it stays off the login path — **~218 kB gzipped initial,
 ~189 kB for the chart chunk**. The initial figure was ~174 kB after the visual
 refresh and grew to ~177 with the wallet add button and balance-adjustment
 sheet, then to ~190 when the glyph set went from 111 to 256 (that 12 kB is icons
@@ -662,9 +692,10 @@ argument. Scheduled transactions took it to **~207** — two screens, a drawer a
 the planned treatment for 5 kB, and the chart chunk did not move at all, because
 the forecast is a second series on a chart that already existed. The
 design-system reference is behind a `lazy()` and costs the initial chunk
-nothing (only ~0.4 kB of shared CSS), and the tablet/desktop layer took it to
+nothing (only ~0.4 kB of shared CSS), the tablet/desktop layer took it to
 **~216** — a sidebar, an icon rail, three grid arrangements, a dialog frame, a
-second route tree and the entry modal for 8 kB. Keep an eye on this: a second
+second route tree and the entry modal for 8 kB — and one-off budgets to
+**~218**, which is a date sheet and a phase. Keep an eye on this: a second
 charting library adds to that budget rather than replacing it.
 
 `__APP_VERSION__` is inlined by `vite.config.ts` from `package.json`, for the
@@ -1759,24 +1790,84 @@ About row. Bump the version there, not in the component.
     headless Chrome. **The signed-in wide layouts have not been seen** — they
     need a session, and that is the one thing this check could not produce.
 
-    Cost: the initial chunk went from ~208 kB gzipped to **~216**, and the CSS
+    Cost: the initial chunk went from ~208 kB gzipped to **~216** (item 25 took
+    it to ~218), and the CSS
     from 8.2 to 8.4 — a sidebar, a rail, three grid arrangements, a dialog
     frame, a second route tree and the entry modal for 8 kB. The chart chunk did
     not move.
 
-25. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
+25. **One-off budgets — DONE.** A fifth `budget_period`, `once`, described in
+    the domain model above. Two migrations, for the third time — Postgres
+    refuses to *use* an enum value added in the same transaction.
+
+    **The switch is "Repeats", not a fifth segment.** "Once" is not an answer to
+    "how often"; it is the answer *no*, and a track is the wrong control for a
+    question with two answers. It would not have fitted either — measured at
+    390px the period track has ~63px a segment against the ~74 "Monthly" needs —
+    but that is the second reason, not the first. With it off the track, the
+    "Resets on" row and the rollover row all go, replaced by **Starts** and
+    **Ends** rows over the same calendar the entry screen draws.
+
+    **Moving the start carries the end with it**, keeping the run the same
+    length. "The trip moved a week later" is what that almost always means, and
+    clamping the end up to the new start would silently turn a fortnight into a
+    day. The same call the transfer form makes when its two wallets collide: act
+    on what was meant, and leave the other end one tap from changing. The
+    footnote under the card names the length, so the shift is never invisible.
+
+    **The end date is inclusive and the sheet floors on it**, so an invalid run
+    cannot be built — the Save guard is a net, not the rule. Days before the
+    floor are drawn dim rather than left out: a month with a hole in it stops
+    reading as a calendar.
+
+    Three decisions taken against the obvious:
+
+    - **A finished run stays on the list.** It is grouped under **Finished**,
+      dropped from the summary card and from the rail, and left otherwise alone.
+      Auto-hiding it would put the only thing that can be done with it — reading
+      it, or deleting it — out of reach.
+    - **`budget_period_bounds` answers for it rather than being bypassed.** A
+      `case` in `budget_progress` would have put the period model back into that
+      body, which is the thing the function exists to prevent. The cost is one
+      wasted `budget_spend` over the rollover window whose answer the `case`
+      then discards, on a period where rollover is refused anyway.
+    - **The list's time bar goes away outside the run**, rather than being drawn
+      full or empty. Before it starts the row says `starts in 19 days`; after it
+      ends it says nothing, because the group heading and the dates on the line
+      below have already said it. A full track under a finished run would be the
+      one element on the row still counting.
+
+    **Verified against the real database, not in a browser** — the Chrome
+    extension was not connected this session either. Inside rolled-back
+    transactions: the other four periods unmoved by the rewrite (February's
+    clamp, a leap year, a Monday week, a day); a run reporting the same window
+    asked about from before it, inside it and four years after it; all five CHECK
+    refusals firing with nothing written; and a real one-off over the imported
+    history in each phase, its `spent` agreeing to the grosz with the same range
+    summed by hand off `transactions`, `planned` picking up exactly the rest of
+    the run, and `rolled_over` staying 0. Then the editor's own writes replayed
+    under `set local role authenticated` with a real JWT subject, so RLS was the
+    boundary it is in the browser: created, switched to monthly-on-the-25th with
+    the run nulled, and switched back to a one-day run. The client maths has 28
+    assertions of its own (`phaseOf` across every boundary day, `groupOf`,
+    the run labels, the rail filter, the list order), run through `jiti`.
+
+    Cost: the initial chunk went from ~216 kB gzipped to **~218**. The chart
+    chunk did not move.
+
+26. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
     already permits exactly that case and nothing else. Tag CRUD has no design
     yet, which is why `/tags` is a list and not an editor. The **budget detail
     screen** is named by the budgets handoff and deliberately left undesigned;
     until it exists, a list row and a rail card both open the editor, which is
     the only thing there is to do with a budget.
-26. **Not yet designed at these widths**, and left alone rather than guessed:
+27. **Not yet designed at these widths**, and left alone rather than guessed:
    Insight, More and Login are still mobile compositions inside a capped
    column. Insight is the one with a real open question — four blocks in one
    scroll is a mobile answer, and at 1440px it wants a two-column grid, but the
    period control owns all four blocks and the grid has to keep that reading
    true.
-27. Deferred by explicit decision: split transactions, FX conversion in charts
+28. Deferred by explicit decision: split transactions, FX conversion in charts
    (`exchange_rates`), MCP/AI entry.
 
 Resolved by the redesign: icons are Lucide; both light and dark grounds ship, each

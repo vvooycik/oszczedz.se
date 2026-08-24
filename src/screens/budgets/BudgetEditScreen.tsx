@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import {
+  IconCalendarEvent,
   IconCategory,
   IconChevronRight,
   IconHome,
@@ -36,6 +37,7 @@ import {
   PERIOD_OPTIONS,
   resetsOnLabel,
 } from '@/lib/budgets'
+import { addDays, daysBetween, formatDayLabel, today } from '@/lib/dates'
 import { GLYPH_CHOICES, iconFor } from '@/lib/icons'
 import { asMinor, currencySymbol, formatAmount } from '@/lib/money'
 import { keepFocus } from '@/lib/touch'
@@ -44,6 +46,7 @@ import { CATEGORY_COLORS, categoryVar, resolveCategoryColor } from '@/theme/toke
 import type { BudgetPeriod } from '@/lib/db'
 import { LimitSheet } from './LimitSheet'
 import { ResetsOnSheet } from './ResetsOnSheet'
+import { RunDateSheet } from './RunDateSheet'
 import { BudgetCategoriesScreen, BudgetWalletsScreen } from './ScopePickers'
 
 const CURRENCY = 'PLN'
@@ -64,6 +67,15 @@ const CHIP_LIMIT = 6
  */
 const RAIL_SOFT_CAP = 4
 
+/**
+ * How long a one-off run is when the switch is first turned off.
+ *
+ * A month, because that is the length the app's other budgets are and so the
+ * one that needs least explaining — and because both ends are one tap from
+ * changing, this is a starting point rather than a guess at an answer.
+ */
+const DEFAULT_RUN_DAYS = 30
+
 const empty = (railCount: number): BudgetDraft => ({
   id: 'new',
   name: '',
@@ -72,6 +84,8 @@ const empty = (railCount: number): BudgetDraft => ({
   glyph: 'target',
   period: 'monthly',
   resets_on: 1,
+  starts_on: null,
+  ends_on: null,
   rollover: false,
   show_on_home: railCount < RAIL_SOFT_CAP,
   home_order: railCount,
@@ -199,10 +213,12 @@ export function BudgetEditScreen() {
   const [pane, setPane] = useState<'categories' | 'wallets' | null>(null)
   const [limitOpen, setLimitOpen] = useState(false)
   const [resetsOpen, setResetsOpen] = useState(false)
+  const [runOpen, setRunOpen] = useState<'start' | 'end' | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [glyphQuery, setGlyphQuery] = useState('')
   const [showAllGlyphs, setShowAllGlyphs] = useState(false)
   const iconCard = useRef<HTMLDivElement>(null)
+  const lastRepeating = useRef<BudgetPeriod>('monthly')
 
   const row = editing ? (budgets.data ?? []).find((b) => b.budget_id === id) : undefined
 
@@ -234,6 +250,11 @@ export function BudgetEditScreen() {
       glyph: row.glyph,
       period: row.period,
       resets_on: row.resets_on,
+      // `budget_progress` already carries the run as the period it reports, so
+      // there is no second query for it. `period_end` is exclusive there and
+      // inclusive here, which is the one conversion.
+      starts_on: row.period === 'once' ? row.period_start : null,
+      ends_on: row.period === 'once' ? addDays(row.period_end, -1) : null,
       rollover: row.rollover,
       show_on_home: row.show_on_home,
       home_order: row.home_order,
@@ -272,6 +293,65 @@ export function BudgetEditScreen() {
   const patch = (changes: Partial<BudgetDraft>) =>
     setDraft((current) => (current ? { ...current, ...changes } : current))
 
+  // Written during render, the way `WideRoutes` remembers the address behind a
+  // modal: it is what the switch turns back *on*, so someone who set "Yearly",
+  // tried a one-off and changed their mind gets Yearly back rather than the
+  // default. An effect would update it a paint late, which is the one paint the
+  // switch is read on.
+  if (draft.period !== 'once') lastRepeating.current = draft.period
+
+  /**
+   * Repeating or not — the one question `budget_period` cannot answer as a
+   * fifth segment, because "once" is not a frequency.
+   *
+   * Both directions clear what the other side owns rather than leaving it to be
+   * ignored: the CHECK constraints are two-way, so a monthly budget carrying a
+   * run and a one-off carrying `resets_on = 25` are both refused at the wire.
+   * Rollover goes with it — there is no previous run to carry a remainder from.
+   */
+  const setRepeats = (repeats: boolean) =>
+    patch(
+      repeats
+        ? {
+            period: lastRepeating.current,
+            resets_on: defaultResetsOn(lastRepeating.current),
+            starts_on: null,
+            ends_on: null,
+          }
+        : {
+            period: 'once',
+            resets_on: 1,
+            rollover: false,
+            starts_on: draft.starts_on ?? today(),
+            ends_on:
+              draft.ends_on ?? addDays(draft.starts_on ?? today(), DEFAULT_RUN_DAYS - 1),
+          },
+    )
+
+  /**
+   * Moving the start carries the end with it, keeping the run the same length.
+   *
+   * "The trip moved a week later" is what this almost always means, and the
+   * alternative — clamping the end up to the new start — silently turns a
+   * fortnight into a day. It is the same call the transfer form makes when the
+   * two wallets collide: act on what was meant, and leave the other end one tap
+   * from being changed. The footnote under the card names the length, so the
+   * shift is never invisible.
+   */
+  const moveStart = (iso: string) =>
+    patch({
+      starts_on: iso,
+      ends_on: draft.starts_on && draft.ends_on
+        ? addDays(iso, daysBetween(draft.starts_on, draft.ends_on))
+        : iso,
+    })
+
+  const oneOff = draft.period === 'once'
+  const runDays =
+    draft.starts_on && draft.ends_on
+      ? daysBetween(draft.starts_on, draft.ends_on) + 1
+      : 0
+
   /**
    * Applying a category set is where the identity rule lives: the *first* pick
    * names and marks the budget, and only while nothing has been set by hand.
@@ -290,7 +370,12 @@ export function BudgetEditScreen() {
   const tint = categoryVar(draft.color)
   const named = draft.name.trim() !== ''
   const hasCategories = draft.categoryIds.length > 0
-  const canSave = named && draft.amount > 0 && hasCategories && !save.isPending
+  // The run is always valid by construction — the sheet floors the end at the
+  // start and `moveStart` carries it — so this only guards against a draft that
+  // somehow has no dates at all.
+  const hasRun = !oneOff || Boolean(draft.starts_on && draft.ends_on)
+  const canSave =
+    named && draft.amount > 0 && hasCategories && hasRun && !save.isPending
 
   const commit = async () => {
     if (!canSave) return
@@ -583,61 +668,133 @@ export function BudgetEditScreen() {
 
           {/* -------------------------------------------------------- period */}
           <section className="flex flex-col gap-2">
-            <Label className="px-1">Period</Label>
+            <Label className="px-1">{oneOff ? 'Runs' : 'Period'}</Label>
             <Card>
-              <div className="p-[14px] pb-3">
-                <SegmentedTrack
-                  options={PERIOD_OPTIONS}
-                  value={draft.period}
-                  onChange={(period: BudgetPeriod) =>
-                    // `resets_on` cannot ride across: the CHECK constraint reads
-                    // it against the period, so the 25th is illegal the instant
-                    // this becomes weekly — and illegal on a daily budget, which
-                    // pins the column to 1 because it never reads it.
-                    patch({ period, resets_on: defaultResetsOn(period) })
-                  }
-                />
+              {/* The mode switch sits above the track rather than inside it as a
+                  fifth segment: "Once" is not an answer to "how often", and the
+                  track is the wrong control for a question with two answers. */}
+              <div className="flex items-center gap-3 px-4 py-[13px]">
+                <span className="min-w-0 flex-1">
+                  <span className="block text-row font-medium">Repeats</span>
+                  <span className="mt-px block text-meta text-ink-muted">
+                    {oneOff
+                      ? 'One run between two dates, then it is finished'
+                      : 'Starts again every period'}
+                  </span>
+                </span>
+                <Toggle checked={!oneOff} onChange={setRepeats} label="Repeats" />
               </div>
 
-              {/* A day has no start to choose, so the row is absent rather than
-                  present with one option in it. */}
-              {hasResetChoice(draft.period) && (
+              <Divider inset={0} />
+
+              {oneOff ? (
                 <>
-                  <Divider inset={0} />
                   <button
                     type="button"
                     onMouseDown={keepFocus}
-                    onClick={() => setResetsOpen(true)}
+                    onClick={() => setRunOpen('start')}
                     className="flex w-full items-center gap-3 px-4 py-[13px] text-left hover:bg-press active:bg-press"
                   >
-                    <span className="flex-1 text-row font-medium">Resets on</span>
+                    <Tile size={36} variant="neutral">
+                      <IconCalendarEvent size={18} stroke={2} />
+                    </Tile>
+                    <span className="flex-1 text-row font-medium">Starts</span>
                     <span className="flex items-center gap-1.5 text-value text-ink-muted">
-                      {resetsOnLabel(draft.period, draft.resets_on)}
+                      {draft.starts_on ? formatDayLabel(draft.starts_on) : 'Pick a day'}
+                      <IconSelector size={17} stroke={2} className="text-ink-dim" />
+                    </span>
+                  </button>
+
+                  <Divider inset={65} />
+
+                  <button
+                    type="button"
+                    onMouseDown={keepFocus}
+                    onClick={() => setRunOpen('end')}
+                    className="flex w-full items-center gap-3 px-4 py-[13px] text-left hover:bg-press active:bg-press"
+                  >
+                    <Tile size={36} variant="neutral">
+                      <IconCalendarEvent size={18} stroke={2} />
+                    </Tile>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-row font-medium">Ends</span>
+                      <span className="mt-px block text-meta text-ink-muted">
+                        The last day that counts
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-1.5 text-value text-ink-muted">
+                      {draft.ends_on ? formatDayLabel(draft.ends_on) : 'Pick a day'}
                       <IconSelector size={17} stroke={2} className="text-ink-dim" />
                     </span>
                   </button>
                 </>
-              )}
+              ) : (
+                <>
+                  <div className="p-[14px] pb-3">
+                    <SegmentedTrack
+                      options={PERIOD_OPTIONS}
+                      value={draft.period}
+                      onChange={(period: BudgetPeriod) =>
+                        // `resets_on` cannot ride across: the CHECK constraint
+                        // reads it against the period, so the 25th is illegal
+                        // the instant this becomes weekly — and illegal on a
+                        // daily budget, which pins the column to 1 because it
+                        // never reads it.
+                        patch({ period, resets_on: defaultResetsOn(period) })
+                      }
+                    />
+                  </div>
 
-              <Divider inset={0} />
-              <div className="flex items-center gap-3 px-4 py-[13px]">
-                <span className="min-w-0 flex-1">
-                  <span className="block text-row font-medium">
-                    Roll over what’s left
-                  </span>
-                  <span className="mt-px block text-meta text-ink-muted">
-                    Adds unspent {currencySymbol(CURRENCY)} to next{' '}
-                    {nextPeriodNoun(draft.period)} — one {nextPeriodNoun(draft.period)}
-                    , never compounding
-                  </span>
-                </span>
-                <Toggle
-                  checked={draft.rollover}
-                  onChange={(rollover) => patch({ rollover })}
-                  label="Roll over what’s left"
-                />
-              </div>
+                  {/* A day has no start to choose, so the row is absent rather
+                      than present with one option in it. */}
+                  {hasResetChoice(draft.period) && (
+                    <>
+                      <Divider inset={0} />
+                      <button
+                        type="button"
+                        onMouseDown={keepFocus}
+                        onClick={() => setResetsOpen(true)}
+                        className="flex w-full items-center gap-3 px-4 py-[13px] text-left hover:bg-press active:bg-press"
+                      >
+                        <span className="flex-1 text-row font-medium">Resets on</span>
+                        <span className="flex items-center gap-1.5 text-value text-ink-muted">
+                          {resetsOnLabel(draft.period, draft.resets_on)}
+                          <IconSelector size={17} stroke={2} className="text-ink-dim" />
+                        </span>
+                      </button>
+                    </>
+                  )}
+
+                  <Divider inset={0} />
+                  <div className="flex items-center gap-3 px-4 py-[13px]">
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-row font-medium">
+                        Roll over what’s left
+                      </span>
+                      <span className="mt-px block text-meta text-ink-muted">
+                        Adds unspent {currencySymbol(CURRENCY)} to next{' '}
+                        {nextPeriodNoun(draft.period)} — one{' '}
+                        {nextPeriodNoun(draft.period)}, never compounding
+                      </span>
+                    </span>
+                    <Toggle
+                      checked={draft.rollover}
+                      onChange={(rollover) => patch({ rollover })}
+                      label="Roll over what’s left"
+                    />
+                  </div>
+                </>
+              )}
             </Card>
+
+            {oneOff && runDays > 0 && (
+              <p className="px-1 text-meta-sm leading-[1.5] text-ink-faint">
+                <span className="tnum">{runDays}</span> day
+                {runDays === 1 ? '' : 's'} of spending, both ends included. It
+                counts once and is then finished — nothing resets, and there is
+                no next run to roll a remainder into.
+              </p>
+            )}
           </section>
 
           {/* -------------------------------------------------- show on home */}
@@ -707,6 +864,19 @@ export function BudgetEditScreen() {
           currency={CURRENCY}
           tone={tint}
           periodLabel={perPeriod(draft.period)}
+        />
+
+        <RunDateSheet
+          open={runOpen !== null}
+          onClose={() => setRunOpen(null)}
+          which={runOpen ?? 'start'}
+          value={
+            (runOpen === 'end' ? draft.ends_on : draft.starts_on) ?? today()
+          }
+          min={runOpen === 'end' ? (draft.starts_on ?? undefined) : undefined}
+          onPick={(iso) =>
+            runOpen === 'end' ? patch({ ends_on: iso }) : moveStart(iso)
+          }
         />
 
         <ResetsOnSheet
