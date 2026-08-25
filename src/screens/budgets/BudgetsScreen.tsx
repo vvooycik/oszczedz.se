@@ -164,6 +164,21 @@ function BudgetRow({ budget }: { budget: BudgetProgress }) {
               its own — the period passes at the same rate whatever the budget
               is doing.
 
+              **The elapsed percentage leads the line** so that it lands in the
+              same column, at the same x, as the spend percentage above it. That
+              is the whole point of quoting it: "at risk" means spend ahead of
+              time, and with only "day 2 of 33" here the reader had the bars to
+              compare but had to do 2 ÷ 33 themselves to check them. 21% over 6%
+              is the verdict in two words.
+
+              It costs bar length, and that is the trade. The reading column
+              sizes to the wider of the two labels, and "100% · day 20 of 31" is
+              wider than "127% of 12 000" — so at 390px both tracks give up
+              about 24px and the *reference* line, not the subject, is what now
+              sets the column. Worth it while the bars stay long enough to
+              compare; if a third figure ever wants in here, this is the budget
+              it spends.
+
               Absent on a daily budget, both cells together so the grid keeps its
               pairs. "day 1 of 1" under a permanently full bar would read as a
               period that has run out, when what it means is that the app has no
@@ -195,7 +210,7 @@ function BudgetRow({ budget }: { budget: BudgetProgress }) {
                   />
                 </span>
                 <span className="tnum text-kicker whitespace-nowrap text-ink-faint">
-                  day {day} of {days}
+                  {Math.round((day / days) * 100)}% · day {day} of {days}
                 </span>
               </>
             )

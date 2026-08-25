@@ -1298,6 +1298,14 @@ About row. Bump the version there, not in the component.
     worth reading before a 3 000 zł one at 60%, and only the share says so.
     Empty groups are omitted entirely, label row included.
 
+    **A row's two lines both lead with a percentage**, so they land in the same
+    column at the same x: `21% of 6 600` over `6% · day 2 of 33`. The bars
+    already say it, but "at risk" *is* spend ahead of time, and with only a day
+    count on the lower line the reader had to divide to check what the geometry
+    was claiming. The cost is bar length — the reading column sizes to the wider
+    label, and the time line is now the wider one — which is the budget any
+    third figure on that row would have to come out of.
+
     **"At risk" is a straight line, and the copy says so.** Projection is
     `spend / dayOfPeriod × daysInPeriod`, which cannot know that a month usually
     spends late — so a period that always does will be called at risk and land
