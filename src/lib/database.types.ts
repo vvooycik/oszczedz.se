@@ -536,6 +536,7 @@ export type Database = {
           installment_count: number | null
           interest_rate: number | null
           name: string
+          opened_on: string | null
           starting_balance: number
           type: Database["public"]["Enums"]["wallet_type"]
           user_id: string
@@ -551,6 +552,7 @@ export type Database = {
           installment_count?: number | null
           interest_rate?: number | null
           name: string
+          opened_on?: string | null
           starting_balance?: number
           type: Database["public"]["Enums"]["wallet_type"]
           user_id?: string
@@ -566,6 +568,7 @@ export type Database = {
           installment_count?: number | null
           interest_rate?: number | null
           name?: string
+          opened_on?: string | null
           starting_balance?: number
           type?: Database["public"]["Enums"]["wallet_type"]
           user_id?: string

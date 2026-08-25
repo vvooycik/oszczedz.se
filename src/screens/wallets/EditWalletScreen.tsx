@@ -22,7 +22,7 @@ import {
 import { isArchived, labelForWalletType } from '@/lib/wallets'
 import { categoryVar } from '@/theme/tokens'
 import { AdjustBalanceSheet } from './AdjustBalanceSheet'
-import { AmountInput, SettingRow, WalletIdentityCard } from './WalletForm'
+import { AmountInput, OpenedOnRow, SettingRow, WalletIdentityCard } from './WalletForm'
 import type { WalletType } from '@/lib/db'
 
 /** What the balance row is called per type, matching the sheet it opens. */
@@ -70,6 +70,7 @@ export function EditWalletScreen() {
   const [glyph, setGlyph] = useState<string | null>(null)
   const [limit, setLimit] = useState('')
   const [installments, setInstallments] = useState('')
+  const [openedOn, setOpenedOn] = useState<string | null>(null)
   const [adjustOpen, setAdjustOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [archiveError, setArchiveError] = useState<string | null>(null)
@@ -87,6 +88,7 @@ export function EditWalletScreen() {
     setInstallments(
       wallet.installment_count === null ? '' : String(wallet.installment_count),
     )
+    setOpenedOn(wallet.opened_on)
     setHydrated(true)
   }, [hydrated, wallet, balances.data])
 
@@ -132,6 +134,7 @@ export function EditWalletScreen() {
         name,
         color_scheme: color,
         glyph,
+        opened_on: openedOn,
         // Left exactly as found off-type: the CHECK constraints tie both columns
         // to the type, and the type is not moving, so there is nothing to
         // reconcile — but nulling them blindly would break a card.
@@ -196,6 +199,9 @@ export function EditWalletScreen() {
               </>
             )}
 
+            <Divider inset={16} />
+            <OpenedOnRow type={wallet.type} value={openedOn} onChange={setOpenedOn} />
+
             {isLoan && (
               <>
                 <Divider inset={16} />
@@ -230,6 +236,14 @@ export function EditWalletScreen() {
               </button>
             </SettingRow>
           </Card>
+
+          {/* The one row on this form that can move a chart. Everything else
+              here is a name, a colour or a number nothing derives from. */}
+          <p className="px-1 text-meta leading-[1.5] text-ink-muted">
+            {openedOn === null
+              ? 'This wallet\u2019s opening balance counts from before your records begin, so your whole history carries it. Give it a day and it arrives as a step on the total wealth chart instead.'
+              : 'Its opening balance arrives on the total wealth chart as a step on that day. Nothing before it moves.'}
+          </p>
 
           {error && <p className="px-1 text-meta text-expense">{error}</p>}
 

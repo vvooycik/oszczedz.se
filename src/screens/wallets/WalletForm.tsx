@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { IconCheck, IconChevronRight } from '@tabler/icons-react'
 import { Sheet } from '@/components/Sheet'
+import { formatDayLabel, today } from '@/lib/dates'
+import { OpenedOnSheet } from './OpenedOnSheet'
 import { Card } from '@/components/ui/Card'
 import { Label } from '@/components/ui/Label'
 import { Tile } from '@/components/ui/Tile'
@@ -142,6 +144,72 @@ export function WalletIdentityCard({
           })}
         </div>
       </Sheet>
+    </>
+  )
+}
+
+/**
+ * What the opening-day row is called per type.
+ *
+ * A loan is not "opened" in the sense the others are — it is taken, on a day
+ * you can name — and that word is the whole reason the row makes sense on it.
+ */
+const OPENED_ON_LABEL: Record<WalletType, string> = {
+  account: 'Opened on',
+  savings: 'Opened on',
+  credit_card: 'Opened on',
+  loan: 'Taken on',
+}
+
+/** How that day reads in the row. */
+const openedOnLabel = (iso: string | null): string =>
+  iso === null ? 'Before my records' : iso === today() ? 'Today' : formatDayLabel(iso)
+
+/**
+ * The day this wallet's starting balance enters the record.
+ *
+ * Both forms draw it identically, and it owns the sheet it opens so neither of
+ * them carries a second piece of state for it.
+ *
+ * Null is a real answer, not an empty one: it means the balance was already
+ * held before the first day there is any history, which is what every imported
+ * wallet is. A wallet created here defaults to **today** instead, because a
+ * wallet that did not exist this morning did not hold its opening balance in
+ * 2023 — which is exactly the reading the total wealth chart used to get wrong.
+ */
+export function OpenedOnRow({
+  type,
+  value,
+  onChange,
+}: {
+  type: WalletType
+  value: string | null
+  onChange: (next: string | null) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const label = OPENED_ON_LABEL[type]
+
+  return (
+    <>
+      <SettingRow label={label}>
+        <button
+          type="button"
+          onMouseDown={keepFocus}
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-1 text-value text-ink-muted active:opacity-70"
+        >
+          {openedOnLabel(value)}
+          <IconChevronRight size={17} stroke={2} className="text-ink-dim" />
+        </button>
+      </SettingRow>
+
+      <OpenedOnSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title={label}
+        value={value}
+        onPick={onChange}
+      />
     </>
   )
 }

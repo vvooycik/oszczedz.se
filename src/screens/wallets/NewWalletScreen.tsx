@@ -9,9 +9,16 @@ import { Button } from '@/components/ui/Button'
 import { ScreenHeader } from '@/components/ui/ScreenHeader'
 import { useCategories, useCreateWallet, useSetWalletCategories } from '@/data/queries'
 import { WalletCategoriesSheet } from './WalletCategoriesSheet'
-import { AmountInput, SettingRow, TypeSheet, WalletIdentityCard } from './WalletForm'
+import {
+  AmountInput,
+  OpenedOnRow,
+  SettingRow,
+  TypeSheet,
+  WalletIdentityCard,
+} from './WalletForm'
 import { labelForWalletType } from '@/lib/wallets'
 import { asMinor, parseAmount } from '@/lib/money'
+import { today } from '@/lib/dates'
 import { keepFocus } from '@/lib/touch'
 import { categoryVar } from '@/theme/tokens'
 import type { WalletType } from '@/lib/db'
@@ -59,6 +66,9 @@ export function NewWalletScreen() {
   const [colour, setColour] = useState<string>('slate')
   const [glyph, setGlyph] = useState<string | null>(null)
   const [balance, setBalance] = useState('')
+  // Today, not null: a wallet that did not exist this morning did not hold its
+  // opening balance in 2023, and null is what makes the chart say it did.
+  const [openedOn, setOpenedOn] = useState<string | null>(today())
   const [limit, setLimit] = useState('')
   const [installments, setInstallments] = useState('')
   const [categoryIds, setCategoryIds] = useState<string[]>([])
@@ -120,6 +130,7 @@ export function NewWalletScreen() {
         // creation. See `walletGlyph`.
         glyph,
         starting_balance: asMinor(opening),
+        opened_on: openedOn,
         credit_limit: isCard ? parsedLimit : null,
         installment_count: isLoan ? parsedInstallments : null,
       })
@@ -225,6 +236,9 @@ export function NewWalletScreen() {
               />
             </SettingRow>
 
+            <Divider inset={16} />
+            <OpenedOnRow type={type} value={openedOn} onChange={setOpenedOn} />
+
             {isLoan && (
               <>
                 <Divider inset={16} />
@@ -243,7 +257,12 @@ export function NewWalletScreen() {
             )}
           </Card>
 
-          <p className="px-1 text-meta leading-[1.5] text-ink-muted">{spec.hint}</p>
+          <p className="px-1 text-meta leading-[1.5] text-ink-muted">
+            {spec.hint}{' '}
+            {openedOn === null
+              ? 'With no day to arrive on it counts from before your records begin, so your whole history carries it.'
+              : 'On the total wealth chart it arrives as a step on that day; nothing before it moves.'}
+          </p>
 
           <section className="flex flex-col gap-2">
             <Label className="px-1">Categories</Label>

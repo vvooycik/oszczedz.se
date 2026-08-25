@@ -150,6 +150,34 @@ Wallet types (single `wallets` table + `wallet_type` enum, NOT four tables):
   derivation. "Total to repay" is taken at face value: if it includes interest,
   the wallet carries interest, because no schedule is modelled.
 
+**`opened_on` is the day a wallet's starting balance enters the record**, and
+`null` means *before the records begin*. It is not type-specific — every wallet
+opens somewhere — and it exists because `balance_history` folded every
+`starting_balance` into its opening figure with no date on it. A loan created
+today therefore did not step total wealth down today; it dropped the whole line,
+2023 included, and restated three years of history as poorer than they were.
+
+Null is the honest answer for all seven imported wallets: their
+`starting_balance` is the position they held at the first row of the import,
+with no earlier day for it to arrive on. So the column defaults to null and
+every chart drawn before it existed is unchanged, byte for byte — which is what
+the verification measured. A wallet created through `/wallets/new` defaults to
+**today** instead, because a wallet that did not exist this morning did not hold
+its opening balance three years ago.
+
+`balance_history` reads it from both sides of its window: a wallet counts
+towards the opening figure only if it opened before `p_from` (null always
+does), and inside the window its `starting_balance` is an ordinary event on its
+`opened_on` day, summed with that day's transactions. So the line is flat behind
+a new loan and steps on the day it was taken.
+
+**Nothing else reads it, on purpose.** `wallet_balances` is a balance *now* and
+takes no date; the wallet's own sparkline runs off `wallet_monthly_net`, which
+starts at its first month of movement anyway. That is also why there is no
+CHECK holding the column at or before today and the *picker* caps instead — a
+wallet opening next week would count in today's total while the chart still
+showed nothing there, and one of the two would be lying until the day arrived.
+
 Type-specific fields are nullable columns guarded by CHECK constraints (not JSONB — revisit only if type-specific fields multiply significantly).
 
 Wallet↔Category M2M (`wallet_categories`) filters **and orders** the category
@@ -306,7 +334,8 @@ Enforced outside the DDL:
 - `monthly_category_totals` view — pre-aggregated month/category/currency totals for charts, transfer legs excluded
 - `balance_history(currency, from, to, max_points = 400, anchor = null)` —
   running total wealth per day, for the feed chart, its prior-period overlay and
-  its forecast. Thins to at most `max_points` rows by taking every Nth day,
+  its forecast. **A wallet enters it on `opened_on`**, not at the beginning of
+  time — see the domain model. Thins to at most `max_points` rows by taking every Nth day,
   counting back from `to` so the final day always survives and keeping `from`
   unconditionally. Ranges shorter than `max_points` days are unaffected — the
   step collapses to 1.
@@ -1855,19 +1884,68 @@ About row. Bump the version there, not in the component.
     Cost: the initial chunk went from ~216 kB gzipped to **~218**. The chart
     chunk did not move.
 
-26. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
+26. **A wallet's starting balance has a start date — DONE.** `opened_on` on
+    `wallets`, described in the domain model above, plus the row that sets it on
+    both wallet forms and `src/screens/wallets/OpenedOnSheet.tsx`.
+
+    **The bug it fixes was silent and retroactive.** A loan created today for
+    5 199 zł did not draw the step it should have: `balance_history` summed
+    every `starting_balance` into its opening figure with no date on it, so the
+    entire total wealth line dropped by the debt — 2023 included. Nothing looked
+    broken. The chart was simply answering a different question, and the only
+    way to see it was to know what the line used to say.
+
+    **Not loan-only, though a loan found it.** A savings account added in 2026
+    with 30 000 already in it has the identical problem, and one column meaning
+    "when this balance starts counting" beats two that can disagree. The row
+    reads "Opened on" everywhere and **"Taken on"** for a loan — the word is the
+    reason the row makes sense there.
+
+    **Null is a real answer with its own button.** "Before my records" sits
+    beside "Today" at the foot of the sheet, because the seven imported wallets
+    genuinely predate every row they hold and there is no day for their opening
+    balance to arrive on. Creation defaults to today; the seven stay null and
+    the chart they draw is unchanged, byte for byte.
+
+    **The sheet is a third calendar, and that is a debt worth naming.**
+    `DateSheet` has neither bound, `RunDateSheet` has a floor, this one has a
+    ceiling and is the only one whose answer can be *no date at all* —
+    parameterising either would have put three screens' worth of behaviour in
+    one file. Extracting the shared grid is the real fix and belongs to all
+    three at once, not to this change.
+
+    **Verified against the real database, not in a browser** — the Chrome
+    extension was not connected this session. Thirteen assertions inside a
+    rolled-back transaction: the chart identical row for row and balance for
+    balance with the column added (360 points over the full history plus the
+    forecast month); a loan opened today leaving every past point untouched and
+    stepping every point from today by exactly the debt, with today surviving
+    the thinning; the step landing on `opened_on` when it is moved into the
+    middle of the window; a wallet opened before the window, and a null one,
+    both shifting every point — the old behaviour, kept; a short window that
+    starts after the wallet carrying it on all 31 days; and `wallet_balances`
+    unmoved throughout. Then the real `Telewizor` loan was given its day and the
+    live line read back: 24 Aug 7 886,14 → 25 Aug 2 656,37, the 5 199 loan plus
+    the day's own 30,77.
+
+    Three loans created on 11 August are still null and still drag the whole
+    history down. Whether that is wrong depends on when they were taken, which
+    is not a question the app can answer for itself.
+
+    Cost: the initial chunk did not move — still ~218 kB gzipped.
+27. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
     already permits exactly that case and nothing else. Tag CRUD has no design
     yet, which is why `/tags` is a list and not an editor. The **budget detail
     screen** is named by the budgets handoff and deliberately left undesigned;
     until it exists, a list row and a rail card both open the editor, which is
     the only thing there is to do with a budget.
-27. **Not yet designed at these widths**, and left alone rather than guessed:
+28. **Not yet designed at these widths**, and left alone rather than guessed:
    Insight, More and Login are still mobile compositions inside a capped
    column. Insight is the one with a real open question — four blocks in one
    scroll is a mobile answer, and at 1440px it wants a two-column grid, but the
    period control owns all four blocks and the grid has to keep that reading
    true.
-28. Deferred by explicit decision: split transactions, FX conversion in charts
+29. Deferred by explicit decision: split transactions, FX conversion in charts
    (`exchange_rates`), MCP/AI entry.
 
 Resolved by the redesign: icons are Lucide; both light and dark grounds ship, each

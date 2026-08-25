@@ -713,6 +713,16 @@ export type WalletDraft = {
    * makes them fall out of the same balance derivation as an account.
    */
   starting_balance: Minor
+  /**
+   * The day that opening balance enters the record — `null` for a wallet that
+   * already held it before the first transaction ever recorded.
+   *
+   * It is the only thing standing between a wallet created today and three
+   * years of restated history: without it `balance_history` folds every
+   * `starting_balance` into its opening figure, so a new loan drops the whole
+   * total wealth line instead of stepping it down on the day it was taken.
+   */
+  opened_on: string | null
   /** Positive minor units. Credit cards only — null everywhere else. */
   credit_limit: Minor | null
   /** Loans only. Informational; nothing computes against it. */
@@ -732,6 +742,7 @@ export const useCreateWallet = () => {
             glyph: draft.glyph,
             color_scheme: draft.color_scheme,
             starting_balance: asMinor(draft.starting_balance),
+            opened_on: draft.opened_on,
             // Both CHECK constraints are two-way: `credit_limit` must be present
             // on a card and absent on everything else, and the loan columns must
             // be null off a loan. Nulling here rather than trusting the form is
@@ -764,6 +775,13 @@ export type WalletEdit = {
   color_scheme: string
   /** Null falls the mark back to the type's — see `walletGlyph`. */
   glyph: string | null
+  /**
+   * The day the starting balance enters the record; null is "before the records
+   * begin". Editable after the fact because it is the only way to correct a
+   * wallet already created without one — which is every wallet that existed
+   * before the column did.
+   */
+  opened_on: string | null
   /** Cards only; ignored for every other type. */
   credit_limit: Minor | null
   /** Loans only; ignored for every other type. */
@@ -790,6 +808,7 @@ export const useUpdateWallet = () => {
           name: edit.name.trim(),
           color_scheme: edit.color_scheme,
           glyph: edit.glyph,
+          opened_on: edit.opened_on,
           credit_limit: edit.credit_limit,
           installment_count: edit.installment_count,
         })
@@ -799,7 +818,8 @@ export const useUpdateWallet = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['wallets'] })
       // The name and colour are read straight off the wallet row by the feed and
-      // the charts, and `installment_count` is a column of `loan_progress`.
+      // the charts, `installment_count` is a column of `loan_progress`, and
+      // `opened_on` moves the total wealth line.
       invalidateDerived(qc)
     },
   })
