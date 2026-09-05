@@ -88,9 +88,18 @@ export function AppShell() {
  *
  * **`pane` is the same idea one step further**, and is what master-detail is
  * built out of: the screen is a child of a grid cell, so it fills its box, caps
- * at nothing, and re-measures nothing. It keeps its colour field — that is most
- * of what makes a detail screen recognisable — and takes a radius only where
- * the pane is an object on the page rather than the page's right half.
+ * at nothing, and re-measures nothing. It takes a radius only where the pane is
+ * an object on the page rather than the page's right half.
+ *
+ * **A pane sits on plain ground, so it drops the colour field** — which is why
+ * this branch is the one place `style` is deliberately not applied. The wash
+ * exists because a phone screen has nothing else to say whose screen this is;
+ * it rises from the *bottom*, and a pane's content ends wherever the row runs
+ * out, so on a desktop the strongest part of it lands on empty space and reads
+ * as a coloured slab under the content rather than as light behind it. The
+ * category tile, the amount and the overridden accent already identify the
+ * pane. The phone is unchanged, and so is the entry modal, whose content fills
+ * the box it is painted in.
  *
  * **Inside a modal it behaves the same way, and asks nobody.** `useInModal` is
  * read here rather than passed as a prop because this is the one component
@@ -106,6 +115,7 @@ export function FullScreen({
   rounded = false,
 }: {
   children: React.ReactNode
+  /** The screen's colour field. Ignored on a `pane` — see above. */
   style?: React.CSSProperties
   overlay?: boolean
   /** Fill the parent box instead of the viewport — a detail pane. */
@@ -119,10 +129,9 @@ export function FullScreen({
   if (pane) {
     return (
       <div
-        className={`relative flex h-full min-w-0 flex-col overflow-hidden ${
+        className={`relative flex h-full min-w-0 flex-col overflow-hidden bg-bg ${
           rounded ? 'rounded-card shadow-card' : ''
         }`}
-        style={style}
       >
         {children}
       </div>

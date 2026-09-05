@@ -50,8 +50,8 @@ function CrossFade({ children }: { children: React.ReactNode }) {
  * unchanged — and it is why no screen in this app gained a `selected` state.
  *
  * **Nothing is auto-selected.** A feed is a list you read; opening a
- * transaction nobody asked for would put a colour field on the screen to answer
- * a question nobody had.
+ * transaction nobody asked for would fill half the page with the answer to a
+ * question nobody had.
  */
 export function MasterDetail({
   mode,
@@ -85,8 +85,8 @@ export function MasterDetail({
    * 1px rule; at `desktop` the pane is an object sitting on the ground, so
    * they are separated by air instead. The wallets screen overrides both,
    * because its pane is edge-to-edge at every width — it is a whole wallet,
-   * washed in that wallet's colour, and a rounded card would make it a picture
-   * of one.
+   * with its own header, balance and feed, and a rounded card would make it a
+   * picture of one.
    */
   const railed = mode === 'rail'
   const rule = bordered ?? railed

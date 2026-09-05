@@ -1789,8 +1789,8 @@ About row. Bump the version there, not in the component.
     screen reads `useParams()` and decides whether it has a pane. Deep links,
     the back button and every `useGoBack` fallback keep working with nothing
     added, and no screen gained a `selected` state. Nothing is auto-selected — a
-    feed is a list you read, and opening a row nobody asked for would put a
-    colour field on screen to answer a question nobody had.
+    feed is a list you read, and opening a row nobody asked for would fill half
+    the page with the answer to a question nobody had.
 
     **Two route trees, chosen by width, rather than one with conditionals.**
     They disagree about something structural — below 1024 a transaction detail
@@ -1832,7 +1832,7 @@ About row. Bump the version there, not in the component.
       and a hook cannot be called conditionally — so the condition goes in the
       query rather than a round trip going out for a figure nothing draws.
 
-    Two things came back from the first real session at these widths:
+    Three things came back from the first real session at these widths:
 
     - **`CREATES` gained `/budgets`**, reversing item 17 — see the note there.
     - **The budgets grid only runs two columns when both Over and At risk are
@@ -1842,6 +1842,15 @@ About row. Bump the version there, not in the component.
       when they are not both there. On track always spans regardless — it is
       nearly always the longest group, so its presence says nothing about
       whether a second column would be filled.
+    - **A pane sits on plain ground: `FullScreen` drops the colour field on
+      one.** The wash rises from the bottom and is strongest at the foot, which
+      works on a phone because the screen is full of the subject — and fails on
+      a pane, whose content stops wherever the row runs out, so what a desktop
+      showed was a coloured slab beneath the content rather than light behind
+      it. The category tile, the amount and the overridden accent already say
+      whose screen it is. The phone is untouched, and so is the entry modal,
+      which fills the box it is painted in. It is the pane branch of
+      `FullScreen` that ignores `style`, so no detail screen changed.
 
     **The Amount field in the modal is read-only and driven through `applyKey`.**
     Typing `2+3*4` still folds left to right, because the field, the tape and

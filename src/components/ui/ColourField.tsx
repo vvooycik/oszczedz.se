@@ -10,6 +10,12 @@ import { categoryLightness, categoryVar } from '@/theme/tokens'
  * identity without painting a card in a colour — the tint sits behind
  * everything, so the content still reads on the surface it always did.
  *
+ * **It is a treatment for a screen that owns the whole box**, which on a wide
+ * layout means the entry modal and nothing else: `FullScreen` drops it on a
+ * pane, because a pane's content stops where the row runs out and the wash is
+ * strongest at the foot, so what a desktop showed was a coloured slab below the
+ * content rather than light behind it. See the note there.
+ *
  * **It rises from the bottom, not down from the top.** A top-anchored version
  * put the strongest tint in the header, which meant it ended in a hard line
  * against the strip iOS paints above the web view — a band the app cannot reach
