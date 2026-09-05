@@ -10,6 +10,7 @@ import { CategoriesScreen } from '@/screens/categories/CategoriesScreen'
 import { InsightsScreen } from '@/screens/insights/InsightsScreen'
 import { BudgetsScreen } from '@/screens/budgets/BudgetsScreen'
 import { BudgetEditScreen } from '@/screens/budgets/BudgetEditScreen'
+import { BudgetScreen } from '@/screens/budgets/BudgetScreen'
 import { HomeOrderScreen } from '@/screens/budgets/HomeOrderSheet'
 import { TagsScreen } from '@/screens/TagsScreen'
 import { NewWalletScreen } from '@/screens/wallets/NewWalletScreen'
@@ -120,6 +121,17 @@ export function WideRoutes() {
               </Page>
             }
           />
+          {/* A page of its own rather than a pane beside the list, and that is
+              the one place this screen departs from the wallets and feed
+              arrangement. The budgets list is *already* using the full width:
+              its groups run two columns from 1024, which is what puts Over
+              beside At risk. Squeezing that into a 512px master column to win a
+              pane would undo the thing item 24 built it for, so a budget opens
+              as a page and the sidebar is the way back. `pane` on `FullScreen`
+              is still what fills the column — the screen has no viewport of its
+              own to measure here. */}
+          <Route path="budgets/:id" element={<BudgetScreen wide />} />
+
           {/* Still a route, and still reachable by typing it, though nothing
               links here once the sidebar draws its rows directly. */}
           <Route

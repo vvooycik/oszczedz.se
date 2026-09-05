@@ -69,6 +69,16 @@ export type WalletBalance = RpcRow<'wallet_balances'>
  */
 export type BudgetProgress = RpcRow<'budget_progress'>
 
+/**
+ * One period of one budget, for the detail screen's history strip.
+ *
+ * `limit_amount` is the budget's stored limit and `rolled_over` the remainder
+ * the period before it left — the same two figures `budget_progress` returns,
+ * and they add up to the effective limit the same way. Every column is
+ * coalesced in SQL.
+ */
+export type BudgetPeriodRow = RpcRow<'budget_history'>
+
 export type TransactionInsert = TablesInsert<'transactions'>
 export type WalletInsert = TablesInsert<'wallets'>
 export type CategoryInsert = TablesInsert<'categories'>

@@ -87,10 +87,7 @@ function BudgetRow({ budget }: { budget: BudgetProgress }) {
 
   return (
     <Link
-      // No budget detail screen exists yet (the handoff leaves it out), so the
-      // row opens the one thing there is to do with a budget. When a detail
-      // screen lands this is the tap that moves to it.
-      to={`/budgets/${budget.budget_id}/edit`}
+      to={`/budgets/${budget.budget_id}`}
       className="flex items-center gap-[13px] px-4 py-[13px] hover:bg-press active:bg-press"
     >
       <Tile color={hue} size={40}>

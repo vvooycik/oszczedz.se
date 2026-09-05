@@ -6,6 +6,7 @@ import { endOfMonth, minDay, startOfMonth, today } from '@/lib/dates'
 import { HORIZON_DAYS, upcomingHorizon } from '@/lib/schedules'
 import type {
   BudgetPeriod,
+  BudgetPeriodRow,
   BudgetProgress,
   Category,
   CategoryKind,
@@ -477,6 +478,73 @@ export const useBudgetProgress = () =>
   })
 
 /**
+ * One budget's periods, oldest first, ending with the one containing today.
+ *
+ * The answer to "how often do I go over", which is a question `budget_progress`
+ * cannot be asked: it reports the period you are in and nothing behind it.
+ * `budget_history` walks the same `budget_period_bounds` backwards and reports
+ * each window's spend against the same limit — bounded in SQL by both the count
+ * asked for and the first transaction on record, so it can never come back with
+ * a run of empty bars that are really the edge of the data.
+ *
+ * Today is in the key as well as the argument, for the reason `useBudgetProgress`
+ * puts it there: the newest window is the one containing today, and a rail left
+ * open across midnight would otherwise keep yesterday's.
+ */
+export const useBudgetHistory = (budgetId: string | undefined, periods = 12) =>
+  useQuery({
+    queryKey: ['budget_history', budgetId, periods, today()],
+    enabled: Boolean(budgetId),
+    queryFn: async (): Promise<BudgetPeriodRow[]> =>
+      unwrap(
+        await supabase.rpc('budget_history', {
+          p_budget: budgetId!,
+          p_periods: periods,
+          p_today: today(),
+        }),
+      ),
+  })
+
+/**
+ * The rows that count against one budget over one of its periods.
+ *
+ * **The membership rule is not restated here.** `budget_transactions` is the
+ * same function `budget_spend` sums over, so the feed and the figure above it
+ * are reading one definition — which is the thing the transaction screen's old
+ * "Against the budget" block got wrong by pairing a row with a budget in the
+ * browser.
+ *
+ * **Paged, and the count says so.** A budget's window can be a year and its
+ * scope can be every category: measured against the real import, one budget's
+ * whole history is 3 526 rows, so this is squarely the case invariant 2 warns
+ * about — PostgREST truncates at 1 000 silently. `limit` makes the bound
+ * deliberate and `count: exact` is what lets the screen state it out loud
+ * instead of drawing a list that quietly stops.
+ */
+export const BUDGET_FEED_LIMIT = 300
+
+export const useBudgetTransactions = (
+  budgetId: string | undefined,
+  from: string | undefined,
+  to: string | undefined,
+) =>
+  useQuery({
+    queryKey: ['budget_transactions', budgetId, from, to],
+    enabled: Boolean(budgetId && from && to),
+    queryFn: async (): Promise<{ rows: Transaction[]; total: number }> => {
+      const { data, error, count } = await supabase
+        .rpc('budget_transactions', { p_budget: budgetId!, p_from: from!, p_to: to! }, {
+          count: 'exact',
+        })
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(BUDGET_FEED_LIMIT)
+      if (error) throw error
+      return { rows: data ?? [], total: count ?? data?.length ?? 0 }
+    },
+  })
+
+/**
  * Installments repaid per loan, so the client can show how many are left.
  *
  * Counted in Postgres over every transfer leg that ever landed on the wallet —
@@ -520,6 +588,8 @@ const DERIVED_KEYS = [
   ['category_period_totals'],
   ['balance_history'],
   ['budget_progress'],
+  ['budget_history'],
+  ['budget_transactions'],
   ['wallet_monthly_net'],
   // A repayment is a transfer leg, so the installments left move with any
   // transaction write — including the delete that puts one back.
@@ -1205,6 +1275,11 @@ async function syncScope(
 const invalidateBudgets = (qc: ReturnType<typeof useQueryClient>) => {
   qc.invalidateQueries({ queryKey: ['budget_progress'] })
   qc.invalidateQueries({ queryKey: ['budget_scope'] })
+  // Editing a budget's scope or period changes which rows count and where the
+  // windows fall, so the detail screen's two queries are as derived as the
+  // progress row is.
+  qc.invalidateQueries({ queryKey: ['budget_history'] })
+  qc.invalidateQueries({ queryKey: ['budget_transactions'] })
 }
 
 /**

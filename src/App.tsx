@@ -15,6 +15,7 @@ import { CategoriesScreen } from '@/screens/categories/CategoriesScreen'
 import { InsightsScreen } from '@/screens/insights/InsightsScreen'
 import { BudgetsScreen } from '@/screens/budgets/BudgetsScreen'
 import { BudgetEditScreen } from '@/screens/budgets/BudgetEditScreen'
+import { BudgetScreen } from '@/screens/budgets/BudgetScreen'
 import { HomeOrderScreen } from '@/screens/budgets/HomeOrderSheet'
 import { TagsScreen } from '@/screens/TagsScreen'
 import { NewWalletScreen } from '@/screens/wallets/NewWalletScreen'
@@ -214,6 +215,14 @@ function AppRoutes() {
         element={
           <ScreenTransition>
             <BudgetEditScreen />
+          </ScreenTransition>
+        }
+      />
+      <Route
+        path="/budgets/:id"
+        element={
+          <ScreenTransition>
+            <BudgetScreen />
           </ScreenTransition>
         }
       />

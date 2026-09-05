@@ -17,6 +17,7 @@ import {
   daysBetween,
   formatDayShort,
   formatMonthLong,
+  formatMonthShort,
   today,
 } from './dates'
 import type { BudgetProgress, BudgetPeriod } from './db'
@@ -80,14 +81,42 @@ const RATE_SETTLES_ON_DAY = 3
 
 const DAY_MS = 86_400_000
 
+/**
+ * A budget's standing over one window: what it was allowed, what a previous
+ * window lent it, and what it spent.
+ *
+ * The three columns `budget_progress` and `budget_history` share, and the
+ * reason the arithmetic below is written against them rather than against the
+ * progress row. A past period is over its limit by exactly the rule this
+ * period is, and a second copy of that comparison for the history strip is how
+ * a bar and a header start disagreeing about what "over" means.
+ */
+export type Standing = {
+  limit_amount: number
+  rolled_over: number
+  spent: number
+}
+
 /** The limit the ring, the bar and every percentage are drawn against. */
-export const effectiveLimit = (b: BudgetProgress): number =>
+export const effectiveLimit = (b: Pick<Standing, 'limit_amount' | 'rolled_over'>): number =>
   b.limit_amount + b.rolled_over
 
 /** Spend as a fraction of the effective limit. Uncapped — 1.27 is a real answer. */
-export const shareOf = (b: BudgetProgress): number => {
+export const shareOf = (b: Standing): number => {
   const limit = effectiveLimit(b)
   return limit > 0 ? b.spent / limit : 0
+}
+
+/**
+ * Over the limit, by the one comparison the whole app makes.
+ *
+ * The `limit > 0` guard is not decoration: `budget_amount_positive` keeps the
+ * stored limit above zero, but a rollover cannot make it smaller and a limit of
+ * zero would make every period with a single row read as over.
+ */
+export const isOver = (b: Standing): boolean => {
+  const limit = effectiveLimit(b)
+  return limit > 0 && b.spent > limit
 }
 
 /**
@@ -235,13 +264,8 @@ export const hasResetChoice = (period: BudgetPeriod): boolean =>
  * makes the arithmetic work, but a run that stops on the 26th is picked on the
  * 26th and has to read back as the 26th.
  */
-export function runLabel(b: BudgetProgress): string {
-  const last = addDays(b.period_end, -1)
-  if (b.period_start === last) return formatDayShort(last)
-  return b.period_start.slice(0, 7) === last.slice(0, 7)
-    ? `${Number(b.period_start.slice(8))} – ${formatDayShort(last)}`
-    : `${formatDayShort(b.period_start)} – ${formatDayShort(last)}`
-}
+export const runLabel = (b: BudgetProgress): string =>
+  runBounds(b.period_start, b.period_end)
 
 /** Sunday-first, because `resets_on` for a weekly budget is `getDay()`. */
 export const WEEKDAYS = [
@@ -324,6 +348,95 @@ export const daysInMonth = (month: number): number =>
  * its own answer behind.
  */
 export const defaultResetsOn = (_period: BudgetPeriod): number => 1
+
+/* ------------------------------------------------------------------ history */
+
+/**
+ * What one bar of the history strip is called.
+ *
+ * One label per period, and each is the shortest thing that still identifies
+ * the window: a day is its date, a week is the day it opened, a month is its
+ * name, a year is its number. A week deliberately does **not** quote both ends
+ * — twelve "8 – 14 Sep" labels under twelve 20px bars is a paragraph, and the
+ * strip is scanned rather than read. The full range rides in the `title` and on
+ * the selected bar's own line, where there is room for it.
+ */
+export function periodLabel(period: BudgetPeriod, start: string, end: string): string {
+  if (period === 'daily') return formatDayShort(start)
+  if (period === 'yearly') return start.slice(0, 4)
+  if (period === 'monthly') return formatMonthShort(start)
+  if (period === 'once') return runBounds(start, end)
+  return formatDayShort(start)
+}
+
+/**
+ * "12 – 26 Sep" — a window with its end read back inclusively.
+ *
+ * `period_end` is exclusive everywhere the arithmetic touches it, because that
+ * is what makes the arithmetic work; a run that stops on the 26th was picked on
+ * the 26th and has to read back as the 26th. `runLabel` says the same thing
+ * about a `BudgetProgress`; this is the version that takes two dates, so the
+ * history strip and the list row cannot drift.
+ */
+export function runBounds(start: string, end: string): string {
+  const last = addDays(end, -1)
+  if (start === last) return formatDayShort(last)
+  return start.slice(0, 7) === last.slice(0, 7)
+    ? `${Number(start.slice(8))} – ${formatDayShort(last)}`
+    : `${formatDayShort(start)} – ${formatDayShort(last)}`
+}
+
+/** How many of these periods went over. The whole point of the strip. */
+export const overCount = (periods: Standing[]): number =>
+  periods.filter(isOver).length
+
+/**
+ * How much money one full-height bar of the history strip stands for.
+ *
+ * Two rules, and the second one exists because the first is not enough.
+ *
+ * **The limit is in the running.** A budget never once broken would otherwise
+ * scale to its own biggest week and draw the limit line across the top of every
+ * bar, which is the one reading that makes an under-spend look like a near
+ * miss.
+ *
+ * **And a single outlier is clipped rather than allowed to set the scale.** A
+ * single heavy period scales every ordinary one to a sliver and buries the
+ * limit notch, which is the thing the strip exists to be read against.
+ * Measured on the real data: a 200 zł daily budget had one 3 235 zł day —
+ * **16.2 times its limit** — which put the notch at 6% of the bar, so fifteen
+ * days over out of thirty were on screen and unreadable. So the ceiling stops
+ * at `CLIP` times the largest limit in the set, which pins the notch a third of
+ * the way up and leaves the ordinary periods the rest of the height.
+ *
+ * 3 rather than 2.5 or 4, measured against both real budgets: 4 drops the notch
+ * to a quarter of the bar, and 2.5 buys nothing for it — it flattens four of
+ * the weekly budget's twelve periods where 3 flattens one.
+ *
+ * Clipping is a lie about scale unless it is *stated*, which is why `clipped`
+ * comes back with the peak: a bar past the top loses its rounded cap, so it
+ * reads as continuing past the edge rather than as a bar that happens to be
+ * full, and the strip's footnote says so in words. The exact figure is on every
+ * bar's `title` either way.
+ */
+const CLIP = 3
+
+export function historyScale(periods: Standing[]): {
+  peak: number
+  clipped: number
+} {
+  const ceiling = periods.reduce((most, p) => Math.max(most, effectiveLimit(p)), 0)
+  const tallest = periods.reduce((most, p) => Math.max(most, p.spent), 0)
+  // Never below the largest limit — that is the first rule — and never above
+  // `CLIP` times it, which is the second. `ceiling` is 0 only for a set whose
+  // limits are all zero, where there is no notch for an outlier to bury and the
+  // spend is all there is to scale by.
+  const peak =
+    ceiling > 0
+      ? Math.max(ceiling, Math.min(tallest, ceiling * CLIP))
+      : Math.max(1, tallest)
+  return { peak, clipped: periods.filter((p) => p.spent > peak).length }
+}
 
 /* -------------------------------------------------------------------- scope */
 

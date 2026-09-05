@@ -182,7 +182,7 @@ function BudgetCard({
 
   return (
     <Link
-      to={`/budgets/${budget.budget_id}/edit`}
+      to={`/budgets/${budget.budget_id}`}
       className={grow ? 'min-w-0 flex-1' : ITEM}
     >
       {/* `h-full` because the Link is a stretched flex item: without it the card

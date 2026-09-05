@@ -362,15 +362,47 @@ Enforced outside the DDL:
   comes from). The day before a period started is by definition in the previous
   one, which is how `budget_progress` finds the rollover's window with the same
   function
-- `budget_spend(budget, user, currency, from, to)` — one budget's spend over a
-  day range, split out because the rollover needs the same answer for the period
-  before and two copies of those membership rules is how a budget starts
-  disagreeing with itself. **Unchanged by the settled/planned split**: the range
-  is already half-open, so clamping the caller's bounds is the whole of it —
-  settled is `[start, least(end, today + 1))` and planned is
+- `budget_transactions(budget, from, to)` — **the membership rule, and the only
+  copy of it.** Returns the rows that count against a budget over a half-open
+  day range: not a transfer leg, an expense category, the wallet's currency
+  matching, and inside both scopes (an empty set meaning any). Deliberately
+  unordered and unbounded, because its two callers want different things — the
+  detail screen's feed asks PostgREST for the newest page with an exact count,
+  and `budget_spend` sums the lot.
+  It exists because a *feed* needs the same rule a *figure* does, and the
+  alternative is the mistake item 20 removed: a budget paired with a transaction
+  in the browser, every figure real and the pairing invented
+- `budget_spend(budget, from, to)` — one budget's spend over a day range, which
+  is now `sum(-amount)` over `budget_transactions` and nothing else. Split out
+  in the first place because the rollover needs the same answer for the period
+  before, and two copies of those membership rules is how a budget starts
+  disagreeing with itself. It lost its `user` and `currency` parameters when the
+  rule moved: both are facts about the budget row, which the rule reads for
+  itself. **Unchanged by the settled/planned split**: the range is already
+  half-open, so clamping the caller's bounds is the whole of it — settled is
+  `[start, least(end, today + 1))` and planned is
   `[greatest(start, today + 1), end)`. The rollover's window is the period
   before this one and therefore entirely in the past, where nothing planned can
   live, so it keeps its own bounds
+- `budget_history(budget, periods = 12, today = current_date)` — one row per
+  period, oldest first, ending with the one containing `today`: its bounds, the
+  limit, the rollover it inherited, its spend and its row count. The answer to
+  "how often do I go over", which `budget_progress` cannot be asked because it
+  reports the period you are in and nothing behind it.
+  It **walks** `budget_period_bounds` backwards — the day before a period
+  started is by definition in the previous one, the same move `budget_progress`
+  makes to find its rollover — so the period model still lives in one place.
+  Three things it is careful about. It **stops where the records do**: a period
+  beginning before the first transaction is the edge of the data, not a quiet
+  month, and a bar at zero there would read as the one period the budget was
+  never broken (the rule `spending_pace` learned the hard way). Its newest
+  window is clamped at `today + 1`, so the last bar is exactly the figure
+  `budget_progress` quotes. And it collects **one window more than it returns**,
+  because a period's rollover is the remainder of the one before it — unless the
+  records ran out first, in which case the oldest returned has nothing behind it
+  and rolls over nothing.
+  A **one-off** gets exactly one row: `budget_period_bounds` answers with the
+  run whatever day it is asked about, so walking back would repeat it forever
 - `wallet_monthly_net` view — net movement per wallet per month, accumulated client-side into sparklines and deltas
 - `category_usage` view — transaction count per category, for the settings list and its delete copy
 - `loan_progress` view — per loan wallet, its `installment_count` and how many
@@ -723,9 +755,11 @@ the forecast is a second series on a chart that already existed. The
 design-system reference is behind a `lazy()` and costs the initial chunk
 nothing (only ~0.4 kB of shared CSS), the tablet/desktop layer took it to
 **~216** — a sidebar, an icon rail, three grid arrangements, a dialog frame, a
-second route tree and the entry modal for 8 kB — and one-off budgets to
-**~218**, which is a date sheet and a phase. Keep an eye on this: a second
-charting library adds to that budget rather than replacing it.
+second route tree and the entry modal for 8 kB — one-off budgets to
+**~218**, which is a date sheet and a phase, and the budget detail screen to
+**~221** — a screen and a tappable bar strip for 2.7 kB, on the same argument.
+Keep an eye on this: a second charting library adds to that budget rather than
+replacing it.
 
 `__APP_VERSION__` is inlined by `vite.config.ts` from `package.json`, for the
 About row. Bump the version there, not in the component.
@@ -1941,19 +1975,115 @@ About row. Bump the version there, not in the component.
     is not a question the app can answer for itself.
 
     Cost: the initial chunk did not move — still ~218 kB gzipped.
-27. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
+27. **Budget detail — DONE.** `/budgets/:id`: what this period has spent, how
+    the periods before it went, and every row that counted.
+    `src/screens/budgets/BudgetScreen.tsx` and `BudgetHistoryStrip.tsx`, over
+    two new SQL functions described above.
+
+    **A tap on a budget used to open the editor**, from the list and from the
+    Home rail alike, because the editor was the only thing there was to do with
+    one. That is the wrong answer to the far more common question: the reason to
+    touch a budget is almost always to find out what is inside the figure, and
+    the reason to edit one is a decision taken twice a year. Both taps go here
+    now and the pencil in the header is where editing went — the same
+    two-ways-in a wallet has had all along.
+
+    **The membership rule left the browser's reach entirely.** The feed needs
+    the same rule the figure does, and the honest way to have both is one SQL
+    function returning rows that `budget_spend` sums — see `budget_transactions`
+    above. This is the block item 20 deleted, rebuilt off the relation the rest
+    of the app reads instead of a `find()` in the browser.
+
+    **The history strip is a control, not a picture.** The question the screen
+    exists for is "how often do I go over", and the question that follows it
+    every time is "what happened *that* week". So the bars select the period and
+    the feed below is that period's rows — which also saves the screen a stepper
+    it would otherwise need, since the feed has to be about *some* window and a
+    strip plus a stepper would be two controls arguing over which.
+
+    Four decisions taken against the obvious:
+
+    - **The limit is a notch per bar, not a rule across the strip.** One line is
+      right only while every period shares a limit, which stops being true the
+      moment `rollover` is on — a week that inherited 30 zł of headroom really
+      did have a higher ceiling. With rollover off the notches line up and read
+      as that rule anyway.
+    - **The scale is clipped, and `historyScale` is the whole of that rule.** It
+      is never below the largest limit in the set — a budget never once broken
+      would otherwise scale to its own biggest week and draw the notch across
+      the top of every bar, which is the one reading that makes an under-spend
+      look like a near miss. And it is never more than **three times** it, which
+      is the half that had to be added after the first screenshot: the real
+      daily budget has a 3 235 zł day against a 200 zł limit — **16.2×** — and
+      it put the notch at 6% of the bar, so fifteen days over out of thirty were
+      on screen and unreadable. Three rather than 2.5 or 4, measured against both
+      real budgets: 4 drops the notch to a quarter of the bar, and 2.5 buys
+      nothing for it — it flattens four of the weekly budget's twelve periods
+      where 3 flattens one.
+      Clipping is a lie about scale unless it is stated, so a bar past the top
+      **loses its rounded cap** — it reads as continuing past the edge rather
+      than as one that happens to be full — the footnote says how many did, and
+      every bar carries its exact figure in its `title`.
+    - **How far back is per period, not one number.** Twelve months is a year;
+      twelve days is a fortnight and answers nothing, so a daily budget looks
+      back thirty and a yearly one six. A one-off drops the strip entirely: it
+      has one window, and a chart of one bar is a chart of nothing.
+    - **The feed shows the whole window, planned rows included**, while the
+      header quotes settled only. Verified against the live data: the settled
+      rows sum to the header figure to the grosz and the planned ones sit above
+      it in their own line, which is the same split the wallet screen draws.
+      `TransactionFeed` already marks a planned row, so the list carries both
+      without inventing a treatment.
+    - **At 1024 and up it is a page, not a pane** — the one detail screen here
+      that is not master-detail. The budgets list is *already* spending the full
+      width: its groups run two columns from 1024, which is what puts Over
+      beside At risk, and squeezing that into a 512px master column to win a
+      pane would undo what item 24 built it for. `FullScreen`'s `pane` is still
+      what fills the column, since the screen has no viewport of its own to
+      measure there.
+
+    **Paged, and it says so.** One budget's whole history is 3 526 rows against
+    PostgREST's silent 1 000-row cap (invariant 2), so the feed asks for the
+    newest 300 with `count: 'exact'` and states the bound when it bites. The
+    busiest single period in the real data is 50 rows, so it does not bite
+    today — the count is what makes that a measurement rather than an
+    assumption.
+
+    **Verified against the real database, not in a browser** — the Chrome
+    extension was not connected this session either. `budget_progress` came back
+    **byte-identical** across the `budget_spend` rewrite, which was the whole
+    risk of moving the rule; the newest history window agrees with it on bounds,
+    spend and rollover for all three real budgets; the membership is clean (no
+    transfer legs, no non-expense categories) and `sum(-amount)` over the rows
+    equals `budget_spend` over all history; the floor fires where it should — a
+    yearly budget walked back 60 years returns 3 periods and a monthly one 35,
+    both stopping at 2023-10-15; and the rollover chain matches the previous
+    period's unspent remainder on every row of a rolling monthly probe. The
+    client maths has **534 assertions** of its own, run through `jiti` against
+    the real `budget_history` output: contiguity, the half-open ends, `isOver`,
+    `shareOf`, and every bound `historyScale` claims.
+
+    One layout note, caught on the device and worth keeping. **The scroller has
+    to be the flex row itself.** With a plain block flex container nested inside
+    it, that inner box takes the *scrollport's* width rather than its content's,
+    so the bars overflow the inner box and the scroller's own trailing padding
+    never enters the scrollable overflow — the last bar ends flush against the
+    card's right edge. `BudgetRail` already had this right; the strip did not,
+    until it did.
+
+    Cost: the initial chunk went from ~218 kB gzipped to **~221**. The chart
+    chunk did not move — the strip is hand-rolled, like every other small mark
+    here.
+28. **Next:** hard-deleting a transaction-free wallet is still unbuilt — the FK
     already permits exactly that case and nothing else. Tag CRUD has no design
-    yet, which is why `/tags` is a list and not an editor. The **budget detail
-    screen** is named by the budgets handoff and deliberately left undesigned;
-    until it exists, a list row and a rail card both open the editor, which is
-    the only thing there is to do with a budget.
-28. **Not yet designed at these widths**, and left alone rather than guessed:
+    yet, which is why `/tags` is a list and not an editor.
+29. **Not yet designed at these widths**, and left alone rather than guessed:
    Insight, More and Login are still mobile compositions inside a capped
    column. Insight is the one with a real open question — four blocks in one
    scroll is a mobile answer, and at 1440px it wants a two-column grid, but the
    period control owns all four blocks and the grid has to keep that reading
    true.
-29. Deferred by explicit decision: split transactions, FX conversion in charts
+30. Deferred by explicit decision: split transactions, FX conversion in charts
    (`exchange_rates`), MCP/AI entry.
 
 Resolved by the redesign: icons are Lucide; both light and dark grounds ship, each
