@@ -320,7 +320,34 @@ export function BudgetRail({
   }
 
   return (
-    <div className="no-scrollbar -mx-4 flex gap-[10px] overflow-x-auto px-4 md:-mx-8 md:px-8">
+    /*
+      Two things about this box are load-bearing, and both come out of the same
+      fact: `overflow-x: auto` computes `overflow-y` to `auto` too, so the
+      scrollport clips in *both* directions.
+
+      **It no longer bleeds past the content column.** It used to run `-mx-4
+      px-4`, so the clip edge sat at the frame edge and the half card at the
+      fold ended 16px further right than every other card on the page — the rail
+      read as wider than the screen it was on. Aligned to the column instead,
+      the cut lands exactly where every card above and below it ends, which is
+      the edge the eye is already using. The cost is that the leading and
+      trailing card's side shadow is clipped at the two scroll extremes; a
+      `shadow-card` has no x offset, so what is lost there is a soft halo at the
+      one place the page already draws a hard edge.
+
+      (The `md:` variants that rode along are gone with it, and were never
+      reachable: `FeedScreen` passes `columns` at every width from 768 up, so
+      this branch only ever runs on a phone.)
+
+      **And it holds the shadow's full vertical reach.** Without the padding the
+      scrollport clipped every card's shadow flat, top and bottom, which is what
+      made the rail meet the block below it on a hard grey line. 16 above and 36
+      below are the exact numbers: `--sh-card` is `0 10px 26px` in dark mode —
+      26 of blur minus a 10px drop above it, plus 26 below it — and light mode's
+      `0 8px 20px` fits inside that. The matching negative margins put the box
+      back where it was, so nothing above or below moves.
+    */
+    <div className="no-scrollbar -mt-4 -mb-9 flex gap-[10px] overflow-x-auto pt-4 pb-9">
       {rail.map((b) => (
         <BudgetCard key={b.budget_id} budget={b} />
       ))}

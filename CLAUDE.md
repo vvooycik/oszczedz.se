@@ -1372,6 +1372,23 @@ About row. Bump the version there, not in the component.
       August" summing them would be quietly wrong. It reads "Budgeted now"
       instead. The days-left chip is likewise the *soonest* reset.
 
+    **The rail's scroller aligns with the content column, and holds its own
+    shadows.** Both were wrong until a screenshot showed it. It ran `-mx-4 px-4`,
+    so the clip edge sat at the *frame* edge and the half card at the fold ended
+    16px further right than every other card on the page — the rail read as
+    wider than the screen it was on. And `overflow-x: auto` computes
+    `overflow-y` to `auto` as well, so the scrollport was cutting every card's
+    shadow flat and the rail met the block below it on a hard grey line. It is
+    aligned to the column now, with `pt-4 pb-9` (and matching negative margins,
+    so nothing moves) for the exact reach of `--sh-card` — `0 10px 26px` in dark
+    mode is 16 above and 36 below, and light mode's `0 8px 20px` fits inside
+    that. The side shadow is still clipped at the two scroll extremes, which is
+    the trade: a `shadow-card` has no x offset, so what is lost is a soft halo
+    at the one place the page already draws a hard edge.
+    The `md:` variants that rode along went with it, and were never reachable —
+    `FeedScreen` passes `columns` at every width from 768 up, so that branch only
+    ever runs on a phone.
+
     **The rail's ring animates its dash offset, not its arc.** `stroke-dasharray`
     is fixed at the circumference and only the offset moves, so the browser
     interpolates one number and the arc sweeps rather than being re-laid-out. The
