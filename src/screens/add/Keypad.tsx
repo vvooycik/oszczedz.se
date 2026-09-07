@@ -255,3 +255,28 @@ export function Keypad({
     </div>
   )
 }
+
+/**
+ * A typed key translated into one the calculator understands, or null for one
+ * it has no use for.
+ *
+ * Here rather than on a screen because two surfaces take typed amounts — the
+ * entry modal's field and the budget limit drawer — and a second copy of this
+ * mapping is how one of them quietly stops accepting a comma.
+ *
+ * Both separators map to the comma the pad uses — a numeric keypad's decimal
+ * key produces `.` on most layouts and `,` on a Polish one, and typing either
+ * into a pl-PL money field means the same thing. `*` and `/` map to the pad's
+ * `×` and `÷` rather than the other way round, so there is exactly one operator
+ * vocabulary downstream.
+ */
+export function keypadKeyFor(key: string): string | null {
+  if (key >= '0' && key <= '9') return key
+  if (key === ',' || key === '.') return ','
+  if (key === 'Backspace') return 'del'
+  if (key === '+') return '+'
+  if (key === '-' || key === '−') return '−'
+  if (key === '*' || key === 'x' || key === '×') return '×'
+  if (key === '/' || key === '÷') return '÷'
+  return null
+}

@@ -36,6 +36,7 @@ import { DateSheet } from './DateSheet'
 import { RepeatSheet, type Repeat } from './RepeatSheet'
 import {
   applyKey,
+  keypadKeyFor,
   EMPTY_ENTRY,
   entryDisplay,
   entryFrom,
@@ -1442,23 +1443,3 @@ function ModalField({
   )
 }
 
-/**
- * A typed key translated into one the calculator understands, or null for one
- * it has no use for.
- *
- * Both separators map to the comma the pad uses — a numeric keypad's decimal
- * key produces `.` on most layouts and `,` on a Polish one, and typing either
- * into a pl-PL money field means the same thing. `*` and `/` map to the pad's
- * `×` and `÷` rather than the other way round, so there is exactly one operator
- * vocabulary downstream.
- */
-function keypadKeyFor(key: string): string | null {
-  if (key >= '0' && key <= '9') return key
-  if (key === ',' || key === '.') return ','
-  if (key === 'Backspace') return 'del'
-  if (key === '+') return '+'
-  if (key === '-' || key === '−') return '−'
-  if (key === '*' || key === 'x' || key === '×') return '×'
-  if (key === '/' || key === '÷') return '÷'
-  return null
-}

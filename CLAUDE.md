@@ -1860,6 +1860,28 @@ About row. Bump the version there, not in the component.
     keyboard makes the pad redundant, hands on glass do not. Not persisted on
     this pass.
 
+    **The budget limit drawer follows the same rule**, and did not at first:
+    `LimitSheet` was a pad and nothing else, so creating a budget on a desktop
+    meant clicking a limit in one digit at a time. It now takes typed keys —
+    the same `keypadKeyFor` the modal's field uses, which moved into
+    `Keypad.tsx` so there is one vocabulary rather than two — folds them through
+    the same `applyKey`, commits on Enter, and hides the pad by default at
+    `desktop` behind the same Show/Hide toggle. The toggle is drawn only at a
+    wide layout: on a phone the pad *is* the input, and a button that takes it
+    away is a dead end.
+
+    Two details there are load-bearing. The listener is on the **window**, not
+    on a focused field, because the figure is a 38px display rather than an
+    `<input>` — making it one would push the unit to the far side of the drawer
+    and put the phone's layout at risk to serve a keyboard the phone does not
+    have. And the drawer **blurs whatever the screen behind it had focused**,
+    which is what makes that work at all: the figure that opens it carries
+    `keepFocus`, so the budget's name field keeps focus through the tap, and
+    every typed digit would otherwise land in the name. The same blur fixes a
+    real phone bug that was there before any of this — the system keyboard
+    stayed up over the drawer, and `Sheet` gave up its height to sit on top of
+    it, squashing the pad.
+
     **The one place the width buys something genuinely new** is the wallet
     pane's feed at desktop, which becomes a four-column table. On a phone the
     note is concatenated into the meta line and the date exists only as a day
