@@ -2020,6 +2020,21 @@ About row. Bump the version there, not in the component.
     above. This is the block item 20 deleted, rebuilt off the relation the rest
     of the app reads instead of a `find()` in the browser.
 
+    **The header says how much a day is left in it.** Under the spent/left
+    line, a running period quotes the rate that lands exactly on the limit:
+    what is left over the days the period still has in it, **today included**
+    (today's spend is already in `spent`, and there is still the rest of today
+    to spend it in), floored to the grosz so spending it every remaining day
+    can never finish over. `dailyAllowance` is the counterpart to
+    `projectedSpend` and the more useful direction of the two — a projection
+    says where the current rate lands, this says which rate lands where it
+    should. `planned` is not subtracted, for the reason it is kept out of every
+    verdict and share. It says nothing at all when there is nothing honest to
+    say: a window that has closed, a limit already spent, or **one day left**,
+    where the answer *is* the "left" figure directly above it and the sentence
+    would only be saying it twice — which drops every daily budget by
+    construction.
+
     **The history strip is a control, not a picture.** The question the screen
     exists for is "how often do I go over", and the question that follows it
     every time is "what happened *that* week". So the bars select the period and

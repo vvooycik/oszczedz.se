@@ -169,6 +169,49 @@ export const daysLeft = (b: BudgetProgress, on: string = today()): number =>
 export const daysUntilStart = (b: BudgetProgress, on: string = today()): number =>
   Math.max(0, daysBetween(on, b.period_start))
 
+/**
+ * Days the period still has in it, **today included**.
+ *
+ * {@link daysLeft} counts the days *after* today, which is what a countdown
+ * reads; a rate has to count today as well, because today's spend is already
+ * inside `spent` and there is still the rest of today to spend it in. It is
+ * also what keeps the last day of a period from dividing by zero.
+ */
+export const daysRemaining = (b: BudgetProgress, on: string = today()): number =>
+  Math.max(1, daysInPeriod(b) - dayOfPeriod(b, on) + 1)
+
+/**
+ * What is left, spread evenly over the days that are left: the largest daily
+ * spend that still finishes the period inside the limit.
+ *
+ * The counterpart to {@link projectedSpend}, and the more useful direction of
+ * the two — a projection says where the current rate lands, this says which
+ * rate lands on the limit exactly. Rounded **down** to the grosz, so spending
+ * this much every remaining day can never end the period over: 100 zł across
+ * three days is 33,33 a day, not the 33,34 that finishes at 100,02.
+ *
+ * `planned` is not subtracted, for the same reason it is kept out of every
+ * verdict and share — booked is not spent, and a subscription due on the 28th
+ * should not quietly shrink what today is allowed.
+ *
+ * Null when there is nothing honest to say:
+ *
+ * - the period is not running (nothing to pace, or the figure is already
+ *   final);
+ * - there is no limit to stay inside, or the limit is already spent — an
+ *   allowance cannot be negative, and "0,00 zł a day" is not advice;
+ * - the period has a single day left in it, where the answer *is* the amount
+ *   left and the sentence would only be saying it a second time. That drops
+ *   every daily budget by construction, and the last day of every other one.
+ */
+export function dailyAllowance(b: BudgetProgress, on: string = today()): number | null {
+  if (phaseOf(b, on) !== 'running') return null
+  const left = effectiveLimit(b) - b.spent
+  if (left <= 0) return null
+  const days = daysRemaining(b, on)
+  return days < 2 ? null : Math.floor(left / days)
+}
+
 /** See {@link Phase}. */
 export function phaseOf(b: BudgetProgress, on: string = today()): Phase {
   if (b.period !== 'once') return 'running'

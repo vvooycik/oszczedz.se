@@ -18,9 +18,11 @@ import {
   useWallets,
 } from '@/data/queries'
 import {
+  dailyAllowance,
   dayOfPeriod,
   daysInPeriod,
   daysLeft,
+  daysRemaining,
   daysUntilStart,
   effectiveLimit,
   historyScale,
@@ -200,6 +202,10 @@ export function BudgetScreen({ wide = false }: { wide?: boolean } = {}) {
     ? periodLabel(budget.period, selected.period_start, selected.period_end)
     : windowLabel
 
+  // Only ever about the period containing today: a window that closed in July
+  // cannot be paced, and the header's own figures come from the selected row.
+  const allowance = isCurrent ? dailyAllowance(budget) : null
+
   const wentOver = overCount(periods)
   // Stated rather than left to the flat-topped bar alone: clipping is a lie
   // about scale unless the screen says out loud that it is happening.
@@ -310,6 +316,21 @@ export function BudgetScreen({ wide = false }: { wide?: boolean } = {}) {
                       budget,
                     )} left`}
             </div>
+          )}
+
+          {/* The rate that lands exactly on the limit — the question the "left"
+              figure above raises and does not answer. Drawn only on the period
+              containing today, since a closed window has no days to spread
+              anything over, and withheld entirely once there is nothing left to
+              spread or only one day to spread it across; see `dailyAllowance`. */}
+          {allowance !== null && (
+            <p className="mt-1.5 text-meta leading-[1.45] text-ink-muted">
+              To stay inside this budget, spend at most{' '}
+              <span className="tnum font-semibold text-ink">
+                {formatAmountMoney(asMinor(allowance), budget.currency)}
+              </span>{' '}
+              a day for the remaining {daysRemaining(budget)} days.
+            </p>
           )}
 
           {planned !== 0 && (
