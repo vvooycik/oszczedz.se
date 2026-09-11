@@ -787,6 +787,17 @@ About row. Bump the version there, not in the component.
    nothing precedes the first transaction, so that window is flat at the opening
    balance for its whole length, and drawing it costs a thousand rows to say
    nothing.
+   **The compare overlay's two windows share a boundary day**, and that was a
+   bug for a while: the prior range ended the day *before* the current one
+   began, so the whole ghost line sat one index to the left and the day the
+   current window opens was missing from it entirely. On 1M that dropped a real
+   cliff — a tax day of −7 118,38 zł on 11 August — clean off the overlay while
+   the card's own delta chip, which measures from that same day, reported it.
+   The prior window now ends *on* `from`, which is what makes index i the same
+   distance into both windows, and makes `prior[last] === current[0]` so the
+   tooltip's difference and the chip are the same arithmetic. Sharing the
+   endpoint double-counts nothing: a balance is read at an instant, not summed
+   over a bucket.
 3. **Categories CRUD — DONE.** `/categories` from More: list by kind with real
    transaction counts, a 72% editor sheet (name, kind, colour, glyph, all
    re-tinting live), and deletion that reassigns the category's transactions

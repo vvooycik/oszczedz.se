@@ -87,8 +87,28 @@ function rangeFor(range: Range, earliest: string) {
     from,
     to,
     chartTo: addMonths(to, FORECAST_MONTHS),
-    priorFrom: addDays(from, -spanDays - 1),
-    priorTo: addDays(from, -1),
+    // **The prior window ends *on* `from`, not the day before it**, and that
+    // one day is the whole of an alignment bug. The two series are plotted
+    // against a shared index, so index i has to mean the same distance into
+    // both windows — which makes the last prior point the day the current
+    // window opens, one span earlier at index 0.
+    //
+    // Ending it a day short shifted the entire ghost line left by one, and at
+    // the right-hand edge it dropped the comparison day off the end
+    // altogether: on 1M the prior series stopped at 10 August while the
+    // current one started on the 11th, so a cliff on the 11th (a tax day, and
+    // −7 118,38 zł of it) was simply not in the overlay. The card then
+    // disagreed with itself — the delta chip read today against 11 August and
+    // said +7 752,87, the tooltip read today against 10 August and said
+    // +634,49.
+    //
+    // The two windows share their boundary day, which is right for a running
+    // balance: an endpoint is an instant, not a bucket, so nothing is counted
+    // twice. It also makes `prior[last] === current[0]`, so the tooltip's
+    // difference at today and the chip above it are the same arithmetic and
+    // cannot drift.
+    priorFrom: addDays(from, -spanDays),
+    priorTo: from,
     // Nothing precedes the first transaction, so the window before All time is
     // flat at the opening balance for its whole length — a straight ghost line
     // across the chart, and a thousand rows fetched to draw it.
