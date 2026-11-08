@@ -100,6 +100,25 @@ schema.
 - Join tables (no `user_id`) check ownership through the parent row via `exists (...)`, on both sides.
 - Views are created `with (security_invoker = on)` so RLS still applies through them. A view without it silently bypasses RLS.
 - Project setting "Enable automatic RLS" is ON: new tables deny everything until a policy is written. Never disable RLS to "fix" an access problem — write the policy.
+- **A foreign key bypasses RLS** — Postgres checks it as the table owner — so a
+  policy on `user_id` alone let a user insert their own row pointing at
+  another user's wallet or category. References between user-owned tables are
+  therefore **composite**: `(wallet_id, user_id) references wallets(id,
+  user_id)`, backed by a `unique (id, user_id)` on the parent. A new reference
+  between two user-owned tables must be written the same way. A nullable
+  reference with `on delete set null` names its column — `set null
+  (schedule_id)` — or it nulls `user_id` too.
+- **`anon` holds no privileges** on `public` (tables, sequences, functions,
+  and the default privileges for future ones), and EXECUTE is revoked from
+  `PUBLIC`. Nothing queries before login, so RLS is no longer the only thing
+  between the logged-out internet and the data. `TRUNCATE`, which ignores RLS,
+  is off `authenticated` as well.
+- The client's query cache is cleared whenever the signed-in user changes
+  (`AuthProvider`); queries are keyed by what they ask, not by whom.
+- Verified with a second user impersonated against the live data inside a
+  statement that ends in `raise exception`, so everything rolls back: 0 rows
+  from every table, view and function. Re-run that check after any change to
+  policies, views or functions.
 - Public sign-ups are disabled in Supabase Auth; the only account is the owner's, created by hand in the dashboard. A "login is broken" report should check the user exists before anything else.
 
 ## Hard invariants (never violate)
