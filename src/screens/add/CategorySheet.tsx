@@ -69,6 +69,24 @@ export function CategorySheet({
   const [query, setQuery] = useState('')
   const [picked, setPicked] = useState<Category | null>(current ?? null)
 
+  // The sheet stays mounted between opens, so without this a search typed for
+  // the last entry is still in the field for the next one — and the tile
+  // tapped last time is still what the footer offers, even after "save and add
+  // new" has cleared the form's category. Every open starts from the form's
+  // current choice with an empty search. The tab only moves when there is a
+  // choice to follow, so a run of income entries stays on Income.
+  // Reset during render rather than in an effect, or one frame paints the
+  // stale search.
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (open) {
+      setQuery('')
+      setPicked(current ?? null)
+      if (current) setKind(current.kind)
+    }
+  }
+
   const inKind = useMemo(
     () => categories.filter((c) => c.kind === kind),
     [categories, kind],
