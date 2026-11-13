@@ -55,6 +55,10 @@ in the feature's own rules file (`budgets.md`, `schedules.md`, `wallets.md`).
   `to`, keeping `from` and `anchor` unconditionally. `anchor` is *today*, which
   is an interior point once the range runs a month past it; without it today
   falls out of the sample. A wallet enters on `opened_on` (see `wallets.md`).
+- `wallet_balance_history(wallet, from, to, max_points = 400, anchor = null)` —
+  the same running balance for one wallet (the iOS wallet screen's chart; the
+  web doesn't call it yet). Same rules; summed over a currency's wallets it is
+  byte-identical to `balance_history`. An invisible wallet returns no rows.
 - `budget_progress`, `budget_period_bounds`, `budget_month_anchor`,
   `budget_transactions`, `budget_spend`, `budget_history` — see `budgets.md`.
 - `schedule_occurrences`, `materialise_schedules`, `reschedule`,
