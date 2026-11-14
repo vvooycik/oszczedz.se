@@ -125,7 +125,7 @@ export function oklchToHex(lightness: number, chroma: number, hueDeg: number): s
  */
 export const GROUND_HEX = {
   light: oklchToHex(0.965, 0.004, 262),
-  dark: oklchToHex(0.15, 0.008, 262),
+  dark: oklchToHex(0, 0, 0),
 } as const
 
 /**

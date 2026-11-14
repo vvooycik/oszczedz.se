@@ -11,7 +11,7 @@
          `default` status bar iOS paints that strip itself, and a fixed colour
          would clash with five of the six accents and both modes. The static
          value is only what the first paint uses. -->
-    <meta name="theme-color" content="#090b0f" />
+    <meta name="theme-color" content="#000000" />
 
     <!-- iOS still reads these rather than the manifest for standalone mode.
          `default`, not `black-translucent`: with a translucent bar iOS treats
@@ -69,7 +69,7 @@
         // accent's hue or a user-chosen chroma, so this script no longer needs
         // a copy of the OKLab matrix — just the two answers it used to compute.
         // Keep in step with GROUND_HEX in src/theme/theme.ts.
-        var GROUND = { light: '#f2f3f6', dark: '#090b0f' }
+        var GROUND = { light: '#f2f3f6', dark: '#000000' }
 
         var p = { mode: 'system', accent: 'gold', tintSurfaces: false }
         try {

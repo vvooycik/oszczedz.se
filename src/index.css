@@ -129,7 +129,8 @@
 
 /* -------------------------------------------------------------------- dark */
 :root[data-mode='dark'] {
-  --c-bg: oklch(15% 0.008 262);
+  /* Pure black (user, Nov 2026): OLED black on phones; cards still lift. */
+  --c-bg: oklch(0% 0 0);
   --c-card: color-mix(in oklab, var(--c-accent) var(--c-accent-mix), oklch(20.5% 0.012 262));
   --c-dock: color-mix(in oklab, var(--c-accent) var(--c-accent-mix), oklch(24% 0.013 262));
   --c-inset: oklch(25% 0.014 262);
